@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12244f">
+<link rel="manifest" href="manifest.webmanifest"><link rel="icon" href="icon.svg">
+<title>Recordly</title>
+<style>
+:root{--bg:#eef3f1;--card:#fff;--ink:#12244f;--mut:#5f6c8a;--acc:#0f9d63;--line:#d6dfdc;--hd:#12244f;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#0c1426;--card:#152039;--ink:#eaf0fb;--mut:#9aa8c8;--acc:#2fd08a;--line:#27365c;--hd:#0a1020}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#0c1426;--card:#152039;--ink:#eaf0fb;--mut:#9aa8c8;--acc:#2fd08a;--line:#27365c;--hd:#0a1020}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 "Trebuchet MS",system-ui,sans-serif}
+#app{max-width:480px;margin:0 auto;padding:0 16px 40px}
+header{display:flex;align-items:center;justify-content:space-between;background:var(--hd);color:#fff;margin:0 -16px 16px;padding:14px 16px}
+.logo{font-weight:700;font-size:20px;display:flex;align-items:center;gap:8px;cursor:pointer}
+.dot{width:14px;height:14px;border-radius:50%;border:3px solid var(--acc);box-shadow:inset 0 0 0 3px var(--hd),inset 0 0 0 7px var(--acc)}
+.hr{display:flex;gap:8px}
+.bell{position:relative;background:none;border:1px solid #ffffff44;color:#fff;border-radius:12px;width:42px;height:42px;font-size:18px;padding:0}
+.bell b{position:absolute;top:-6px;right:-6px;background:var(--acc);color:#04210f;border-radius:10px;font-size:11px;padding:1px 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+h1{font-size:26px;line-height:1.15;margin:0 0 8px}h2{font-size:18px;margin:0 0 8px}
+p{margin:0 0 10px;color:var(--mut)}
+button{font:inherit;font-weight:700;border:0;border-radius:12px;padding:12px 16px;background:var(--ink);color:var(--card);cursor:pointer}
+button.alt{background:none;border:1px solid var(--line);color:var(--ink)}
+button.g{background:var(--acc);color:#04210f}button.sm{padding:8px 14px;font-size:14px}
+button:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+input,textarea{width:100%;font:inherit;padding:11px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin:4px 0 10px}
+label{font-size:14px;color:var(--mut)}
+.item{display:flex;justify-content:space-between;gap:10px;padding:12px 0;border-top:1px solid var(--line);cursor:pointer}
+.item:first-child{border-top:0}
+.big{font-size:40px;font-weight:700;line-height:1}
+.bar{display:flex;gap:3px;margin:14px 0 6px}.bar i{flex:1;height:14px;border-radius:4px;background:var(--line)}.bar i.on{background:var(--acc)}
+.mut{color:var(--mut);font-size:14px}
+.back{background:none;color:var(--ink);padding:6px 0;font-weight:400}
+.cm{border-top:1px solid var(--line);padding:8px 0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+table{width:100%;border-collapse:collapse;margin-bottom:8px}th,td{text-align:left;padding:10px 6px;border-top:1px solid var(--line)}th{font-size:14px;color:var(--mut);border-top:0}td:last-child,th:last-child{text-align:right}.me{background:var(--bg);font-weight:700;color:var(--acc)}
+[data-t]{display:none}.t-progress [data-t=progress],.t-history [data-t=history],.t-table [data-t=table],.t-chat [data-t=chat]{display:block}
+.tabs{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto}.tabs button{flex:1;background:none;border:1px solid var(--line);color:var(--ink);padding:10px 8px;white-space:nowrap}.tabs button.on{background:var(--ink);color:var(--card)}
+.ov{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;padding:16px;z-index:50}.mo{background:var(--card);border-radius:18px;padding:18px;width:100%;max-width:400px;max-height:100%;overflow:auto}
+.hero{background:linear-gradient(135deg,var(--hd),#1c3a7a);color:#fff;border-radius:20px;padding:20px;margin-bottom:16px}.hero .big{margin:4px 0}.mut2{color:#ffffffb0;font-size:14px}
+.sec{display:flex;justify-content:space-between;align-items:center;margin:4px 0 10px}.sec h2{margin:0}
+.rec{display:flex;align-items:center;gap:12px;cursor:pointer}.card.rec{padding:14px}.rec+.rec{border-top:1px solid var(--line);padding-top:12px;margin-top:12px}
+.av{width:42px;height:42px;border-radius:50%;background:var(--acc);color:#04210f;display:grid;place-items:center;font-weight:700;flex:none}
+.grow{flex:1;min-width:0}.rt{text-align:right}.chev{color:var(--mut);font-size:22px}
+.mini{height:6px;border-radius:3px;background:var(--line);margin-top:6px;overflow:hidden}.mini i{display:block;height:100%;background:var(--acc)}
+.chip{display:inline-block;font-size:12px;padding:2px 8px;border-radius:10px;background:var(--line);color:var(--mut);margin-top:4px}.chip.ok{background:var(--acc);color:#04210f}
+.opt{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0}
+</style></head><body>
+<div id="app"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script>
+const SB_URL='https://ptcdywucfpbnocxlxoog.supabase.co',SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB0Y2R5d3VjZnBibm9jeGx4b29nIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI3NDg3MzMsImV4cCI6MjEwODMyNDczM30.UQSzIfYXD5EOaypvzARTk3gWv1OGJf9kcxkP7XJKBuk';
+const app=document.getElementById('app');
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmt=n=>'₦'+Number(n||0).toLocaleString();
+const val=id=>document.getElementById(id).value.trim();
+const sum=a=>(a||[]).reduce((s,x)=>s+Number(x.amount),0);
+const link=t=>location.origin+location.pathname+'#/'+t;
+let sb=null,user=null,vt='progress',am='create',notes=[],unread=0,bellOpen=false,lastLogged=null,chan=null;
+const th=()=>{try{return localStorage.getItem('rtheme')||''}catch(e){return ''}};
+function theme(){const dk=matchMedia('(prefers-color-scheme: dark)').matches,c=th()||(dk?'dark':'light');try{localStorage.setItem('rtheme',c=='dark'?'light':'dark')}catch(e){}draw()}
+function ping(){try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator();o.connect(c.destination);o.frequency.value=880;o.start();o.stop(c.currentTime+.18)}catch(e){}}
+const head=()=>`<header><div class="logo" onclick="location.hash='/'"><span class="dot"></span>Recordly</div><div class="hr"><button class="bell" onclick="theme()" aria-label="Switch theme">&#9680;</button>${user?`<button class="bell" aria-label="Notifications" onclick="bellOpen=!bellOpen;unread=0;draw()">&#128276;${unread?`<b>${unread}</b>`:''}</button><button class="bell" aria-label="Log out" onclick="logout()">&#10162;</button>`:`<button class="bell" aria-label="Log in" onclick="auth('login')">&#128100;</button>`}</div></header>`+(bellOpen?`<div class="panel"><h2>Notifications</h2>${notes.length?notes.map(x=>`<div class="cm">${esc(x)}</div>`).join(''):'<p>Nothing yet.</p>'}</div>`:'');
+const msg=(t,b)=>{app.className='';app.innerHTML=head()+`<div class="card"><h2>${t}</h2><p>${b}</p></div>`};
+async function draw(){
+  document.documentElement.dataset.theme=th();
+  if(!sb)return msg('Almost ready','Add your Supabase URL and key at the top of index.html.');
+  const p=location.hash.replace(/^#\/?/,'').split('/');
+  try{
+    if(p[0]=='p')await personView(p[1]);else if(p[0]=='g')await groupView(p[1]);
+    else if(p[0]=='admin')await adminHome();else if(p[0]=='new')newRecord();
+    else if(p[0]=='r'&&p[2])await personAdmin(p[1],p[2]);else if(p[0]=='r')await recordPage(p[1]);
+    else home();
+  }catch(e){msg('Something went wrong',esc(e.message||e))}
+}
+function home(){app.className='';app.innerHTML=head()+`<div class="card"><h1>Pay little by little. See every naira.</h1><p>Sellers and collectors record each payment. Buyers and contributors follow their progress from a link.</p><div class="row"><button onclick="goAdmin()">I run the payments</button><button class="alt" onclick="document.getElementById('lk').focus()">I have a link</button></div></div><div class="card"><h2>I have a link</h2><label for="lk">Paste the link your seller sent</label><input id="lk" placeholder="Paste link here"><button class="g" onclick="openLink()">Open my progress</button></div>`}
+const goAdmin=()=>user?location.hash='/admin':auth('login');
+function openLink(){const v=val('lk'),i=v.indexOf('#');location.hash=i>=0?v.slice(i+1):v}
+function need(){if(user)return true;auth('login');home();return false}
+async function adminHome(){
+  if(!need())return;
+  const{data,error}=await sb.from('records').select('id,title,target,people(id,payments(amount))').order('created_at',{ascending:false});if(error)throw error;
+  const tot=data.reduce((s,r)=>s+r.people.reduce((a,p)=>a+sum(p.payments),0),0),n=data.reduce((s,r)=>s+r.people.length,0);
+  app.className='';app.innerHTML=head()+`<div class="hero"><div class="mut2">Total collected</div><div class="big">${fmt(tot)}</div><div class="mut2">${data.length} records · ${n} people</div></div><div class="sec"><h2>Your records</h2><button class="g sm" onclick="location.hash='/new'">+ New</button></div>`+(data.length?data.map(r=>{const t=r.people.reduce((a,p)=>a+sum(p.payments),0),g=(r.target||0)*r.people.length,pc=g?Math.min(Math.round(t/g*100),100):0;return `<div class="card rec" onclick="location.hash='/r/${r.id}'"><div class="av">${esc(r.title.slice(0,1).toUpperCase())}</div><div class="grow"><b>${esc(r.title)}</b><div class="mut">${r.people.length} ${r.people.length==1?'person':'people'} · ${fmt(t)}</div>${g?`<div class="mini"><i style="width:${pc}%"></i></div>`:''}</div><span class="chev">&rsaquo;</span></div>`}).join(''):'<div class="card"><p>No records yet. Tap + New to add your first one.</p></div>')
+}
+function newRecord(){if(!need())return;app.className='';app.innerHTML=head()+`<button class="back" onclick="location.hash='/admin'">&larr; Back</button><div class="card"><h2>New record</h2><p>Use it for a sale or a group contribution.</p><label for="t">Title (item or group name)</label><input id="t"><label for="g">Target amount per person (optional)</label><input id="g" type="number" inputmode="numeric"><label for="e">End date (optional)</label><input id="e" type="date"><label for="pp">People, one per line: name, phone</label><textarea id="pp" rows="4"></textarea><button class="g" onclick="saveRecord()">Save record</button></div>`}
+async function saveRecord(){
+  const t=val('t');if(!t)return alert('Add a title first.');
+  const{data,error}=await sb.from('records').insert({title:t,target:+val('g')||null,end_date:val('e')||null}).select('id').single();if(error)return alert(error.message);
+  const ps=val('pp').split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const a=l.split(',');return{record_id:data.id,name:a[0].trim(),phone:(a[1]||'').trim()}});
+  if(ps.length){const r=await sb.from('people').insert(ps);if(r.error)return alert(r.error.message)}
+  location.hash='/r/'+data.id}
+async function recordPage(id){
+  if(!need())return;
+  const{data:r,error}=await sb.from('records').select('*,people(id,name,payments(amount))').eq('id',id).single();if(error)throw error;
+  app.className='';app.innerHTML=head()+`<button class="back" onclick="location.hash='/admin'">&larr; Records</button><div class="card"><h2>${esc(r.title)}</h2><p>${r.target?'Target '+fmt(r.target)+' per person':'No fixed target'}${r.end_date?' · ends '+r.end_date:''}</p>`+r.people.map(p=>{const t=sum(p.payments),pc=r.target?Math.min(Math.round(t/r.target*100),100):0,full=r.target&&t>=r.target;return `<div class="rec" onclick="location.hash='/r/${id}/${p.id}'"><div class="av">${esc((p.name||'?').slice(0,1).toUpperCase())}</div><div class="grow"><b>${esc(p.name)}</b>${r.target?`<div class="mini"><i style="width:${pc}%"></i></div>`:''}</div><div class="rt"><b>${fmt(t)}</b>${r.target?`<div class="chip ${full?'ok':''}">${full?'Paid in full':pc+'%'}</div>`:''}</div></div>`}).join('')+`</div><div class="card"><h2>Options</h2><div class="opt"><span>Group table<div class="mut">Everyone with a link sees the ranking</div></span><button class="alt sm" onclick="toggle('${id}','show_table',${!r.show_table})">${r.show_table?'On':'Off'}</button></div><div class="opt"><span>Shared group link<div class="mut">People pick their own name</div></span><button class="alt sm" onclick="toggle('${id}','group_link',${!r.group_link})">${r.group_link?'On':'Off'}</button></div>${r.group_link?`<input readonly value="${esc(link('g/'+id))}" onclick="this.select()">`:''}</div><div class="card"><h2>Add person</h2><label for="np">Name</label><input id="np"><label for="nph">Phone (optional)</label><input id="nph" inputmode="tel"><button class="g" onclick="addPerson('${id}')">Add person</button></div>`}
+async function toggle(id,k,v){const{error}=await sb.from('records').update({[k]:v}).eq('id',id);if(error)alert(error.message);draw()}
+async function addPerson(id){const n=val('np');if(!n)return alert('Enter a name.');const{error}=await sb.from('people').insert({record_id:id,name:n,phone:val('nph')});if(error)alert(error.message);draw()}
+async function personAdmin(rid,pid){
+  if(!need())return;
+  const{data:p,error}=await sb.from('people').select('id,name,records(title,target),payments(id,amount,paid_on,note,created_at)').eq('id',pid).single();if(error)throw error;
+  const pays=p.payments.slice().sort((a,b)=>(b.paid_on+b.created_at).localeCompare(a.paid_on+a.created_at));
+  app.className='';app.innerHTML=head()+`<button class="back" onclick="location.hash='/r/${rid}'">&larr; ${esc(p.records.title)}</button><div class="card"><h2>${esc(p.name)}</h2><p>Paid ${fmt(sum(pays))}${p.records.target?' of '+fmt(p.records.target):''}</p><label for="a">Log a payment: amount</label><input id="a" type="number" inputmode="numeric"><label for="dt">Date</label><input id="dt" type="date" value="${new Date().toISOString().slice(0,10)}"><label for="n">How they paid (only you and the payer see this)</label><input id="n" placeholder="Bank transfer, cash, bank name"><button class="g" onclick="logPay('${pid}')">Save payment</button></div><div class="card"><h2>Share link</h2><p>Send this to ${esc(p.name)}. Anyone with it can view progress.</p><input readonly value="${esc(link('p/'+pid))}" onclick="this.select()"><div class="row"><button onclick="location.hash='/p/${pid}'">Preview as visitor</button></div></div><div class="card"><h2>History</h2>${pays.length?pays.map(x=>`<div class="item" style="cursor:default"><span>${x.paid_on}<div class="mut">${esc(x.note||'')}</div></span><b>${fmt(x.amount)}</b></div>`).join(''):'<p>No payments yet.</p>'}</div>`}
+async function logPay(pid){
+  const a=+val('a');if(!a)return alert('Enter the amount paid.');
+  const{data,error}=await sb.from('payments').insert({person_id:pid,amount:a,paid_on:val('dt')||undefined,note:val('n')||null}).select('id').single();
+  if(error)return alert(error.message);lastLogged=data.id;ping();draw()}
+async function personView(pid){
+  const{data:d,error}=await sb.rpc('get_person_view',{pid});if(error)throw error;
+  if(!d)return msg('Link not found','Check the link and try again.');
+  if(vt=='table'&&!d.table)vt='progress';
+  const tot=sum(d.payments),left=d.target?Math.max(d.target-tot,0):null,pc=d.target?Math.min(Math.round(tot/d.target*100),100):null,seg=Math.round((pc||0)/10);
+  const tabs=[['progress','Progress'],['history','History']].concat(d.table?[['table','Table']]:[],[['chat','Comments']]).map(k=>`<button class="${vt==k[0]?'on':''}" onclick="vt='${k[0]}';draw()">${k[1]}</button>`).join('');
+  const chat=d.me?d.comments.map(c=>`<div class="cm"><b>${esc(c.who)}</b> ${esc(c.body)}</div>`).join('')+`<input id="cm" placeholder="Write a comment"><button class="g" onclick="addCm('${pid}')">Post comment</button>`
+    :!user?`<p>Create an account to comment.</p><div class="row"><button class="g" onclick="auth('create')">Create account</button><button class="alt" onclick="auth('login')">Log in</button></div>`
+    :!d.claimed?`<p>Is this your page? Claim it to comment and get alerts.</p><button class="g" onclick="claim('${pid}')">This is my page</button>`
+    :'<p>This page belongs to another account.</p>';
+  app.className='t-'+vt;
+  app.innerHTML=head()+`<div class="tabs">${tabs}</div><div class="card" data-t="progress"><p>${esc(d.title)} · ${esc(d.name)}</p><div class="mut">Total paid so far</div><div class="big">${fmt(tot)}</div>${left!==null?`<div class="bar" aria-label="${pc}% paid">${Array.from({length:10},(_,i)=>`<i class="${i<seg?'on':''}"></i>`).join('')}</div><div class="mut">${fmt(left)} left to pay · ${pc}% done</div>`:'<div class="mut" style="margin-top:8px">No fixed target on this record.</div>'}</div>`
+  +`<div class="card" data-t="history"><h2>Daily history</h2>${d.payments.length?d.payments.map(x=>`<div class="item" style="cursor:default"><span>${x.paid_on}${d.me?`<div class="mut">${esc(x.note||'')}</div>`:''}</span><b>${fmt(x.amount)}</b></div>`).join(''):'<p>No payments yet.</p>'}${d.me?'':'<p class="mut">Create an account and claim this page to see how each payment was made and get alerts.</p>'}</div>`
+  +(d.table?`<div class="card" data-t="table"><h2>Group table</h2><table><tr><th>#</th><th>Name</th><th>Paid</th></tr>${d.table.map((x,i)=>`<tr class="${x.name==d.name?'me':''}"><td>${i+1}</td><td>${esc(x.name)}</td><td>${fmt(x.paid)}</td></tr>`).join('')}</table></div>`:'')
+  +`<div class="card" data-t="chat"><h2>Comments</h2>${chat}</div>`}
+async function groupView(rid){
+  const{data:d,error}=await sb.rpc('get_group_people',{rid});if(error)throw error;
+  if(!d)return msg('Link not found','Check the link and try again.');
+  app.className='';app.innerHTML=head()+`<div class="card"><h2>${esc(d.title)}</h2><p>Tap your name to see your progress.</p>${d.people.map(p=>`<div class="item" onclick="location.hash='/p/${p.id}'"><span>${esc(p.name)}</span><span class="chev">&rsaquo;</span></div>`).join('')}</div>`}
+async function claim(pid){const{error}=await sb.rpc('claim_person',{pid});if(error)alert(error.message);draw()}
+async function addCm(pid){const m=val('cm');if(!m)return;const{error}=await sb.rpc('add_comment',{pid,msg:m,who:(user.user_metadata&&user.user_metadata.name)||user.email});if(error)alert(error.message);draw()}
+function auth(m){
+  am=m||am;let o=document.getElementById('ov');if(!o){o=document.createElement('div');o.id='ov';o.className='ov';document.body.appendChild(o)}
+  o.innerHTML=`<div class="mo" role="dialog" aria-label="Account"><div class="row" style="justify-content:space-between;margin:0 0 10px"><h2 style="margin:0">Recordly</h2><button class="alt" aria-label="Close" onclick="closeAuth()">&times;</button></div><div class="tabs"><button class="${am=='login'?'on':''}" onclick="auth('login')">Login</button><button class="${am=='create'?'on':''}" onclick="auth('create')">Create new account</button></div>${am=='create'?'<label for="an">Name</label><input id="an">':''}<label for="ae">Email</label><input id="ae" type="email"><label for="ap">Password</label><input id="ap" type="password">${am=='create'?'<label><input type="checkbox" id="at" style="width:auto;margin-right:8px">I accept the terms and conditions</label>':''}<div class="row"><button class="g" style="width:100%" onclick="doAuth()">${am=='create'?'Create account':'Log in'}</button><button class="alt" style="width:100%" onclick="doAuth(1)">Continue with Google</button></div></div>`}
+function closeAuth(){const o=document.getElementById('ov');if(o)o.remove()}
+async function doAuth(g){
+  if(g){const{error}=await sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0]}});if(error)alert(error.message);return}
+  const email=val('ae'),password=document.getElementById('ap').value;if(!email||!password)return alert('Enter your email and password.');
+  if(am=='create'){
+    if(!document.getElementById('at').checked)return alert('Accept the terms to continue.');
+    const{data,error}=await sb.auth.signUp({email,password,options:{data:{name:val('an')}}});if(error)return alert(error.message);
+    if(!data.session){closeAuth();return alert('Check your email to confirm your account, then log in.')}
+  }else{const{error}=await sb.auth.signInWithPassword({email,password});if(error)return alert(error.message)}
+  closeAuth()}
+async function logout(){await sb.auth.signOut();location.hash='/'}
+function subscribe(){
+  if(chan){sb.removeChannel(chan);chan=null}if(!user)return;
+  chan=sb.channel('pay').on('postgres_changes',{event:'INSERT',schema:'public',table:'payments'},m=>{
+    if(m.new.id===lastLogged)return;notes.unshift('New payment of '+fmt(m.new.amount)+' logged on '+m.new.paid_on);unread++;ping();draw()}).subscribe()}
+try{
+  if(SB_URL.indexOf('http')!==0)throw 0;
+  sb=supabase.createClient(SB_URL,SB_KEY);
+  sb.auth.onAuthStateChange((e,s)=>{user=s?s.user:null;subscribe();draw()});
+}catch(e){sb=null}
+addEventListener('hashchange',draw);draw();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script></body></html>
