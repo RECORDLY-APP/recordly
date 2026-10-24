@@ -525,6 +525,8 @@ th { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: upp
   color: var(--muted);
 }
 body.loggedout #bottomNav{display:none}
+[hidden]{display:none!important}
+#cloudSyncBtn{display:none!important}
 </style>
 </head>
 <body>
@@ -649,6 +651,92 @@ function scheduleDbSync() {
   clearTimeout(dbSyncTimer);
   dbSyncTimer = setTimeout(syncRecordsToDb, 1200);
 }
+let idleTimer = null;
+function startIdleLogout() {
+  const reset = () => {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(async () => { if (user) { toast('Logged out after 3 minutes of inactivity.'); await logout(); } }, 180000);
+  };
+  ['click', 'keydown', 'touchstart', 'scroll', 'mousemove'].forEach(e => addEventListener(e, reset, { passive: true }));
+  reset();
+}
+
+function confirmWithPassword(title, msg, onOk) {
+  if (!user || !user.email) { if (confirm(msg)) onOk(); return; }
+  window._pwOk = onOk;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;"><div class="row between" style="margin-bottom:10px;"><h2>${esc(title)}</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div><p class="muted">${esc(msg)}</p><div class="field"><label for="pwConfirm">Password</label><input id="pwConfirm" type="password" autocomplete="current-password"></div><div id="pwErr" class="small" style="color:var(--accent-red);min-height:18px;"></div><div class="row between" style="margin-top:10px;"><button class="btn-outline" onclick="closeModal()">Cancel</button><button class="btn-danger" id="pwGo" onclick="runPwConfirm()">Confirm</button></div></div></div>`;
+}
+async function runPwConfirm() {
+  const pw = ($('pwConfirm') || {}).value || '';
+  if (!pw) { $('pwErr').textContent = 'Enter your password.'; return; }
+  const b = $('pwGo'); b.disabled = true; b.textContent = 'Checking…';
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email: user.email, password: pw });
+    if (error) { $('pwErr').textContent = 'Wrong password.'; b.disabled = false; b.textContent = 'Confirm'; return; }
+  } catch (e) { $('pwErr').textContent = 'Could not verify. Check your connection.'; b.disabled = false; b.textContent = 'Confirm'; return; }
+  const f = window._pwOk; closeModal(); if (f) f();
+}
+
+let liveChan = null, liveAlerts = [];
+try { liveAlerts = JSON.parse(localStorage.getItem('rc_alerts') || '[]'); } catch (e) {}
+function playPing() {
+  try { const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = 0.15; o.start(); o.stop(c.currentTime + 0.2); } catch (e) {}
+}
+function pushAlert(title, desc, link) {
+  liveAlerts.unshift({ title, desc, link: link || '#/notifications', at: Date.now() });
+  liveAlerts = liveAlerts.slice(0, 30);
+  try { localStorage.setItem('rc_alerts', JSON.stringify(liveAlerts)); } catch (e) {}
+  playPing(); toast(title);
+  const b = $('notifCountBadge'); if (b) b.style.display = 'block';
+}
+function startLiveAlerts() {
+  if (liveChan) { try { sb.removeChannel(liveChan); } catch (e) {} liveChan = null; }
+  if (!user) return;
+  liveChan = sb.channel('live-' + user.id)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payments' }, async m => {
+      const x = m.new;
+      const mine = (Store.data.records || []).some(r => (r.people || []).some(pp => (pp.payments || []).some(y => y.id === x.id)));
+      if (mine) return;
+      let who = '';
+      try { const { data } = await sb.rpc('get_person_view', { pid: x.person_id }); if (data) who = ' for ' + data.title; } catch (e) {}
+      pushAlert('New payment of ' + money(x.amount) + ' recorded' + who, 'Recorded on ' + (x.paid_on || 'today'), '#/p/' + x.person_id);
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'comments' }, m => {
+      const c = m.new;
+      if (c.author_id === user.id) return;
+      pushAlert('New comment from ' + (c.author_name || 'someone'), String(c.body || '').slice(0, 80), '#/p/' + c.person_id);
+    })
+    .subscribe();
+}
+
+async function renderCommentsBox(pid) {
+  const box = $('commentsBox'); if (!box) return;
+  let d = null;
+  try { const r = await sb.rpc('get_person_view', { pid }); d = r.data; } catch (e) {}
+  if (!d) { box.innerHTML = ''; return; }
+  let inner = '';
+  if (!user) {
+    inner = `<p class="muted small">Create an account or log in to comment and get payment alerts.</p><div class="row"><button class="btn-primary btn-sm" onclick="authModal('signup')">Create account</button><button class="btn-outline btn-sm" onclick="authModal('login')">Log in</button></div>`;
+  } else if (!d.me) {
+    inner = d.claimed ? `<p class="muted small">This page is linked to another account.</p>` : `<p class="muted small">Is this your page? Link it to your account to comment and get payment alerts.</p><button class="btn-primary btn-sm" onclick="claimPersonPage('${pid}')">This is my page</button>`;
+  } else {
+    inner = (d.comments || []).map(c => `<div class="item-card"><div><b>${esc(c.who || 'User')}</b> <span class="muted small">${esc(new Date(c.at).toLocaleString())}</span><div>${esc(c.body)}</div></div></div>`).join('') || '<p class="muted small">No comments yet.</p>';
+    inner += `<div class="field" style="margin-top:10px;"><input id="cmText" placeholder="Write a comment"></div><button class="btn-primary btn-sm" onclick="postComment('${pid}')">Post comment</button>`;
+  }
+  box.innerHTML = `<div class="card"><div class="card-title">💬 Comments</div>${inner}</div>`;
+}
+async function claimPersonPage(pid) {
+  const { error } = await sb.rpc('claim_person', { pid });
+  if (error) { toast(error.message); return; }
+  toast('Page linked to your account.'); render();
+}
+async function postComment(pid) {
+  const t = val('cmText'); if (!t) return;
+  const { error } = await sb.rpc('add_comment', { pid, msg: t, who: user.user_metadata?.name || user.email });
+  if (error) { toast(error.message); return; }
+  renderCommentsBox(pid);
+}
+
 function renderLoggedOut() {
   $('app').innerHTML = `
     <div class="card">
@@ -709,6 +797,8 @@ async function loadAccountData() {
     console.warn('Could not load account data', e);
   }
   loadedFor = user ? user.id : null;
+  try { if (user && localStorage.getItem('rc_newuser') === user.email) { localStorage.removeItem('rc_newuser'); setTimeout(showOnboardingGuide, 500); } } catch (e) {}
+  startLiveAlerts();
   render();
 }
 
@@ -951,6 +1041,7 @@ const Store = {
   },
 
   clearAll() {
+    const keep = { owner: this.data.owner, synced: this.data.synced };
     this.data = {
       records: [],
       customers: [],
@@ -959,6 +1050,7 @@ const Store = {
       debts: [],
       settings: { businessName: 'My Enterprise', onboarded: true }
     };
+    Object.assign(this.data, keep);
     this.save();
     toast('All data cleared.');
   }
@@ -1151,7 +1243,7 @@ function updateNavActive(tab) {
 }
 
 function checkReminders() {
-  const notifs = [];
+  const notifs = liveAlerts.map(a => ({ type: 'info', title: a.title, desc: a.desc, link: a.link }));
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
 
@@ -1224,7 +1316,7 @@ function userAccountModal() {
         </div>
         <p class="muted">${esc(user?.email || user?.phone || 'Logged in')}</p>
         
-        <div class="card" style="margin:14px 0;background:var(--box-bg);">
+        <div class="card" hidden style="margin:14px 0;background:var(--box-bg);">
           <div class="row between">
             <div>
               <div class="small muted">Supabase Cloud Backup</div>
@@ -1430,6 +1522,7 @@ function authModal(mode = 'login') {
         let result;
         if (mode === 'signup') {
           result = await sb.auth.signUp({ email, password, options: { data: { name: val('authName') } } });
+          try { localStorage.setItem('rc_newuser', email); } catch (e) {}
           if (!result.error && !result.data.session) {
             showAuthMsg('Account created. Please check your email to confirm, or use Gmail OTP login.');
             b.disabled = false;
@@ -1600,6 +1693,8 @@ async function logout() {
   Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
   loadingFor = null; loadedFor = null; dbSyncSig = '';
+  if (liveChan) { try { sb.removeChannel(liveChan); } catch (e) {} liveChan = null; }
+  liveAlerts = []; try { localStorage.removeItem('rc_alerts'); } catch (e) {}
   closeModal();
   toast('Logged out.');
   render();
@@ -1755,6 +1850,7 @@ function openReceiptModal({ title, receiptNo, date, payer, phone, amount, method
 
           <table style="margin:14px 0;">
             <tr><td class="muted">Date:</td><td><b>${esc(date || new Date().toISOString().slice(0, 10))}</b></td></tr>
+            <tr><td class="muted">Time Issued:</td><td><b>${esc(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</b></td></tr>
             <tr><td class="muted">Received From:</td><td><b>${esc(payer)}</b> ${phone ? `<span class="small muted">(${esc(phone)})</span>` : ''}</td></tr>
             <tr><td class="muted">Purpose:</td><td>${esc(purpose || 'Payment')}</td></tr>
             <tr><td class="muted">Payment Method:</td><td><span class="badge badge-green">${esc(method || 'Cash')}</span></td></tr>
@@ -2551,7 +2647,9 @@ function renderMemberAdmin(rid, pid) {
         </div>
       ` : `<div class="empty-box">No payments recorded yet.</div>`}
     </div>
+    <div id="commentsBox"></div>
   `;
+  renderCommentsBox(pid);
 }
 
 function saveMemberPayment(rid, pid) {
@@ -3881,7 +3979,7 @@ function exportDataToCSV() {
 function renderMore() {
   updateNavActive('more');
   $('app').innerHTML = `
-    <div class="card">
+    <div class="card" hidden>
       <h1>⚙️ Workspace Settings & Tools</h1>
       <p class="muted">Manage your organization profile, appearance, data backups, and tools</p>
 
@@ -3894,7 +3992,7 @@ function renderMore() {
       </div>
 
       <!-- Supabase Cloud Backup & Sync Section -->
-      <div style="margin-top:16px;padding:14px;background:var(--box-bg);border-radius:12px;border:1px solid var(--line);">
+      <div hidden style="margin-top:16px;padding:14px;background:var(--box-bg);border-radius:12px;border:1px solid var(--line);">
         <div class="row between">
           <div>
             <div style="font-weight:700;display:flex;align-items:center;gap:6px;">
@@ -3966,18 +4064,8 @@ function renderMore() {
         <span>›</span>
       </div>
 
-      <!-- Demo Data -->
-      <div class="item-card between" onclick="Store.loadSampleData();render();" style="cursor:pointer;">
-        <div class="avatar-circle avatar-amber">✨</div>
-        <div class="grow">
-          <b>Load Sample Demo Data</b>
-          <div class="muted small">Populate sample contributions, sales, and debts to test features</div>
-        </div>
-        <span>›</span>
-      </div>
-
       <!-- Clear All Records -->
-      <div class="item-card between" onclick="if(confirm('Permanently clear all records, sales, debts and start completely fresh?')){Store.clearAll();render();}" style="cursor:pointer;">
+      <div class="item-card between" onclick="confirmWithPassword('Reset & clear workspace','This permanently deletes all your records, sales, debts and online data. Enter your password to confirm.', () => { Store.clearAll(); render(); })" style="cursor:pointer;">
         <div class="avatar-circle avatar-red">🗑️</div>
         <div class="grow">
           <b style="color:var(--accent-red);">Reset & Clear Workspace</b>
@@ -4040,7 +4128,7 @@ function showOnboardingGuide() {
         </div>
 
         <div class="row between" style="margin-top:18px;">
-          <button class="btn-soft" onclick="Store.loadSampleData();closeModal();render();">Load Sample Data</button>
+          
           <button class="btn-primary" onclick="closeModal()">Got it!</button>
         </div>
       </div>
@@ -4165,10 +4253,12 @@ async function renderPublicPerson(pid) {
       ` : `<div class="empty-box">No payments have been recorded for your account yet.</div>`}
     </div>
 
+    <div id="commentsBox"></div>
     <div style="text-align:center;margin-top:20px;">
       <button class="btn-primary" onclick="location.hash='#/'">Manage Your Own Records with Recordly</button>
     </div>
   `;
+  renderCommentsBox(pid);
 }
 
 async function renderPublicGroup(rid) {
@@ -4285,6 +4375,7 @@ async function start() {
 
   // Start periodic cloud sync every 45 seconds
   startPeriodicCloudSync(45000);
+  startIdleLogout();
 
   // Sync when browser reconnects to internet
   window.addEventListener('online', () => {
