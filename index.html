@@ -656,6 +656,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&l
 const val = id => ($(id)?.value || '').trim();
 const hash = () => location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
 const money = n => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 }).format(Number(n || 0));
+const localDate = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); };
 const link = path => location.origin + location.pathname + '#/' + path;
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -678,7 +679,7 @@ let idleTimer = null;
 function startIdleLogout() {
   const reset = () => {
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(async () => { if (user) { toast('Logged out after 3 minutes of inactivity.'); await logout(); } }, 180000);
+    idleTimer = setTimeout(async () => { if (user) { toast('Logged out after 30 minutes of inactivity.'); await logout(); } }, 1800000);
   };
   ['click', 'keydown', 'touchstart', 'scroll', 'mousemove'].forEach(e => addEventListener(e, reset, { passive: true }));
   reset();
@@ -705,8 +706,8 @@ try { liveAlerts = JSON.parse(localStorage.getItem('rc_alerts') || '[]'); } catc
 function playPing() {
   try { const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = 0.15; o.start(); o.stop(c.currentTime + 0.2); } catch (e) {}
 }
-function pushAlert(title, desc, link) {
-  liveAlerts.unshift({ title, desc, link: link || '#/notifications', at: Date.now() });
+function pushAlert(title, desc, link, key) {
+  liveAlerts.unshift({ title, desc, link: link || '#/notifications', at: Date.now(), key: key || null });
   liveAlerts = liveAlerts.slice(0, 30);
   try { localStorage.setItem('rc_alerts', JSON.stringify(liveAlerts)); } catch (e) {}
   playPing(); toast(title);
@@ -780,13 +781,13 @@ function qpRender() {
   $('qpList').innerHTML = rows.length ? rows.map(x => `<div class="item-card between" style="cursor:pointer;" onclick="closeModal();location.hash='#/r/${x.rid}/${x.pid}'"><div><b>${esc(x.name)}</b><div class="muted small">${esc(x.title)}</div></div><span>›</span></div>`).join('') : '<p class="muted">No one found.</p>';
 }
 function shareWA(path) {
-  window.open('https://wa.me/?text=' + encodeURIComponent('Check your payment progress here: ' + link(path)), '_blank');
+  window.open('https://wa.me/?text=' + encodeURIComponent((path.indexOf('j/') === 0 ? 'You are invited to join my group on Recordly. Tap to ask to join: ' : 'Check your payment progress here: ') + link(path)), '_blank');
 }
 function quickShareLink() {
   const recs = Store.data.records || [];
   if (!recs.length) return needRecordModal('Share a link');
   const row = (label, path) => `<div class="row between" style="padding:8px 0;border-top:1px solid var(--line);"><span>${esc(label)}</span><span class="row"><button class="btn-soft btn-sm" onclick="copyText('${link(path)}')">Copy</button><button class="btn-primary btn-sm" onclick="shareWA('${path}')">WhatsApp</button></span></div>`;
-  const inner = recs.map(r => `<div class="card" style="padding:12px;margin-bottom:10px;"><b>${esc(r.title)}</b>${r.group_link ? row('Group link (everyone)', 'g/' + r.id) : '<div class="muted small" style="margin-top:4px;">Group link is off for this record.</div>'}${(r.people || []).map(p => row(p.name || 'Member', 'p/' + p.id)).join('')}</div>`).join('');
+  const inner = recs.map(r => `<div class="card" style="padding:12px;margin-bottom:10px;"><b>${esc(r.title)}</b>${row('Invite link (they ask to join)', 'j/' + r.id + '/invite')}${r.group_link ? row('Group link (everyone)', 'g/' + r.id) : '<div class="muted small" style="margin-top:4px;">Group link is off for this record.</div>'}${(r.people || []).map(p => row(p.name || 'Member', 'p/' + p.id)).join('')}</div>`).join('');
   $('modalRoot').innerHTML = miniModal('Send a progress link', `<p class="muted small" style="margin-top:0;">Each person gets their own link. Tap WhatsApp to send it.</p>${inner}`);
 }
 const HINTS = {
@@ -840,15 +841,19 @@ async function loadAccountData() {
       Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
     }
     Store.data.owner = user.id;
-    const { data, error } = await sb.from('records').select('id,title,description,target,end_date,show_table,group_link,created_at,people(id,name,phone,payments(id,amount,paid_on,note))').order('created_at');
+    const SEL_BASE = 'id,title,description,target,end_date,show_table,group_link,created_at,people(id,name,phone,payments(id,amount,paid_on,note))';
+    const SEL_EXT = 'id,title,description,target,end_date,show_table,group_link,hide_balance,discoverable,created_at,people(id,name,phone,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note))';
+    let qres = await sb.from('records').select(SEL_EXT).order('created_at');
+    if (qres.error) { qres = await sb.from('records').select(SEL_BASE).order('created_at'); extOk = false; } else { extOk = true; }
+    const { data, error } = qres;
     if (!error && data) {
       data.forEach(r => {
         let loc = (Store.data.records || []).find(x => x.id === r.id);
-        const dbPeople = (r.people || []).map(p => ({ id: p.id, name: p.name, phone: p.phone || '', payments: (p.payments || []).map(x => ({ id: x.id, amount: Number(x.amount), paid_on: x.paid_on, note: x.note || '' })) }));
+        const dbPeople = (r.people || []).map(p => ({ id: p.id, name: p.name, phone: p.phone || '', payments: (p.payments || []).map(x => ({ id: x.id, amount: Number(x.amount), paid_on: x.paid_on, paid_at: x.paid_at || null, method: x.method || null, payer_name: x.payer_name || null, payer_phone: x.payer_phone || null, note: x.note || '' })) }));
         if (!loc) {
-          Store.data.records.push({ id: r.id, title: r.title, description: r.description || '', target: r.target, end_date: r.end_date, show_table: r.show_table, group_link: r.group_link, created_at: r.created_at, people: dbPeople });
+          Store.data.records.push({ id: r.id, title: r.title, description: r.description || '', target: r.target, end_date: r.end_date, show_table: r.show_table, group_link: r.group_link, hide_balance: !!r.hide_balance, discoverable: !!r.discoverable, created_at: r.created_at, people: dbPeople });
         } else {
-          Object.assign(loc, { title: r.title, description: r.description || '', target: r.target, end_date: r.end_date, show_table: r.show_table, group_link: r.group_link });
+          Object.assign(loc, { title: r.title, description: r.description || '', target: r.target, end_date: r.end_date, show_table: r.show_table, group_link: r.group_link, hide_balance: !!r.hide_balance, discoverable: !!r.discoverable });
           loc.people = loc.people || [];
           dbPeople.forEach(dp => {
             const lp = loc.people.find(x => x.id === dp.id);
@@ -877,7 +882,10 @@ async function loadAccountData() {
   loadedFor = user ? user.id : null;
   try { if (user && localStorage.getItem('rc_newuser') === user.email) { localStorage.removeItem('rc_newuser'); setTimeout(showOnboardingGuide, 500); } } catch (e) {}
   startLiveAlerts();
-  render();
+  startInboxLive();
+  loadInbox();
+  upsertProfile();
+  softRender();
 }
 
 async function syncRecordsToDb() {
@@ -895,19 +903,19 @@ async function syncRecordsToDb() {
       });
     });
     if (changed) localStorage.setItem(STORAGE_KEY, JSON.stringify(Store.data));
-    const today = new Date().toISOString().slice(0, 10);
-    const recRows = recs.map(r => ({ id: r.id, owner_id: user.id, title: r.title || 'Untitled', description: r.description || null, target: r.target ? Number(r.target) : null, end_date: r.end_date || null, show_table: !!r.show_table, group_link: !!r.group_link }));
+    const today = localDate();
+    const recRows = recs.map(r => ({ id: r.id, owner_id: user.id, title: r.title || 'Untitled', description: r.description || null, target: r.target ? Number(r.target) : null, end_date: r.end_date || null, show_table: !!r.show_table, group_link: !!r.group_link, hide_balance: !!r.hide_balance, discoverable: !!r.discoverable }));
     const peopleRows = [], payRows = [];
     recs.forEach(r => (r.people || []).forEach(p => {
       peopleRows.push({ id: p.id, record_id: r.id, name: p.name || 'Member', phone: p.phone || null });
-      (p.payments || []).forEach(x => { if (Number(x.amount) > 0) payRows.push({ id: x.id, person_id: p.id, amount: Number(x.amount), paid_on: x.paid_on || today, note: x.note || null }); });
+      (p.payments || []).forEach(x => { if (Number(x.amount) > 0) payRows.push({ id: x.id, person_id: p.id, amount: Number(x.amount), paid_on: x.paid_on || today, note: x.note || null, paid_at: x.paid_at || null, method: x.method || null, payer_name: x.payer_name || null, payer_phone: x.payer_phone || null }); });
     }));
     const sig = JSON.stringify([user.id, recRows, peopleRows, payRows]);
     if (sig !== dbSyncSig || changed) {
       let res;
-      if (recRows.length) { res = await sb.from('records').upsert(recRows); if (res.error) throw res.error; }
+      await upsertSafe('records', recRows, ['hide_balance', 'discoverable']);
       if (peopleRows.length) { res = await sb.from('people').upsert(peopleRows); if (res.error) throw res.error; }
-      if (payRows.length) { res = await sb.from('payments').upsert(payRows); if (res.error) throw res.error; }
+      await upsertSafe('payments', payRows, ['paid_at', 'method', 'payer_name', 'payer_phone']);
       const sy = Object.assign({ r: [], p: [], x: [] }, Store.data.synced || {});
       const L = { r: new Set(recRows.map(a => a.id)), p: new Set(peopleRows.map(a => a.id)), x: new Set(payRows.map(a => a.id)) };
       const gone = k => sy[k].filter(id => !L[k].has(id));
@@ -918,7 +926,7 @@ async function syncRecordsToDb() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(Store.data));
       dbSyncSig = sig;
     }
-    if (changed) render();
+    if (changed) softRender();
   } catch (e) {
     console.warn('Database sync problem', e);
     if (!dbSyncWarned) { dbSyncWarned = true; toast('Could not save online: ' + (e.message || e)); }
@@ -1003,7 +1011,7 @@ const Store = {
   },
 
   loadSampleData(notify = true) {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDate();
     const lastWeek = new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10);
     const nextWeek = new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10);
     const pastDueDate = new Date(Date.now() - 3 * 86400000).toISOString().slice(0, 10);
@@ -1137,6 +1145,7 @@ const Store = {
 /**
  * SUPABASE CLOUD BACKUP & PERIODIC SYNC ENGINE
  */
+let lastBackupSig = '';
 let cloudSyncStatus = 'idle'; // 'idle', 'syncing', 'synced', 'error', 'offline_local'
 let lastCloudSyncTime = localStorage.getItem('recordly_last_sync') || null;
 let syncDebounceTimer = null;
@@ -1187,6 +1196,9 @@ async function syncLocalDataToSupabase(options = { silent: true }) {
       updated_at: syncTimestamp
     };
 
+    const bsig = JSON.stringify([backupPayload.records, backupPayload.customers, backupPayload.sales, backupPayload.expenses, backupPayload.debts, backupPayload.settings]);
+    if (bsig === lastBackupSig) { cloudSyncStatus = 'synced'; updateSyncStatusBadge(); return; }
+
     // 1. Primary Cloud Backup into Supabase Auth User Metadata
     const { error: updateError } = await sb.auth.updateUser({
       data: {
@@ -1208,6 +1220,7 @@ async function syncLocalDataToSupabase(options = { silent: true }) {
       }, { onConflict: 'user_id' });
     } catch (tblErr) {}
 
+    lastBackupSig = bsig;
     cloudSyncStatus = 'synced';
     lastCloudSyncTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     localStorage.setItem('recordly_last_sync', lastCloudSyncTime);
@@ -1356,7 +1369,7 @@ function checkReminders() {
 
   const badge = $('notifCountBadge');
   if (badge) {
-    if (notifs.length > 0) badge.style.display = 'block';
+    if (notifs.length > 0 || (inbox.joins || []).some(j => j.status === 'pending')) badge.style.display = 'block';
     else badge.style.display = 'none';
   }
 
@@ -1798,6 +1811,7 @@ function openGlobalSearch() {
         <div id="globalSearchResults" style="margin-top:14px;max-height:55vh;overflow-y:auto;">
           <p class="muted small" style="text-align:center;padding:20px 0;">Search across contributions, members, business sales, expenses, and debts.</p>
         </div>
+        <button class="btn-soft" style="width:100%;margin-top:10px;" onclick="closeModal();location.hash='#/discover'">🌍 Search everyone on Recordly</button>
       </div>
     </div>
   `;
@@ -1905,7 +1919,60 @@ function executeGlobalSearch() {
 /**
  * RECEIPT GENERATION ENGINE
  */
-function openReceiptModal({ title, receiptNo, date, payer, phone, amount, method, note, purpose }) {
+function receiptRef(id) { return 'RCP-' + String(id || '').replace(/[^a-z0-9]/gi, '').slice(-8).toUpperCase(); }
+function fmtDateTime(iso) {
+  const d = new Date(iso); if (isNaN(d)) return '';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+function payTimeTxt(x) {
+  const d = x && x.paid_at ? new Date(x.paid_at) : null;
+  return d && !isNaN(d) ? ' at ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+}
+function openPaymentReceipt(rid, pid, payId) {
+  const r = Store.data.records.find(x => x.id === rid);
+  const p = r?.people?.find(x => x.id === pid);
+  const x = p?.payments?.find(y => y.id === payId);
+  if (!x) return;
+  openReceiptModal({
+    title: r.title, receiptNo: x.ref || receiptRef(x.id), date: x.paid_on, at: x.paid_at || x.created_at || null,
+    payer: x.payer_name || p.name, onBehalf: x.payer_name ? p.name : '', phone: x.payer_phone || p.phone || '',
+    amount: x.amount, method: x.method || 'Cash', note: x.note || '', purpose: 'Contribution Payment'
+  });
+}
+function openSaleReceipt(id) {
+  const s = Store.data.sales.find(x => x.id === id); if (!s) return;
+  const last = (s.payments || []).slice(-1)[0];
+  openReceiptModal({
+    title: (Store.data.settings.businessName || 'Business') + ' - Sales Receipt', receiptNo: s.ref || receiptRef(s.id),
+    date: (last && last.paid_on) || s.date, at: (last && last.at) || s.created_at || null,
+    payer: s.customer_name, amount: s.amount_paid, method: s.payment_method || 'Cash', note: s.notes || '',
+    purpose: (s.items || []).map(i => i.name + (i.qty ? ' (x' + i.qty + ')' : '')).join(', ') || 'Sale Item'
+  });
+}
+function openDebtReceipt(id) {
+  const d = Store.data.debts.find(x => x.id === id); if (!d) return;
+  const reps = d.repayments || [];
+  const repaid = reps.reduce((a, r) => a + Number(r.amount || 0), 0);
+  const last = reps.slice(-1)[0];
+  openReceiptModal({
+    title: 'Debt Statement / Receipt', receiptNo: d.ref || receiptRef(d.id),
+    date: (last && last.date) || localDate(), at: (last && last.at) || null,
+    payer: d.person_name, phone: d.phone || '', amount: repaid, method: 'Repayment', note: d.notes || '',
+    purpose: d.type === 'receivable' ? 'Repayment to Me' : 'Repayment to Creditor'
+  });
+}
+
+function openReceiptModal(o) {
+  // The time shown is the time the money was paid / the entry was made, never "now".
+  const when = o.at ? new Date(o.at) : null;
+  const okTime = when && !isNaN(when);
+  let timeRow = null;
+  if (okTime) {
+    if (!o.date || localDate(when) === o.date) timeRow = ['Time paid', when.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })];
+    else timeRow = ['Entered on', fmtDateTime(o.at)];   // payment date was back-dated
+  }
+  const dateTxt = o.date || (okTime ? localDate(when) : '');
+  window._rcpt = Object.assign({}, o, { dateTxt, timeRow, biz: Store.data.settings.businessName || 'Recordly Workspace' });
   $('modalRoot').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal-window" style="max-width:440px;">
@@ -1916,23 +1983,24 @@ function openReceiptModal({ title, receiptNo, date, payer, phone, amount, method
 
         <div class="receipt-paper" id="printableReceipt">
           <div style="text-align:center;margin-bottom:16px;">
-            <div style="font-size:18px;font-weight:800;color:var(--primary);">${esc(Store.data.settings.businessName || 'Recordly Workspace')}</div>
-            <div class="muted small">${esc(title || 'Official Payment Receipt')}</div>
-            <div style="margin-top:6px;font-family:monospace;font-size:12px;color:#64748b;">Ref: ${esc(receiptNo)}</div>
+            <div style="font-size:18px;font-weight:800;color:var(--primary);">${esc(window._rcpt.biz)}</div>
+            <div class="muted small">${esc(o.title || 'Official Payment Receipt')}</div>
+            <div style="margin-top:6px;font-family:monospace;font-size:12px;color:#64748b;">Ref: ${esc(o.receiptNo)}</div>
           </div>
 
           <div style="background:#f8fafc;padding:12px;border-radius:10px;text-align:center;margin:12px 0;">
             <div class="small muted">Amount Paid</div>
-            <div style="font-size:26px;font-weight:900;color:#0f766e;margin-top:2px;">${money(amount)}</div>
+            <div style="font-size:26px;font-weight:900;color:#0f766e;margin-top:2px;">${money(o.amount)}</div>
           </div>
 
           <table style="margin:14px 0;">
-            <tr><td class="muted">Date:</td><td><b>${esc(date || new Date().toISOString().slice(0, 10))}</b></td></tr>
-            <tr><td class="muted">Time Issued:</td><td><b>${esc(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }))}</b></td></tr>
-            <tr><td class="muted">Received From:</td><td><b>${esc(payer)}</b> ${phone ? `<span class="small muted">(${esc(phone)})</span>` : ''}</td></tr>
-            <tr><td class="muted">Purpose:</td><td>${esc(purpose || 'Payment')}</td></tr>
-            <tr><td class="muted">Payment Method:</td><td><span class="badge badge-green">${esc(method || 'Cash')}</span></td></tr>
-            ${note ? `<tr><td class="muted">Note / Ref:</td><td>${esc(note)}</td></tr>` : ''}
+            <tr><td class="muted">Date:</td><td><b>${esc(dateTxt)}</b></td></tr>
+            ${timeRow ? `<tr><td class="muted">${esc(timeRow[0])}:</td><td><b>${esc(timeRow[1])}</b></td></tr>` : ''}
+            <tr><td class="muted">Received From:</td><td><b>${esc(o.payer)}</b> ${o.phone ? `<span class="small muted">(${esc(o.phone)})</span>` : ''}</td></tr>
+            ${o.onBehalf ? `<tr><td class="muted">On behalf of:</td><td><b>${esc(o.onBehalf)}</b></td></tr>` : ''}
+            <tr><td class="muted">Purpose:</td><td>${esc(o.purpose || 'Payment')}</td></tr>
+            <tr><td class="muted">Payment Method:</td><td><span class="badge badge-green">${esc(o.method || 'Cash')}</span></td></tr>
+            ${o.note ? `<tr><td class="muted">Note / Ref:</td><td>${esc(o.note)}</td></tr>` : ''}
           </table>
 
           <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px;font-size:11px;color:var(--muted);text-align:center;">
@@ -1940,23 +2008,99 @@ function openReceiptModal({ title, receiptNo, date, payer, phone, amount, method
           </div>
         </div>
 
-        <div class="row between no-print" style="margin-top:16px;">
-          <button class="btn-outline" onclick="copyReceiptText('${esc(receiptNo)}', '${esc(payer)}', ${amount}, '${esc(purpose)}')">
-            Copy Text
-          </button>
-          <button class="btn-primary" onclick="window.print()">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-            Print / Save PDF
-          </button>
+        <div class="grid-2 no-print" style="margin-top:16px;">
+          <button class="btn-primary" onclick="shareReceipt('any')">📤 Share</button>
+          <button class="btn-soft" onclick="shareReceipt('wa')">WhatsApp</button>
+          <button class="btn-outline" onclick="copyReceiptText()">Copy Text</button>
+          <button class="btn-outline" onclick="window.print()">Print / Save PDF</button>
         </div>
       </div>
     </div>
   `;
 }
 
-function copyReceiptText(ref, payer, amt, purpose) {
-  const text = `RECORDLY RECEIPT\nRef: ${ref}\nFrom: ${payer}\nAmount: ${money(amt)}\nPurpose: ${purpose}\nDate: ${new Date().toLocaleDateString()}\nStatus: Verified Payment`;
-  navigator.clipboard.writeText(text).then(() => toast('Receipt summary copied to clipboard!'));
+function receiptText() {
+  const o = window._rcpt; if (!o) return '';
+  return [
+    o.biz + ' - PAYMENT RECEIPT',
+    'Ref: ' + o.receiptNo,
+    o.title ? 'For: ' + o.title : '',
+    'Received from: ' + o.payer + (o.phone ? ' (' + o.phone + ')' : ''),
+    o.onBehalf ? 'On behalf of: ' + o.onBehalf : '',
+    'Amount: ' + money(o.amount),
+    'Purpose: ' + (o.purpose || 'Payment'),
+    'Method: ' + (o.method || 'Cash'),
+    'Date: ' + o.dateTxt,
+    o.timeRow ? o.timeRow[0] + ': ' + o.timeRow[1] : ''
+  ].filter(Boolean).join('\n');
+}
+function copyReceiptText() {
+  const t = receiptText();
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(() => toast('Receipt copied. Paste it anywhere.'));
+}
+function receiptToPng() {
+  return new Promise((resolve, reject) => {
+    const o = window._rcpt; if (!o) return reject(new Error('No receipt'));
+    const W = 720, pad = 40, scale = 2;
+    const font = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    const rows = [['Date', o.dateTxt]];
+    if (o.timeRow) rows.push(o.timeRow);
+    rows.push(['Received from', o.payer + (o.phone ? ' (' + o.phone + ')' : '')]);
+    if (o.onBehalf) rows.push(['On behalf of', o.onBehalf]);
+    rows.push(['Purpose', o.purpose || 'Payment'], ['Method', o.method || 'Cash']);
+    if (o.note) rows.push(['Note', o.note]);
+    const c = document.createElement('canvas'); const ctx = c.getContext('2d');
+    const wrap = (t, maxW, f) => {
+      ctx.font = f; const words = String(t).split(/\s+/); const lines = []; let cur = '';
+      words.forEach(w => { const test = cur ? cur + ' ' + w : w; if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test; });
+      if (cur) lines.push(cur); return lines;
+    };
+    const valW = W - pad * 2 - 200;
+    const wrapped = rows.map(([k, v]) => [k, wrap(v, valW, '600 22px ' + font)]);
+    const titleLine = wrap(o.title || 'Official Payment Receipt', W - pad * 2, '500 20px ' + font)[0];
+    let H = 310; wrapped.forEach(([k, ls]) => { H += ls.length * 30 + 18; }); H += 80;
+    c.width = W * scale; c.height = H * scale; ctx.scale(scale, scale);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0f766e'; ctx.fillRect(0, 0, W, 12);
+    ctx.textAlign = 'center';
+    ctx.font = '800 30px ' + font; ctx.fillText(o.biz, W / 2, 70);
+    ctx.fillStyle = '#64748b'; ctx.font = '500 20px ' + font; ctx.fillText(titleLine, W / 2, 102);
+    ctx.font = '500 18px monospace'; ctx.fillText('Ref: ' + o.receiptNo, W / 2, 134);
+    ctx.fillStyle = '#f1f5f9'; ctx.fillRect(pad, 160, W - pad * 2, 100);
+    ctx.fillStyle = '#64748b'; ctx.font = '600 18px ' + font; ctx.fillText('AMOUNT PAID', W / 2, 192);
+    ctx.fillStyle = '#0f766e'; ctx.font = '900 42px ' + font; ctx.fillText(money(o.amount), W / 2, 242);
+    let y = 305; ctx.textAlign = 'left';
+    wrapped.forEach(([k, ls]) => {
+      ctx.fillStyle = '#64748b'; ctx.font = '600 20px ' + font; ctx.fillText(k, pad, y);
+      ctx.fillStyle = '#0f172a'; ctx.font = '600 22px ' + font; ls.forEach((l, i) => ctx.fillText(l, pad + 200, y + i * 30));
+      y += ls.length * 30 + 18;
+      ctx.strokeStyle = '#e2e8f0'; ctx.beginPath(); ctx.moveTo(pad, y - 20); ctx.lineTo(W - pad, y - 20); ctx.stroke();
+    });
+    ctx.textAlign = 'center'; ctx.fillStyle = '#94a3b8'; ctx.font = '500 17px ' + font; ctx.fillText('Recorded with Recordly', W / 2, H - 32);
+    c.toBlob(b => b ? resolve(b) : reject(new Error('Could not draw receipt')), 'image/png');
+  });
+}
+async function shareReceipt(mode) {
+  const o = window._rcpt; if (!o) return;
+  const text = receiptText();
+  if (mode === 'wa') { window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); return; }
+  let blob = null;
+  try {
+    blob = await receiptToPng();
+    const file = new File([blob], 'receipt-' + o.receiptNo + '.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: 'Payment receipt', text });
+      return;
+    }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  if (navigator.share) {
+    try { await navigator.share({ title: 'Payment receipt', text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  if (blob) {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'receipt-' + o.receiptNo + '.png';
+    document.body.appendChild(a); a.click(); a.remove(); toast('Receipt image saved to your phone.');
+  } else { copyReceiptText(); }
 }
 
 /**
@@ -1989,7 +2133,7 @@ function renderDashboard() {
   let owedToMeTotal = 0;
   let iOweTotal = 0;
   let overdueCount = 0;
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = localDate();
 
   debts.forEach(d => {
     const repaid = (d.repayments || []).reduce((a, r) => a + Number(r.amount || 0), 0);
@@ -2013,6 +2157,7 @@ function renderDashboard() {
         <button class="big-btn b2" onclick="quickLogPayment()"><span class="bi">💵</span><b>Log payment</b><small>Someone paid</small></button>
         <button class="big-btn b3" onclick="quickShareLink()"><span class="bi">🔗</span><b>Share link</b><small>Send progress</small></button>
       </div>
+      <button class="btn-soft" style="width:100%;margin-top:8px;" onclick="location.hash='#/discover'">🌍 Find people & groups on Recordly</button>
       <div class="mini-acts">
         <button class="btn-outline btn-sm" onclick="openSaleModal()">Record sale</button>
         <button class="btn-outline btn-sm" onclick="openExpenseModal()">Add expense</button>
@@ -2422,6 +2567,35 @@ function renderRecordDetail(rid) {
         </button>
       </div>
 
+      <div class="row between" style="padding:10px 0;border-top:1px solid var(--line);">
+        <div>
+          <b>Hide balance from visitors</b>
+          <div class="muted small">Public links still show what was paid, but not the target or remaining balance.</div>
+        </div>
+        <button class="${r.hide_balance ? 'btn-soft' : 'btn-outline'} btn-sm" onclick="toggleRecordProp('${r.id}', 'hide_balance')">
+          ${r.hide_balance ? 'Private' : 'Visible'}
+        </button>
+      </div>
+
+      <div class="row between" style="padding:10px 0;border-top:1px solid var(--line);">
+        <div>
+          <b>Show in Recordly search</b>
+          <div class="muted small">Other users can find this group. They must ask to join and you approve each person.</div>
+        </div>
+        <button class="${r.discoverable ? 'btn-soft' : 'btn-outline'} btn-sm" onclick="toggleRecordProp('${r.id}', 'discoverable')">
+          ${r.discoverable ? 'Searchable' : 'Hidden'}
+        </button>
+      </div>
+
+      <div style="background:var(--box-bg);padding:12px;border-radius:10px;margin-top:6px;border:1px dashed var(--line);">
+        <div class="small muted">Invite link (people ask to join, you approve):</div>
+        <div style="font-family:monospace;font-size:12px;word-break:break-all;margin:4px 0;">${link('j/' + r.id + '/invite')}</div>
+        <div class="row">
+          <button class="btn-primary btn-sm" onclick="copyText('${link('j/' + r.id + '/invite')}')">Copy Invite Link</button>
+          <button class="btn-soft btn-sm" onclick="shareWA('j/${r.id}/invite')">WhatsApp</button>
+        </div>
+      </div>
+
       ${r.group_link ? `
         <div style="background:var(--box-bg);padding:12px;border-radius:10px;margin-top:10px;border:1px dashed var(--line);">
           <div class="small muted">Public Group Link:</div>
@@ -2519,7 +2693,7 @@ function toggleRecordProp(rid, prop) {
   r[prop] = !r[prop];
   Store.save();
   renderRecordDetail(rid);
-  toast(`Sharing setting updated.`);
+  toast(extOk === false && (prop === 'hide_balance' || prop === 'discoverable') ? 'Saved on this phone. Run the Supabase SQL upgrade so it also applies online.' : 'Sharing setting updated.');
 }
 
 function confirmDeleteRecord(rid) {
@@ -2642,10 +2816,29 @@ function renderMemberAdmin(rid, pid) {
         </div>
       </div>
 
+      <div style="border:1px dashed var(--line);border-radius:12px;padding:10px 12px;margin:6px 0 4px;">
+        <div class="small muted" style="font-weight:700;margin-bottom:2px;">Who is paying? (optional)</div>
+        <div class="small muted">Fill this only if someone else paid on behalf of ${esc(p.name)}. Leave empty if it is the member themselves.</div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="payerName">Payer's name</label>
+            <input id="payerName" placeholder="e.g. Mrs. Okoro">
+          </div>
+          <div class="field">
+            <label for="payerPhone">Payer's phone</label>
+            <input id="payerPhone" type="tel" inputmode="tel" placeholder="e.g. 0803 000 0000">
+          </div>
+        </div>
+      </div>
+
       <div class="grid-2">
         <div class="field">
           <label for="payDate">Payment Date</label>
-          <input id="payDate" type="date" value="${new Date().toISOString().slice(0, 10)}">
+          <input id="payDate" type="date" value="${localDate()}">
+        </div>
+        <div class="field">
+          <label for="payTime">Time paid (empty = now)</label>
+          <input id="payTime" type="time">
         </div>
         <div class="field">
           <label for="payNote">Note / Reference</label>
@@ -2677,20 +2870,10 @@ function renderMemberAdmin(rid, pid) {
             <div class="item-card between">
               <div>
                 <div style="font-weight:700;font-size:16px;">${money(x.amount)}</div>
-                <div class="muted small">${esc(x.paid_on || 'Date not recorded')} · <span class="badge badge-gray">${esc(x.method || 'Payment')}</span> ${x.note ? `· ${esc(x.note)}` : ''}</div>
+                <div class="muted small">${esc(x.paid_on || 'Date not recorded')}${payTimeTxt(x)} · <span class="badge badge-gray">${esc(x.method || 'Payment')}</span> ${x.note ? `· ${esc(x.note)}` : ''}${x.payer_name ? ` · Paid by ${esc(x.payer_name)}${x.payer_phone ? ' (' + esc(x.payer_phone) + ')' : ''}` : ''}</div>
               </div>
               <div class="row">
-                <button class="btn-soft btn-sm" onclick="openReceiptModal({
-                  title: '${esc(r.title)}',
-                  receiptNo: '${esc(x.id)}',
-                  date: '${esc(x.paid_on)}',
-                  payer: '${esc(p.name)}',
-                  phone: '${esc(p.phone || '')}',
-                  amount: ${x.amount},
-                  method: '${esc(x.method || 'Cash')}',
-                  note: '${esc(x.note || '')}',
-                  purpose: 'Contribution Payment'
-                })">Receipt</button>
+                <button class="btn-soft btn-sm" onclick="openPaymentReceipt('${rid}', '${pid}', '${x.id}')">Receipt</button>
                 <button class="btn-danger btn-sm" onclick="deleteMemberPayment('${rid}', '${pid}', '${x.id}')" title="Delete payment entry">✕</button>
               </div>
             </div>
@@ -2707,21 +2890,34 @@ function saveMemberPayment(rid, pid) {
   const amt = Number(val('payAmount'));
   if (!amt || amt <= 0) { toast('Please enter a valid payment amount.'); return; }
   const method = val('payMethod');
-  const paid_on = val('payDate') || new Date().toISOString().slice(0, 10);
+  const now = new Date();
+  const paid_on = val('payDate') || localDate();
+  const timeIn = val('payTime');
+  let paid_at = null;
+  if (timeIn) {
+    const t = new Date(paid_on + 'T' + timeIn);
+    if (!isNaN(t)) paid_at = t.toISOString();
+  } else if (paid_on === localDate(now)) {
+    paid_at = now.toISOString();   // paid today and no time typed: the time is right now
+  }
   const note = val('payNote') || null;
 
   const r = Store.data.records.find(x => x.id === rid);
   const p = r?.people?.find(x => x.id === pid);
   if (!r || !p) return;
 
-  const payId = 'rec_pay_' + uid();
+  p.payments = p.payments || [];
   p.payments.push({
-    id: payId,
+    id: 'rec_pay_' + uid(),
+    ref: 'RCP-' + uid().replace(/-/g, '').slice(0, 8).toUpperCase(),
     amount: amt,
     paid_on,
+    paid_at,
     method,
     note,
-    created_at: new Date().toISOString()
+    payer_name: val('payerName') || null,
+    payer_phone: val('payerPhone') || null,
+    created_at: now.toISOString()
   });
 
   Store.save();
@@ -2850,16 +3046,7 @@ function renderSalesTab(sales) {
               </div>
             </div>
             <div class="row">
-              <button class="btn-soft btn-sm" onclick="openReceiptModal({
-                title: '${esc(Store.data.settings.businessName)} - Sales Receipt',
-                receiptNo: '${esc(s.id)}',
-                date: '${esc(s.date)}',
-                payer: '${esc(s.customer_name)}',
-                amount: ${s.amount_paid},
-                method: '${esc(s.payment_method || 'Cash')}',
-                note: '${esc(s.notes || '')}',
-                purpose: '${esc(itemDesc)}'
-              })">Receipt</button>
+              <button class="btn-soft btn-sm" onclick="openSaleReceipt('${s.id}')">Receipt</button>
               ${balance > 0 ? `
                 <button class="btn-primary btn-sm" onclick="openCollectSaleBalanceModal('${s.id}')">Collect</button>
               ` : ''}
@@ -3040,7 +3227,7 @@ function openSaleModal() {
           </div>
           <div class="field">
             <label for="saleDate">Sale Date</label>
-            <input id="saleDate" type="date" value="${new Date().toISOString().slice(0, 10)}">
+            <input id="saleDate" type="date" value="${localDate()}">
           </div>
         </div>
 
@@ -3092,7 +3279,7 @@ function saveNewSale() {
 
   const paid = Math.min(total, Number(val('salePaid')) || 0);
   const method = val('saleMethod');
-  const date = val('saleDate') || new Date().toISOString().slice(0, 10);
+  const date = val('saleDate') || localDate();
   const notes = val('saleNotes') || null;
 
   let status = 'paid';
@@ -3111,7 +3298,7 @@ function saveNewSale() {
     date,
     notes,
     created_at: new Date().toISOString(),
-    payments: paid > 0 ? [{ id: uid(), amount: paid, paid_on: date, method, note: 'Initial payment' }] : []
+    payments: paid > 0 ? [{ id: uid(), amount: paid, paid_on: date, at: new Date().toISOString(), method, note: 'Initial payment' }] : []
   };
 
   Store.data.sales.unshift(newSale);
@@ -3155,7 +3342,7 @@ function openCollectSaleBalanceModal(saleId) {
 
         <div class="field">
           <label for="collectDate">Date</label>
-          <input id="collectDate" type="date" value="${new Date().toISOString().slice(0, 10)}">
+          <input id="collectDate" type="date" value="${localDate()}">
         </div>
 
         <div class="row between" style="margin-top:16px;">
@@ -3184,7 +3371,8 @@ function saveCollectedSaleBalance(saleId) {
   s.payments.push({
     id: uid(),
     amount: amt,
-    paid_on: val('collectDate') || new Date().toISOString().slice(0, 10),
+    paid_on: val('collectDate') || localDate(),
+    at: new Date().toISOString(),
     method: val('collectMethod') || 'Cash',
     note: 'Balance installment'
   });
@@ -3239,7 +3427,7 @@ function openExpenseModal() {
           </div>
           <div class="field">
             <label for="expDate">Date</label>
-            <input id="expDate" type="date" value="${new Date().toISOString().slice(0, 10)}">
+            <input id="expDate" type="date" value="${localDate()}">
           </div>
         </div>
 
@@ -3256,7 +3444,7 @@ function saveNewExpense() {
   const cat = val('expCategory');
   const desc = val('expDesc');
   const amt = Number(val('expAmount'));
-  const date = val('expDate') || new Date().toISOString().slice(0, 10);
+  const date = val('expDate') || localDate();
 
   if (!desc || !amt || amt <= 0) {
     toast('Please enter a description and valid amount.');
@@ -3577,7 +3765,7 @@ function renderDebts() {
   updateNavActive('debts');
 
   const debts = Store.data.debts;
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = localDate();
 
   let owedToMe = 0;
   let iOwe = 0;
@@ -3674,16 +3862,7 @@ function renderDebtList(debts, todayStr) {
             ${!isPaid ? `
               <button class="btn-primary btn-sm" onclick="openRepaymentModal('${d.id}')">＋ Repayment</button>
             ` : ''}
-            <button class="btn-soft btn-sm" onclick="openReceiptModal({
-              title: 'Debt Statement / Receipt',
-              receiptNo: '${esc(d.id)}',
-              date: '${esc(d.due_date || new Date().toISOString().slice(0,10))}',
-              payer: '${esc(d.person_name)}',
-              amount: ${repaid},
-              method: 'Repayment',
-              note: '${esc(d.notes || '')}',
-              purpose: '${isReceivable ? 'Repayment to Me' : 'Repayment to Creditor'}'
-            })">Statement</button>
+            <button class="btn-soft btn-sm" onclick="openDebtReceipt('${d.id}')">Statement</button>
             <button class="btn-danger btn-sm" onclick="confirmDeleteDebt('${d.id}')" title="Delete debt">Delete</button>
           </div>
         </div>
@@ -3821,7 +4000,7 @@ function openRepaymentModal(debtId) {
 
         <div class="field">
           <label for="repDate">Date</label>
-          <input id="repDate" type="date" value="${new Date().toISOString().slice(0, 10)}">
+          <input id="repDate" type="date" value="${localDate()}">
         </div>
 
         <div class="field">
@@ -3848,7 +4027,8 @@ function saveDebtRepayment(debtId) {
   d.repayments.push({
     id: uid(),
     amount: amt,
-    date: val('repDate') || new Date().toISOString().slice(0, 10),
+    date: val('repDate') || localDate(),
+    at: new Date().toISOString(),
     note: val('repNote') || 'Repayment'
   });
 
@@ -4019,7 +4199,7 @@ function exportDataToCSV() {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `recordly_export_${new Date().toISOString().slice(0, 10)}.csv`;
+  a.download = `recordly_export_${localDate()}.csv`;
   a.click();
   toast('CSV report downloaded!');
 }
@@ -4204,6 +4384,8 @@ function renderNotifications() {
       </div>
     </div>
 
+    ${joinInboxHtml()}
+
     ${notifs.length ? `
       <div class="list">
         ${notifs.map(n => `
@@ -4229,19 +4411,22 @@ function renderNotifications() {
 /**
  * 8. PUBLIC LINKS (VISITOR VIEW: #/p/:id and #/g/:id)
  */
-async function renderPublicPerson(pid) {
-  let p = null, r = null;
+async function renderPublicPerson(pid, src) {
+  let p = null, r = null, ownerView = false;
+  logVisit(null, pid, src === 'invite' || src === 'search' ? src : 'link');
   Store.data.records.forEach(rec => {
     const found = (rec.people || []).find(x => x.id === pid);
-    if (found) { p = found; r = rec; }
+    if (found) { p = found; r = rec; ownerView = true; }
   });
 
   if (!p) {
     try {
-      const { data, error } = await sb.rpc('get_person_view', { pid });
-      if (!error && data) {
+      let res = await sb.rpc('rc_person_view', { pid });
+      if (res.error || !res.data) res = await sb.rpc('get_person_view', { pid });
+      const data = res.data;
+      if (!res.error && data) {
         p = { name: data.name, payments: data.payments || [] };
-        r = { title: data.title, description: data.description, target: data.target, show_table: data.show_table };
+        r = { title: data.title, description: data.description, target: data.target, show_table: data.show_table, hide_balance: !!data.hide_balance };
       }
     } catch (e) {}
   }
@@ -4280,7 +4465,8 @@ async function renderPublicPerson(pid) {
       <div class="stat-box green" style="margin-top:14px;">
         <div class="stat-label">Total Amount Paid</div>
         <div class="stat-val">${money(paid)}</div>
-        ${target ? `
+        ${r.hide_balance && !ownerView ? `<div class="small muted" style="margin-top:6px;">🔒 The balance is private. Ask the admin if you need it.</div>` : target ? `
+          ${r.hide_balance ? `<div class="small muted" style="margin-top:6px;">🔒 Hidden from visitors. Only you can see this.</div>` : ''}
           <div class="progress-track" style="margin-top:8px;"><div class="progress-fill" style="width:${pc}%"></div></div>
           <div class="small muted" style="margin-top:4px;">${pc}% completed · ${money(Math.max(0, target - paid))} remaining balance</div>
         ` : `<div class="small muted" style="margin-top:4px;">No fixed individual target set.</div>`}
@@ -4295,7 +4481,7 @@ async function renderPublicPerson(pid) {
             <div class="item-card between">
               <div>
                 <b>${money(x.amount)}</b>
-                <div class="muted small">${esc(x.paid_on || 'Verified payment')} ${x.note ? `· ${esc(x.note)}` : ''}</div>
+                <div class="muted small">${esc(x.paid_on || 'Verified payment')}${payTimeTxt(x)} ${x.note ? `· ${esc(x.note)}` : ''}</div>
               </div>
               <span class="badge badge-green">Recorded</span>
             </div>
@@ -4312,7 +4498,8 @@ async function renderPublicPerson(pid) {
   renderCommentsBox(pid);
 }
 
-async function renderPublicGroup(rid) {
+async function renderPublicGroup(rid, src) {
+  logVisit(rid, null, src === 'invite' || src === 'search' ? src : 'link');
   let r = Store.data.records.find(x => x.id === rid);
   if (!r) {
     try {
@@ -4360,6 +4547,9 @@ async function renderPublicGroup(rid) {
         </div>
       `).join('')}
     </div>
+    <div style="text-align:center;margin-top:16px;">
+      <button class="btn-outline" onclick="location.hash='#/j/${rid}/link'">Not on the list? Ask to join</button>
+    </div>
   `;
 }
 
@@ -4370,14 +4560,267 @@ function copyText(txt) {
 /**
  * MASTER ROUTER
  */
+/**
+ * RECORDLY UPGRADE: safe DB writes, soft re-render, visits, join requests, ecosystem search
+ */
+let inbox = { joins: [], visits: [] };
+let extOk = null;          // null = not tested yet, true = new columns exist online, false = SQL upgrade not run yet
+let liveChan2 = null;
+
+async function upsertSafe(table, rows, extKeys) {
+  if (!rows.length) return;
+  if (extOk !== false) {
+    const res = await sb.from(table).upsert(rows);
+    if (!res.error) return;
+    const msg = String(res.error.message || '') + ' ' + String(res.error.code || '');
+    if (!/column|schema cache|PGRST204|42703/i.test(msg)) throw res.error;
+    extOk = false;   // new columns are not in the database yet: save the basics so nothing is lost
+  }
+  const base = rows.map(r => { const c = Object.assign({}, r); extKeys.forEach(k => delete c[k]); return c; });
+  const res2 = await sb.from(table).upsert(base);
+  if (res2.error) throw res2.error;
+}
+
+// Background refreshes must never wipe a form someone is typing in or a modal that is open.
+function softRender() {
+  const a = document.activeElement;
+  const typing = a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName);
+  const modalOpen = $('modalRoot') && $('modalRoot').innerHTML.trim() !== '';
+  if (typing || modalOpen) return;
+  render();
+}
+
+async function upsertProfile() {
+  if (!user) return;
+  const biz = Store.data.settings && Store.data.settings.businessName;
+  const nm = user.user_metadata?.name || user.user_metadata?.full_name || (biz && biz !== 'My Enterprise' ? biz : '') || 'Recordly user';
+  try { await sb.from('rc_profiles').upsert({ id: user.id, display_name: String(nm).slice(0, 80), updated_at: new Date().toISOString() }); } catch (e) {}
+}
+
+function logVisit(rid, pid, src) {
+  try {
+    const mine = (Store.data.records || []).some(r => (rid && r.id === rid) || (pid && (r.people || []).some(x => x.id === pid)));
+    if (mine) return;
+    const key = 'rc_v_' + (rid || '') + (pid || '') + src;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    sb.rpc('rc_log_visit', { rid: rid || null, pid: pid || null, src }).then(() => {}, () => {});
+  } catch (e) {}
+}
+
+function visitAlert(x, silent) {
+  if (!x || liveAlerts.some(a => a.key === x.id)) return;
+  const rec = (Store.data.records || []).find(r => r.id === x.record_id);
+  const where = rec ? rec.title : 'your group';
+  const who = x.visitor_name || 'Someone';
+  let title;
+  if (x.source === 'invite') title = who + ' opened your invite to ' + where;
+  else if (x.source === 'search') title = who + ' found ' + where + ' in search';
+  else title = who + ' opened a shared link for ' + where;
+  const link = rec ? '#/r/' + rec.id : '#/notifications';
+  if (silent) {
+    liveAlerts.unshift({ title, desc: fmtDateTime(x.created_at), link, at: Date.parse(x.created_at) || Date.now(), key: x.id });
+    liveAlerts = liveAlerts.slice(0, 30);
+    try { localStorage.setItem('rc_alerts', JSON.stringify(liveAlerts)); } catch (e) {}
+    const b = $('notifCountBadge'); if (b) b.style.display = 'block';
+  } else {
+    pushAlert(title, fmtDateTime(x.created_at), link, x.id);
+  }
+}
+
+async function loadInbox() {
+  if (!user) return;
+  try {
+    const j = await sb.from('join_requests').select('id,record_id,requester_id,requester_name,requester_phone,status,person_id,created_at').eq('owner_id', user.id).order('created_at', { ascending: false }).limit(50);
+    if (!j.error && j.data) inbox.joins = j.data;
+  } catch (e) {}
+  try {
+    const since = localStorage.getItem('rc_visits_since') || new Date(Date.now() - 7 * 864e5).toISOString();
+    const v = await sb.from('visits').select('id,record_id,person_id,source,visitor_name,created_at').eq('owner_id', user.id).gt('created_at', since).order('created_at', { ascending: false }).limit(30);
+    if (!v.error && v.data) v.data.slice().reverse().forEach(x => visitAlert(x, true));
+    if (!v.error) localStorage.setItem('rc_visits_since', new Date().toISOString());
+  } catch (e) {}
+  setTop();
+}
+
+function startInboxLive() {
+  if (liveChan2) { try { sb.removeChannel(liveChan2); } catch (e) {} liveChan2 = null; }
+  if (!user) return;
+  liveChan2 = sb.channel('inbox-' + user.id)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'visits' }, m => {
+      if (!m.new || m.new.owner_id !== user.id) return;
+      visitAlert(m.new, false);
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'join_requests' }, m => {
+      const j = m.new; if (!j || j.owner_id !== user.id) return;
+      inbox.joins.unshift(j);
+      const rec = (Store.data.records || []).find(r => r.id === j.record_id);
+      pushAlert((j.requester_name || 'Someone') + ' wants to join ' + (rec ? rec.title : 'your group'), 'Open Notifications to approve or decline.', '#/notifications');
+      setTop();
+      if (hash()[0] === 'notifications') renderNotifications();
+    })
+    .subscribe();
+}
+
+function joinInboxHtml() {
+  const pend = (inbox.joins || []).filter(j => j.status === 'pending');
+  if (!pend.length) return '';
+  return `
+    <div class="card">
+      <div class="card-title">🙋 Join requests (${pend.length})</div>
+      <p class="muted small">Nobody joins your group until you approve them.</p>
+      <div class="list" style="margin-top:10px;">
+        ${pend.map(j => {
+          const rec = (Store.data.records || []).find(r => r.id === j.record_id);
+          return `
+          <div class="item-card" style="flex-wrap:wrap;">
+            <div class="avatar-circle">${esc((j.requester_name || '?').slice(0, 1).toUpperCase())}</div>
+            <div class="grow">
+              <b>${esc(j.requester_name || 'Someone')}</b>
+              <div class="muted small">wants to join ${esc(rec ? rec.title : 'your group')}${j.requester_phone ? ' · ' + esc(j.requester_phone) : ''}</div>
+              <div class="muted small">${esc(fmtDateTime(j.created_at))}</div>
+            </div>
+            <div class="row">
+              <button class="btn-primary btn-sm" onclick="resolveJoin('${j.id}', true)">Approve</button>
+              <button class="btn-danger btn-sm" onclick="resolveJoin('${j.id}', false)">Decline</button>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`;
+}
+
+async function resolveJoin(reqId, approve) {
+  const j = (inbox.joins || []).find(x => x.id === reqId); if (!j) return;
+  let personId = null;
+  if (approve) {
+    const rec = (Store.data.records || []).find(r => r.id === j.record_id);
+    if (!rec) { toast('This group is not on this phone yet. Refresh the app and try again.'); return; }
+    personId = uid();
+    rec.people = rec.people || [];
+    rec.people.push({ id: personId, name: j.requester_name || 'Member', phone: j.requester_phone || '', payments: [] });
+    Store.save();
+    try { await syncRecordsToDb(); } catch (e) {}
+  }
+  const { error } = await sb.rpc('rc_resolve_join', { req: reqId, approve: !!approve, person: personId });
+  if (error) { toast('Could not save your answer: ' + (error.message || error)); return; }
+  j.status = approve ? 'approved' : 'rejected'; j.person_id = personId;
+  toast(approve ? 'Approved. They are now a member.' : 'Request declined.');
+  setTop();
+  renderNotifications();
+}
+
+async function renderJoinPage(rid, src) {
+  src = (src === 'invite' || src === 'search') ? src : 'link';
+  logVisit(rid, null, src);
+  $('app').innerHTML = '<div class="card"><p class="muted">Loading…</p></div>';
+  const mine = (Store.data.records || []).find(x => x.id === rid);
+  let g = null;
+  try { const { data, error } = await sb.rpc('rc_group_card', { rid }); if (!error && data) g = data; } catch (e) {}
+  if (!g && mine) g = { id: rid, title: mine.title, description: mine.description, owner_name: 'You', member_count: (mine.people || []).length };
+  if (!g) {
+    $('app').innerHTML = `<div class="card empty-box"><h3>Group not found</h3><p class="muted">This link may be wrong or the group was deleted.</p><button class="btn-primary" onclick="location.hash='#/'">Open Recordly</button></div>`;
+    return;
+  }
+  let req = null;
+  if (user && !mine) {
+    try {
+      const { data } = await sb.from('join_requests').select('id,status,person_id').eq('record_id', rid).eq('requester_id', user.id).order('created_at', { ascending: false }).limit(1);
+      req = data && data[0] || null;
+    } catch (e) {}
+  }
+  const defName = user ? String(user.user_metadata?.name || user.user_metadata?.full_name || '') : '';
+  let action;
+  if (mine) action = `<p class="muted">This is your own group.</p><button class="btn-primary" onclick="location.hash='#/r/${rid}'">Open my group</button>`;
+  else if (!user) action = `<p class="muted">Sign in to ask the admin to add you.</p><button class="btn-primary" onclick="authModal('login')">Sign in to continue</button>`;
+  else if (req && req.status === 'pending') action = `<div class="banner banner-warning"><div>⏳ Request sent. Waiting for the admin to approve you.</div></div>`;
+  else if (req && req.status === 'approved') action = `<div class="banner banner-success"><div>✅ You were approved.</div></div>${req.person_id ? `<button class="btn-primary" onclick="location.hash='#/p/${req.person_id}'">Open my progress page</button>` : ''}`;
+  else if (req && req.status === 'rejected') action = `<div class="banner banner-info"><div>The admin did not accept this request.</div></div>`;
+  else action = `
+      <div class="field"><label for="jrName">Your name (the admin will see this) *</label><input id="jrName" value="${esc(defName)}" placeholder="Full name"></div>
+      <div class="field"><label for="jrPhone">Phone number (optional)</label><input id="jrPhone" type="tel" inputmode="tel" placeholder="e.g. 0803 000 0000"></div>
+      <button class="btn-primary" id="jrBtn" onclick="sendJoinRequest('${rid}')">Ask to join</button>
+      <p class="muted small" style="margin-top:8px;">The admin must approve you before you become a member.</p>`;
+  $('app').innerHTML = `
+    <div class="card">
+      <div class="pill">${src === 'invite' ? 'YOU ARE INVITED' : 'GROUP'}</div>
+      <h1 style="margin-top:8px;">${esc(g.title)}</h1>
+      <p class="muted">Run by ${esc(g.owner_name || 'a Recordly user')} · ${Number(g.member_count || 0)} members</p>
+      ${g.description ? `<div class="banner banner-info"><div>${esc(g.description)}</div></div>` : ''}
+      ${action}
+    </div>`;
+}
+
+async function sendJoinRequest(rid) {
+  const name = val('jrName'), phone = val('jrPhone');
+  if (!name) { toast('Please type your name.'); return; }
+  const b = $('jrBtn'); if (b) { b.disabled = true; b.textContent = 'Sending…'; }
+  const { error } = await sb.rpc('rc_request_join', { rid, req_name: name, req_phone: phone || null });
+  if (error) {
+    if (b) { b.disabled = false; b.textContent = 'Ask to join'; }
+    toast(/function|does not exist|schema cache/i.test(error.message || '') ? 'Join requests are not switched on yet. The app owner must run the SQL upgrade.' : (error.message || 'Could not send request.'));
+    return;
+  }
+  toast('Request sent. The admin has been notified.');
+  render();
+}
+
+let discTimer = null;
+function renderDiscover() {
+  $('app').innerHTML = `
+    <button class="btn-outline btn-sm" onclick="location.hash='#/'" style="margin-bottom:12px;">← Back</button>
+    <div class="card">
+      <h1>🌍 Find people & groups</h1>
+      <p class="muted">Search everyone on Recordly. To join a group you must ask, and its admin has to approve you.</p>
+      <div class="search-input" style="margin-top:10px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="discQ" placeholder="Type a name or group title…" oninput="discSoon()" autocomplete="off">
+      </div>
+    </div>
+    <div id="discOut"><div class="empty-box">Type at least 2 letters to search.</div></div>`;
+  setTimeout(() => $('discQ') && $('discQ').focus(), 60);
+}
+function discSoon() { clearTimeout(discTimer); discTimer = setTimeout(runDiscover, 350); }
+async function runDiscover() {
+  const out = $('discOut'); if (!out) return;
+  const q = val('discQ');
+  if (q.length < 2) { out.innerHTML = '<div class="empty-box">Type at least 2 letters to search.</div>'; return; }
+  out.innerHTML = '<p class="muted" style="text-align:center;">Searching…</p>';
+  const { data, error } = await sb.rpc('rc_search', { q });
+  if (!$('discQ') || val('discQ') !== q) return;
+  if (error) {
+    out.innerHTML = `<div class="empty-box">${/function|does not exist|schema cache/i.test(error.message || '') ? 'Search is not switched on yet. The app owner must run the SQL upgrade.' : esc(error.message || 'Search failed.')}</div>`;
+    return;
+  }
+  const groups = data.groups || [], people = data.people || [];
+  const gCard = g => `
+    <div class="item-card between" style="cursor:pointer;" onclick="location.hash='#/j/${g.id}/search'">
+      <div class="grow">
+        <b>${esc(g.title)}</b>
+        <div class="muted small">by ${esc(g.owner_name)} · ${Number(g.member_count || 0)} members</div>
+        ${g.description ? `<div class="muted small" style="margin-top:2px;">${esc(g.description)}</div>` : ''}
+      </div>
+      <span class="btn-soft btn-sm">View ›</span>
+    </div>`;
+  out.innerHTML = `
+    ${groups.length ? `<div class="card"><div class="card-title">👥 Groups (${groups.length})</div><div class="list" style="margin-top:10px;">${groups.map(gCard).join('')}</div></div>` : ''}
+    ${people.length ? `<div class="card"><div class="card-title">🙂 People (${people.length})</div><div class="list" style="margin-top:10px;">${people.map(p => {
+      const gs = groups.filter(g => g.owner_id === p.id);
+      return `<div class="item-card" style="flex-wrap:wrap;"><div class="avatar-circle">${esc((p.display_name || '?').slice(0, 1).toUpperCase())}</div><div class="grow"><b>${esc(p.display_name)}</b>${gs.length ? `<div class="row" style="margin-top:6px;">${gs.map(g => `<button class="btn-soft btn-sm" onclick="location.hash='#/j/${g.id}/search'">${esc(g.title)} ›</button>`).join('')}</div>` : `<div class="muted small">No public groups yet.</div>`}</div></div>`;
+    }).join('')}</div></div>` : ''}
+    ${!groups.length && !people.length ? '<div class="empty-box">Nothing found. Groups only appear here when their admin turns on "Show in Recordly search".</div>' : ''}`;
+}
+
 async function renderCore() {
   setTop();
   scheduleDbSync();
   try {
     const p = hash();
-    if (p[0] === 'p' && p[1]) return await renderPublicPerson(p[1]);
-    if (p[0] === 'g' && p[1]) return await renderPublicGroup(p[1]);
+    if (p[0] === 'p' && p[1]) return await renderPublicPerson(p[1], p[2]);
+    if (p[0] === 'g' && p[1]) return await renderPublicGroup(p[1], p[2]);
+    if (p[0] === 'j' && p[1]) return await renderJoinPage(p[1], p[2]);
     if (!user) return renderLoggedOut();
+    if (p[0] === 'discover') return renderDiscover();
     if (p[0] === 'contributions') {
       if (p[1] === 'new') return newRecordForm();
       return renderContributions();
@@ -4413,7 +4856,11 @@ async function start() {
     const { data } = await sb.auth.getSession();
     user = data?.session?.user || null;
     sb.auth.onAuthStateChange((event, session) => {
+      const prev = user;
       user = session?.user || null;
+      // Token refreshes, profile/backup updates and tab re-focus fire this event too.
+      // Only restart the screen when the signed-in person actually changes.
+      if ((prev?.id || null) === (user?.id || null) && event !== 'SIGNED_OUT') return;
       setTop();
       render();
       if (user) {
