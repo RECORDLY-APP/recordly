@@ -10,6 +10,7 @@
 <meta property="og:description" content="Simple records, clear progress. Track contributions, business sales, expenses, and debts with private progress links and instant receipts.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root {
@@ -4346,6 +4347,8 @@ function renderMore() {
         <button class="btn-outline btn-sm">${currentTheme === 'dark' ? '☀️ Switch to Light' : '🌙 Switch to Dark'}</button>
       </div>
 
+      ${isStandalone() ? '' : `<div class="item-card between" id="installRow" onclick="installApp()" style="cursor:pointer;"><div class="avatar-circle">📲</div><div class="grow"><b>Install Recordly on this phone</b><div class="muted small">Opens like a normal app from your home screen</div></div><button class="btn-primary btn-sm">Install</button></div>`}
+
       <!-- Universal Search -->
       <div class="item-card between" onclick="openGlobalSearch()" style="cursor:pointer;">
         <div class="avatar-circle avatar-blue">🔍</div>
@@ -4971,6 +4974,19 @@ async function start() {
   if (user) {
     syncLocalDataToSupabase({ silent: true });
   }
+}
+
+// INSTALL AS AN APP (home-screen install + offline shell)
+let installPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; const b = $('installRow'); if (b) b.style.display = ''; });
+window.addEventListener('appinstalled', () => { installPrompt = null; const b = $('installRow'); if (b) b.style.display = 'none'; toast('Recordly is installed on your phone.'); });
+const isStandalone = () => window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+async function installApp() {
+  if (installPrompt) { installPrompt.prompt(); try { await installPrompt.userChoice; } catch (e) {} installPrompt = null; return; }
+  toast('Open your browser menu (⋮) and tap "Install app" or "Add to Home screen".');
+}
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
 start();
