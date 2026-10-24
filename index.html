@@ -4388,8 +4388,37 @@ function renderMore() {
         </div>
         <button class="btn-danger btn-sm">Clear</button>
       </div>
+
+      <!-- Delete account -->
+      <div class="item-card between" onclick="confirmWithPassword('Delete my account','This permanently deletes your Recordly account and ALL your records, people, payments, sales, debts and receipts from this phone and from our servers. It cannot be undone. Enter your password to confirm.', deleteMyAccount)" style="cursor:pointer;">
+        <div class="avatar-circle avatar-red">⚠️</div>
+        <div class="grow">
+          <b style="color:var(--accent-red);">Delete my account</b>
+          <div class="muted small">Remove your account and all your data for good</div>
+        </div>
+        <button class="btn-danger btn-sm">Delete</button>
+      </div>
     </div>
   `;
+}
+
+async function deleteMyAccount() {
+  if (!user) return;
+  toast('Deleting your account…');
+  let err = null;
+  try { const r = await sb.rpc('delete_my_account'); err = r && r.error; } catch (e) { err = e; }
+  if (err) { toast('Could not delete your account: ' + (err.message || 'please try again.')); return; }
+  try { await sb.auth.signOut(); } catch (e) {}
+  user = null;
+  Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
+  try { Object.keys(localStorage).filter(k => k === STORAGE_KEY || k.startsWith('rc_')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  loadingFor = null; loadedFor = null; dbSyncSig = '';
+  if (liveChan) { try { sb.removeChannel(liveChan); } catch (e) {} liveChan = null; }
+  liveAlerts = [];
+  closeModal();
+  location.hash = '#/';
+  render();
+  toast('Your account and all your data were deleted.');
 }
 
 function updateBizName() {
