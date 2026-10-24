@@ -524,6 +524,7 @@ th { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: upp
   height: 16px;
   color: var(--muted);
 }
+body.loggedout #bottomNav{display:none}
 </style>
 </head>
 <body>
@@ -642,13 +643,77 @@ function uid() {
 }
 
 // DATABASE SYNC: copies records, people and payments to Supabase so share links work on any phone
+let loadingFor = null, loadedFor = null;
 let dbSyncTimer = null, dbSyncBusy = false, dbSyncAgain = false, dbSyncSig = '', dbSyncWarned = false;
 function scheduleDbSync() {
   clearTimeout(dbSyncTimer);
   dbSyncTimer = setTimeout(syncRecordsToDb, 1200);
 }
+function renderLoggedOut() {
+  $('app').innerHTML = `
+    <div class="card">
+      <div class="pill">RECORD KEEPING MADE SIMPLE</div>
+      <h1 style="margin-top:12px;">Know what came in, what is due, and what remains.</h1>
+      <p class="muted">Log in to create records, add people, log payments and share progress links. Your records are saved safely to your account.</p>
+      <div class="row" style="margin-top:14px;">
+        <button class="btn-primary" onclick="authModal('signup')">Create account</button>
+        <button class="btn-outline" onclick="authModal('login')">Log in</button>
+      </div>
+    </div>
+    <div class="card">
+      <b>Did a seller send you a link?</b>
+      <p class="muted small" style="margin:6px 0 0;">Just open that link. You don't need an account to see your progress.</p>
+    </div>`;
+}
+
+async function loadAccountData() {
+  if (!user || loadingFor === user.id) return;
+  loadingFor = user.id;
+  try {
+    if (Store.data.owner && Store.data.owner !== user.id) {
+      Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
+    }
+    Store.data.owner = user.id;
+    const { data, error } = await sb.from('records').select('id,title,description,target,end_date,show_table,group_link,created_at,people(id,name,phone,payments(id,amount,paid_on,note))').order('created_at');
+    if (!error && data) {
+      data.forEach(r => {
+        let loc = (Store.data.records || []).find(x => x.id === r.id);
+        const dbPeople = (r.people || []).map(p => ({ id: p.id, name: p.name, phone: p.phone || '', payments: (p.payments || []).map(x => ({ id: x.id, amount: Number(x.amount), paid_on: x.paid_on, note: x.note || '' })) }));
+        if (!loc) {
+          Store.data.records.push({ id: r.id, title: r.title, description: r.description || '', target: r.target, end_date: r.end_date, show_table: r.show_table, group_link: r.group_link, created_at: r.created_at, people: dbPeople });
+        } else {
+          Object.assign(loc, { title: r.title, description: r.description || '', target: r.target, end_date: r.end_date, show_table: r.show_table, group_link: r.group_link });
+          loc.people = loc.people || [];
+          dbPeople.forEach(dp => {
+            const lp = loc.people.find(x => x.id === dp.id);
+            if (!lp) { loc.people.push(dp); return; }
+            lp.name = dp.name; lp.phone = dp.phone || lp.phone;
+            lp.payments = lp.payments || [];
+            dp.payments.forEach(dx => { if (!lp.payments.find(x => x.id === dx.id)) lp.payments.push(dx); });
+          });
+        }
+      });
+    }
+    const d = Store.data;
+    if (!(d.customers.length || d.sales.length || d.expenses.length || d.debts.length)) {
+      let b = null;
+      try { const u = await sb.auth.getUser(); b = u.data?.user?.user_metadata?.recordly_backup || null; } catch (e) {}
+      if (!b) { try { const t = await sb.from('user_backups').select('backup').eq('user_id', user.id).maybeSingle(); if (t.data?.backup) b = t.data.backup; } catch (e) {} }
+      if (b) {
+        ['customers', 'sales', 'expenses', 'debts'].forEach(k => { if (Array.isArray(b[k])) d[k] = b[k]; });
+        if (b.settings) d.settings = Object.assign({}, d.settings, b.settings);
+      }
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(Store.data));
+  } catch (e) {
+    console.warn('Could not load account data', e);
+  }
+  loadedFor = user ? user.id : null;
+  render();
+}
+
 async function syncRecordsToDb() {
-  if (!user) return;
+  if (!user || loadedFor !== user.id) return;
   if (dbSyncBusy) { dbSyncAgain = true; return; }
   dbSyncBusy = true;
   try {
@@ -752,7 +817,7 @@ const Store = {
         if (!this.data.records) this.data.records = [];
         if (!this.data.settings) this.data.settings = { businessName: 'My Enterprise', onboarded: false };
       } else {
-        this.loadSampleData(false);
+        this.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
       }
     } catch (e) {
       console.warn('Error reading storage', e);
@@ -931,6 +996,7 @@ async function syncLocalDataToSupabase(options = { silent: true }) {
     }
     return;
   }
+  if (loadedFor !== user.id) return; // wait until this account's data has been loaded
 
   cloudSyncStatus = 'syncing';
   updateSyncStatusBadge();
@@ -1128,6 +1194,7 @@ function checkReminders() {
 }
 
 function setTop() {
+  document.body.classList.toggle('loggedout', !user);
   const authEl = $('authPill');
   if (!authEl) return;
   if (user) {
@@ -1527,8 +1594,12 @@ function showAuthMsg(m) {
 }
 
 async function logout() {
+  try { await syncRecordsToDb(); await syncLocalDataToSupabase({ silent: true }); } catch (e) {}
   try { await sb.auth.signOut(); } catch (e) {}
   user = null;
+  Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
+  try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
+  loadingFor = null; loadedFor = null; dbSyncSig = '';
   closeModal();
   toast('Logged out.');
   render();
@@ -4165,6 +4236,7 @@ async function render() {
     const p = hash();
     if (p[0] === 'p' && p[1]) return await renderPublicPerson(p[1]);
     if (p[0] === 'g' && p[1]) return await renderPublicGroup(p[1]);
+    if (!user) return renderLoggedOut();
     if (p[0] === 'contributions') {
       if (p[1] === 'new') return newRecordForm();
       return renderContributions();
@@ -4204,7 +4276,7 @@ async function start() {
       setTop();
       render();
       if (user) {
-        syncLocalDataToSupabase({ silent: true });
+        loadAccountData().then(() => syncLocalDataToSupabase({ silent: true }));
       }
     });
   } catch (e) {
@@ -4219,6 +4291,7 @@ async function start() {
     syncLocalDataToSupabase({ silent: true });
   });
 
+  if (user) await loadAccountData();
   window.addEventListener('hashchange', render);
   await render();
 
