@@ -526,6 +526,8 @@ th { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: upp
 }
 body.loggedout #bottomNav{display:none}
 [hidden]{display:none!important}
+.stat-box{min-width:0}
+.stat-val,.fit-amt{white-space:nowrap;overflow:hidden}
 #cloudSyncBtn{display:none!important}
 
 /* mobile fit + simple home */
@@ -578,6 +580,11 @@ html,body{overflow-x:hidden}
       <!-- Dark / Light Theme Toggle -->
       <button class="btn-outline btn-icon" id="themeToggleBtn" onclick="toggleTheme()" title="Toggle Dark / Light Mode">
         <span id="themeIcon">🌙</span>
+      </button>
+
+      <!-- Hide / show amounts on this screen -->
+      <button class="btn-outline btn-icon" id="maskToggleBtn" onclick="toggleMask()" title="Hide or show amounts on my screen">
+        <span id="maskIcon">👁️</span>
       </button>
 
       <!-- Reminders Bell -->
@@ -655,7 +662,9 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
 const val = id => ($(id)?.value || '').trim();
 const hash = () => location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
-const money = n => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 }).format(Number(n || 0));
+const moneyReal = n => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 }).format(Number(n || 0));
+let maskMoney = false; try { maskMoney = localStorage.getItem('rc_mask') === '1'; } catch (e) {}
+const money = n => maskMoney ? '₦ ••••••' : moneyReal(n);
 const localDate = (d = new Date()) => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 60000); return z.toISOString().slice(0, 10); };
 const link = path => location.origin + location.pathname + '#/' + path;
 
@@ -1990,7 +1999,7 @@ function openReceiptModal(o) {
 
           <div style="background:#f8fafc;padding:12px;border-radius:10px;text-align:center;margin:12px 0;">
             <div class="small muted">Amount Paid</div>
-            <div style="font-size:26px;font-weight:900;color:#0f766e;margin-top:2px;">${money(o.amount)}</div>
+            <div class="fit-amt" style="font-size:26px;font-weight:900;color:#0f766e;margin-top:2px;">${moneyReal(o.amount)}</div>
           </div>
 
           <table style="margin:14px 0;">
@@ -2027,7 +2036,7 @@ function receiptText() {
     o.title ? 'For: ' + o.title : '',
     'Received from: ' + o.payer + (o.phone ? ' (' + o.phone + ')' : ''),
     o.onBehalf ? 'On behalf of: ' + o.onBehalf : '',
-    'Amount: ' + money(o.amount),
+    'Amount: ' + moneyReal(o.amount),
     'Purpose: ' + (o.purpose || 'Payment'),
     'Method: ' + (o.method || 'Cash'),
     'Date: ' + o.dateTxt,
@@ -2069,7 +2078,10 @@ function receiptToPng() {
     ctx.font = '500 18px monospace'; ctx.fillText('Ref: ' + o.receiptNo, W / 2, 134);
     ctx.fillStyle = '#f1f5f9'; ctx.fillRect(pad, 160, W - pad * 2, 100);
     ctx.fillStyle = '#64748b'; ctx.font = '600 18px ' + font; ctx.fillText('AMOUNT PAID', W / 2, 192);
-    ctx.fillStyle = '#0f766e'; ctx.font = '900 42px ' + font; ctx.fillText(money(o.amount), W / 2, 242);
+    ctx.fillStyle = '#0f766e';
+    let amtSize = 42; const amtTxt = moneyReal(o.amount);
+    do { ctx.font = '900 ' + amtSize + 'px ' + font; amtSize -= 2; } while (ctx.measureText(amtTxt).width > W - pad * 2 - 40 && amtSize > 14);
+    ctx.fillText(amtTxt, W / 2, 242);
     let y = 305; ctx.textAlign = 'left';
     wrapped.forEach(([k, ls]) => {
       ctx.fillStyle = '#64748b'; ctx.font = '600 20px ' + font; ctx.fillText(k, pad, y);
@@ -2081,26 +2093,62 @@ function receiptToPng() {
     c.toBlob(b => b ? resolve(b) : reject(new Error('Could not draw receipt')), 'image/png');
   });
 }
+function appInviteLink() { return location.origin + location.pathname; }
+function saveReceiptImage(blob, o) {
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'receipt-' + o.receiptNo + '.png';
+  document.body.appendChild(a); a.click(); a.remove();
+}
 async function shareReceipt(mode) {
   const o = window._rcpt; if (!o) return;
-  const text = receiptText();
-  if (mode === 'wa') { window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); return; }
+  const invite = appInviteLink();          // the only text that goes with the receipt image
   let blob = null;
   try {
     blob = await receiptToPng();
     const file = new File([blob], 'receipt-' + o.receiptNo + '.png', { type: 'image/png' });
     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({ files: [file], title: 'Payment receipt', text });
+      await navigator.share({ files: [file], text: invite });
       return;
     }
   } catch (e) { if (e && e.name === 'AbortError') return; }
-  if (navigator.share) {
-    try { await navigator.share({ title: 'Payment receipt', text }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  if (mode === 'wa') {
+    // WhatsApp links cannot attach pictures, so save the image and open WhatsApp with the invite.
+    if (blob) { saveReceiptImage(blob, o); toast('Receipt image saved. Attach it in WhatsApp.'); }
+    window.open('https://wa.me/?text=' + encodeURIComponent(invite), '_blank');
+    return;
   }
-  if (blob) {
-    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'receipt-' + o.receiptNo + '.png';
-    document.body.appendChild(a); a.click(); a.remove(); toast('Receipt image saved to your phone.');
-  } else { copyReceiptText(); }
+  if (navigator.share) {
+    try { await navigator.share({ text: invite }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+  }
+  if (blob) { saveReceiptImage(blob, o); toast('Receipt image saved to your phone.'); } else { copyText(invite); }
+}
+
+function updateMaskIcon() { const i = $('maskIcon'); if (i) i.textContent = maskMoney ? '🙈' : '👁️'; }
+function toggleMask() {
+  maskMoney = !maskMoney;
+  try { localStorage.setItem('rc_mask', maskMoney ? '1' : '0'); } catch (e) {}
+  updateMaskIcon();
+  toast(maskMoney ? 'Amounts are hidden on this screen.' : 'Amounts are visible.');
+  render();
+}
+
+// Shrink long amounts so they always fit their box (bigger number = smaller text).
+let fitQueued = false;
+function fitAmounts() {
+  fitQueued = false;
+  document.querySelectorAll('.stat-val, .fit-amt').forEach(el => {
+    if (!el.clientWidth) return;
+    if (!el.dataset.base) el.dataset.base = parseFloat(getComputedStyle(el).fontSize) || 16;
+    let size = Number(el.dataset.base);
+    el.style.fontSize = size + 'px';
+    while (el.scrollWidth > el.clientWidth + 1 && size > 10) { size -= 1; el.style.fontSize = size + 'px'; }
+  });
+}
+function queueFit() { if (!fitQueued) { fitQueued = true; requestAnimationFrame(fitAmounts); } }
+function initFit() {
+  const mo = new MutationObserver(queueFit);
+  ['app', 'modalRoot'].forEach(id => { const n = $(id); if (n) mo.observe(n, { childList: true, subtree: true, characterData: true }); });
+  window.addEventListener('resize', queueFit);
+  queueFit();
 }
 
 /**
@@ -4464,11 +4512,11 @@ async function renderPublicPerson(pid, src) {
 
       <div class="stat-box green" style="margin-top:14px;">
         <div class="stat-label">Total Amount Paid</div>
-        <div class="stat-val">${money(paid)}</div>
+        <div class="stat-val">${moneyReal(paid)}</div>
         ${r.hide_balance && !ownerView ? `<div class="small muted" style="margin-top:6px;">🔒 The balance is private. Ask the admin if you need it.</div>` : target ? `
           ${r.hide_balance ? `<div class="small muted" style="margin-top:6px;">🔒 Hidden from visitors. Only you can see this.</div>` : ''}
           <div class="progress-track" style="margin-top:8px;"><div class="progress-fill" style="width:${pc}%"></div></div>
-          <div class="small muted" style="margin-top:4px;">${pc}% completed · ${money(Math.max(0, target - paid))} remaining balance</div>
+          <div class="small muted" style="margin-top:4px;">${pc}% completed · ${moneyReal(Math.max(0, target - paid))} remaining balance</div>
         ` : `<div class="small muted" style="margin-top:4px;">No fixed individual target set.</div>`}
       </div>
     </div>
@@ -4480,7 +4528,7 @@ async function renderPublicPerson(pid, src) {
           ${pays.map(x => `
             <div class="item-card between">
               <div>
-                <b>${money(x.amount)}</b>
+                <b>${moneyReal(x.amount)}</b>
                 <div class="muted small">${esc(x.paid_on || 'Verified payment')}${payTimeTxt(x)} ${x.note ? `· ${esc(x.note)}` : ''}</div>
               </div>
               <span class="badge badge-green">Recorded</span>
@@ -4850,6 +4898,8 @@ async function renderCore() {
 
 async function start() {
   initTheme();
+  updateMaskIcon();
+  initFit();
   Store.init();
 
   try {
