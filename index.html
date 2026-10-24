@@ -694,10 +694,27 @@ function startIdleLogout() {
   reset();
 }
 
+async function signInWithGoogle() {
+  try {
+    const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } });
+    if (error) toast(error.message || 'Could not start Google sign-in.');
+  } catch (e) { toast('Could not start Google sign-in. Check your connection.'); }
+}
+// Google-only accounts have no password, so they confirm by typing a word instead.
+const hasPassword = () => !!(user && user.email && (user.identities || []).some(i => i.provider === 'email'));
 function confirmWithPassword(title, msg, onOk) {
-  if (!user || !user.email) { if (confirm(msg)) onOk(); return; }
+  if (!user) { if (confirm(msg)) onOk(); return; }
+  if (!hasPassword()) {
+    window._pwOk = onOk;
+    $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;"><div class="row between" style="margin-bottom:10px;"><h2>${esc(title)}</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div><p class="muted">${esc(msg.replace(/Enter your password to confirm\.?/, ''))}</p><div class="field"><label for="pwConfirm">Type CONFIRM to continue</label><input id="pwConfirm" autocomplete="off" autocapitalize="characters" placeholder="CONFIRM"></div><div id="pwErr" class="small" style="color:var(--accent-red);min-height:18px;"></div><div class="row between" style="margin-top:10px;"><button class="btn-outline" onclick="closeModal()">Cancel</button><button class="btn-danger" id="pwGo" onclick="runWordConfirm()">Confirm</button></div></div></div>`;
+    return;
+  }
   window._pwOk = onOk;
   $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;"><div class="row between" style="margin-bottom:10px;"><h2>${esc(title)}</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div><p class="muted">${esc(msg)}</p><div class="field"><label for="pwConfirm">Password</label><input id="pwConfirm" type="password" autocomplete="current-password"></div><div id="pwErr" class="small" style="color:var(--accent-red);min-height:18px;"></div><div class="row between" style="margin-top:10px;"><button class="btn-outline" onclick="closeModal()">Cancel</button><button class="btn-danger" id="pwGo" onclick="runPwConfirm()">Confirm</button></div></div></div>`;
+}
+function runWordConfirm() {
+  if ((($('pwConfirm') || {}).value || '').trim().toUpperCase() !== 'CONFIRM') { $('pwErr').textContent = 'Type the word CONFIRM exactly.'; return; }
+  const f = window._pwOk; closeModal(); if (f) f();
 }
 async function runPwConfirm() {
   const pw = ($('pwConfirm') || {}).value || '';
@@ -1451,6 +1468,14 @@ function authModal(mode = 'login') {
 
   if (mode === 'login') {
     bodyHtml = `
+      <button class="btn-outline" style="width:100%;padding:11px;gap:10px;" onclick="signInWithGoogle()">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.600-5.900c-2.100 1.400-4.900 2.300-8.300 2.300-6.300 0-11.600-4.100-13.500-9.800l-7.900 6.100C6.500 42.600 14.600 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div style="text-align:center;margin:14px 0;position:relative;">
+        <hr style="border:0;border-top:1px solid var(--line);">
+        <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--modal-bg);padding:0 8px;font-size:11px;color:var(--muted);">OR USE EMAIL</span>
+      </div>
       <div class="field">
         <label for="authEmail">Email Address</label>
         <input id="authEmail" type="email" autocomplete="email" placeholder="you@gmail.com">
@@ -1487,6 +1512,14 @@ function authModal(mode = 'login') {
     `;
   } else if (mode === 'signup') {
     bodyHtml = `
+      <button class="btn-outline" style="width:100%;padding:11px;gap:10px;" onclick="signInWithGoogle()">
+        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.600-5.900c-2.100 1.400-4.900 2.300-8.300 2.300-6.300 0-11.600-4.100-13.500-9.800l-7.900 6.100C6.500 42.600 14.600 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div style="text-align:center;margin:14px 0;position:relative;">
+        <hr style="border:0;border-top:1px solid var(--line);">
+        <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--modal-bg);padding:0 8px;font-size:11px;color:var(--muted);">OR USE EMAIL</span>
+      </div>
       <div class="field">
         <label for="authName">Full Name</label>
         <input id="authName" autocomplete="name" placeholder="Amina Bello">
@@ -4911,6 +4944,7 @@ async function start() {
       // Token refreshes, profile/backup updates and tab re-focus fire this event too.
       // Only restart the screen when the signed-in person actually changes.
       if ((prev?.id || null) === (user?.id || null) && event !== 'SIGNED_OUT') return;
+      try { if (user && event === 'SIGNED_IN' && user.app_metadata?.provider === 'google' && user.email && Date.now() - new Date(user.created_at).getTime() < 120000) localStorage.setItem('rc_newuser', user.email); } catch (e) {}
       setTop();
       render();
       if (user) {
