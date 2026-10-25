@@ -526,6 +526,28 @@ th { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: upp
   color: var(--muted);
 }
 body.loggedout #bottomNav{display:none}
+body.locked .top-header, body.locked #bottomNav, body.locked #appFooter{display:none!important}
+#splash{position:fixed;inset:0;z-index:400;background:linear-gradient(160deg,#0f766e,#115e59 55%,#12244f);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;transition:opacity .45s ease}
+#splash.out{opacity:0;pointer-events:none}
+#splash .sp-logo{width:84px;height:84px;border-radius:24px;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:44px;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+#splash .sp-name{font-size:34px;font-weight:800;letter-spacing:-1px}
+#splash .sp-tag{font-size:16px;opacity:.9;max-width:260px}
+#splash .sp-dots{margin-top:26px;display:flex;gap:7px}
+#splash .sp-dots i{width:8px;height:8px;border-radius:50%;background:#fff;opacity:.35;animation:spd 1s infinite}
+#splash .sp-dots i:nth-child(2){animation-delay:.15s}#splash .sp-dots i:nth-child(3){animation-delay:.3s}
+@keyframes spd{50%{opacity:1}}
+.lockwrap{min-height:calc(100vh - 70px);display:flex;flex-direction:column;align-items:center;text-align:center;padding:26px 8px 18px;gap:6px}
+.lockwrap .lk-brand{display:flex;align-items:center;gap:10px;margin-bottom:18px}
+.lockwrap .lk-av{width:78px;height:78px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:grid;place-items:center;font-size:32px;font-weight:800;overflow:hidden;margin-top:6px}
+.lockwrap .lk-av img{width:100%;height:100%;object-fit:cover}
+.lockwrap .lk-name{font-size:17px;font-weight:700;margin-top:8px}
+.lockwrap .lk-id{color:var(--muted);font-size:14px}
+.bioBtn{margin-top:46px;width:108px;height:108px;border-radius:50%;padding:0;background:var(--primary-light);border:3px solid var(--primary);color:var(--primary);display:grid;place-items:center}
+.bioBtn svg{width:54px;height:54px}
+.bioCap{color:var(--primary);font-weight:700;margin-top:12px}
+.lockpw{width:100%;max-width:320px;margin-top:34px;text-align:left}
+.lockLinks{margin-top:auto;padding-top:30px;font-size:14px;font-weight:700;color:var(--primary)}
+.lockLinks a{cursor:pointer;padding:6px 8px}.lockLinks span{color:var(--muted)}
 [hidden]{display:none!important}
 .stat-box{min-width:0}
 .stat-val,.fit-amt{white-space:nowrap;overflow:hidden}
@@ -696,11 +718,119 @@ function startIdleLogout() {
 }
 
 async function signInWithGoogle() {
+  try { sessionStorage.setItem('rc_unlock_oauth', '1'); } catch (e) {}
   try {
     const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname, queryParams: { prompt: 'select_account' } } });
     if (error) toast(error.message || 'Could not start Google sign-in.');
   } catch (e) { toast('Could not start Google sign-in. Check your connection.'); }
 }
+// APP LOCK (fingerprint / Face ID, or password only) + welcome screen
+const SPLASH_TAGLINE = 'Simple records. Clear progress.';
+let appLocked = false, hiddenAt = 0, lockAuto = false;
+const b64u = {
+  enc: b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
+  dec: t => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
+};
+const isPublicHash = () => /^#\/(p|g|j)\//.test(location.hash);
+function lockCfg() { try { return JSON.parse(localStorage.getItem('rc_lock') || 'null'); } catch (e) { return null; } }
+function saveLock(c) { try { c ? localStorage.setItem('rc_lock', JSON.stringify(c)) : localStorage.removeItem('rc_lock'); } catch (e) {} }
+const lockActive = () => { const c = lockCfg(); return !!(user && c && c.uid === user.id); };
+async function bioSupported() { try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; } }
+function showSplash() {
+  if (document.getElementById('splash') || isPublicHash()) return;
+  try { if (sessionStorage.getItem('rc_splash')) return; sessionStorage.setItem('rc_splash', '1'); } catch (e) {}
+  const d = document.createElement('div'); d.id = 'splash';
+  d.innerHTML = `<div class="sp-logo">R</div><div class="sp-name">Recordly</div><div class="sp-tag">${esc(SPLASH_TAGLINE)}</div><div class="sp-dots"><i></i><i></i><i></i></div>`;
+  document.body.appendChild(d);
+}
+function hideSplash(delay) { const d = document.getElementById('splash'); if (!d) return; setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 500); }, delay || 0); }
+function maskId(u) {
+  if (u.email) { const [a, d] = u.email.split('@'); return a.slice(0, 2) + '***@' + d; }
+  const ph = u.phone || ''; return ph.length > 6 ? ph.slice(0, 3) + '****' + ph.slice(-3) : '';
+}
+function renderLock() {
+  const c = lockCfg(), bio = !!(c && c.mode === 'bio');
+  const m = user.user_metadata || {}, nm = m.name || m.full_name || 'Welcome back';
+  const pic = m.avatar_url || m.picture;
+  $('app').innerHTML = `
+    <div class="lockwrap">
+      <div class="lk-brand"><div class="brand-icon">R</div><div class="brand-text">Record<span>ly</span></div></div>
+      <div class="lk-av">${pic ? `<img src="${esc(pic)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : esc((nm[0] || 'R').toUpperCase())}</div>
+      <div class="lk-name">${esc(nm)}</div>
+      <div class="lk-id">${esc(maskId(user))}</div>
+      ${bio ? `<button class="bioBtn" onclick="bioUnlock()" aria-label="Unlock with fingerprint or Face ID"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3-.5 5.500-1.700 7.800"/><path d="M8.500 15.500c.4-1.300.5-2.600.5-4.500a3 3 0 0 1 6 0c0 1.200 0 2.300-.2 3.400"/><path d="M5.800 17.500C6.600 15.600 7 13.500 7 11a5 5 0 0 1 10 0c0 .8 0 1.600-.1 2.400"/><path d="M4 9a8 8 0 0 1 16 0c0 1.700-.1 3.300-.4 4.800"/><path d="M15.500 17.800c.3-.9.5-1.700.7-2.600"/></svg></button><div class="bioCap">Tap to unlock with fingerprint or Face ID</div>` : ''}
+      <div class="lockpw" id="lockPw" style="display:${bio ? 'none' : 'block'};">
+        ${hasPassword() ? `<label for="lockPass">Password</label><input id="lockPass" type="password" autocomplete="current-password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')lockPassword()"><button class="btn-primary" style="width:100%;margin-top:10px;" onclick="lockPassword()">Unlock</button>`
+          : (user.app_metadata?.provider === 'google' ? `<button class="btn-primary" style="width:100%;" onclick="signInWithGoogle()">Continue with Google</button>` : `<p class="muted small">This account has no password. Tap Switch Account to log in again.</p>`)}
+        <div id="lockErr" class="small" style="color:var(--accent-red);min-height:20px;margin-top:6px;"></div>
+      </div>
+      <div class="lockLinks"><a onclick="switchAccount()">Switch Account</a> <span>|</span> <a onclick="showLockPw()">Login with Password</a></div>
+    </div>`;
+  if (bio && !lockAuto) { lockAuto = true; setTimeout(() => { if (appLocked) bioUnlock(true); }, 400); }
+}
+function showLockPw() { const e = $('lockPw'); if (e) { e.style.display = 'block'; const i = $('lockPass'); if (i) i.focus(); } }
+function unlockApp() { appLocked = false; lockAuto = false; hiddenAt = 0; closeModal(); render(); }
+async function lockPassword() {
+  const pw = ($('lockPass') || {}).value || '';
+  if (!pw) { $('lockErr').textContent = 'Type your password.'; return; }
+  $('lockErr').textContent = 'Checking…';
+  try {
+    const { error } = await sb.auth.signInWithPassword({ email: user.email, password: pw });
+    if (error) { $('lockErr').textContent = 'Wrong password. Try again.'; return; }
+  } catch (e) { $('lockErr').textContent = 'Could not check. Check your internet.'; return; }
+  unlockApp();
+}
+async function bioUnlock(auto) {
+  const c = lockCfg(); if (!c || !c.cred) return;
+  try {
+    const r = await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), rpId: location.hostname, allowCredentials: [{ type: 'public-key', id: b64u.dec(c.cred), transports: ['internal'] }], userVerification: 'required', timeout: 60000 } });
+    if (r) unlockApp();
+  } catch (e) {
+    if (!auto) { const er = $('lockErr'); showLockPw(); if (er) er.textContent = 'Fingerprint did not work. Use your password instead.'; }
+  }
+}
+async function switchAccount() { saveLock(null); appLocked = false; await logout(); }
+async function enableBiometric() {
+  try {
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: crypto.getRandomValues(new Uint8Array(32)),
+      rp: { name: 'Recordly', id: location.hostname },
+      user: { id: new TextEncoder().encode(user.id).slice(0, 64), name: user.email || user.id, displayName: (user.user_metadata && (user.user_metadata.name || user.user_metadata.full_name)) || user.email || 'Recordly user' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' },
+      timeout: 60000, attestation: 'none' } });
+    saveLock({ mode: 'bio', cred: b64u.enc(cred.rawId), uid: user.id });
+    closeModal(); toast('Fingerprint / Face ID lock is on.'); render();
+  } catch (e) { toast(e && e.name === 'NotAllowedError' ? 'Cancelled. Lock not turned on.' : 'This phone could not set up the lock.'); }
+}
+function enablePasswordLock() { saveLock({ mode: 'pw', uid: user.id }); closeModal(); toast('Password lock is on.'); render(); }
+function disableLock() { saveLock(null); closeModal(); toast('App lock is off.'); render(); }
+async function openLockSettings() {
+  const c = lockCfg(), on = !!(c && c.uid === user.id), sup = await bioSupported();
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;">
+    <div class="row between" style="margin-bottom:8px;"><h2>App lock</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted">Ask for your fingerprint, Face ID or password each time you open Recordly.</p>
+    <div class="list" style="margin-top:10px;">
+      <button class="${on && c.mode === 'bio' ? 'btn-soft' : 'btn-outline'}" style="justify-content:flex-start;padding:12px;" ${sup ? '' : 'disabled'} onclick="enableBiometric()">👆 Fingerprint / Face ID ${on && c.mode === 'bio' ? '✓' : ''}</button>
+      ${sup ? '' : '<div class="muted small">This phone or browser has no fingerprint or Face ID unlock set up.</div>'}
+      ${hasPassword() ? `<button class="${on && c.mode === 'pw' ? 'btn-soft' : 'btn-outline'}" style="justify-content:flex-start;padding:12px;" onclick="enablePasswordLock()">🔑 Password only ${on && c.mode === 'pw' ? '✓' : ''}</button>` : ''}
+      ${on ? '<button class="btn-danger" style="padding:12px;" onclick="disableLock()">Turn off app lock</button>' : ''}
+    </div></div></div>`;
+}
+async function maybeOfferLock() {
+  try {
+    if (!user || lockCfg() || appLocked || isPublicHash() || localStorage.getItem('rc_lockasked') || localStorage.getItem('rc_newuser')) return;
+    if (($('modalRoot') || {}).innerHTML && $('modalRoot').innerHTML.trim()) return;
+    if (!(await bioSupported())) return;
+    localStorage.setItem('rc_lockasked', '1');
+    $('modalRoot').innerHTML = `<div class="modal-overlay"><div class="modal-window" style="max-width:380px;text-align:center;"><div style="font-size:42px;">👆</div><h2>Lock Recordly with your fingerprint?</h2><p class="muted">Your records stay private. Only you can open the app, even if someone has your phone.</p><button class="btn-primary" style="width:100%;" onclick="enableBiometric()">Turn on</button><button class="btn-outline" style="width:100%;margin-top:8px;" onclick="closeModal()">Not now</button></div></div>`;
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) { hiddenAt = Date.now(); return; }
+  if (user && !appLocked && lockActive() && hiddenAt && Date.now() - hiddenAt > 30000) { appLocked = true; lockAuto = false; closeModal(); render(); }
+});
+
 // Google-only accounts have no password, so they confirm by typing a word instead.
 const hasPassword = () => !!(user && user.email && (user.identities || []).some(i => i.provider === 'email'));
 function confirmWithPassword(title, msg, onOk) {
@@ -830,7 +960,7 @@ const HINTS = {
 };
 function addPageHint() {
   const p = hash();
-  if (!user || p[0] === 'p' || p[0] === 'g' || (p[0] === 'contributions' && p[1] === 'new')) return;
+  if (!user || appLocked || p[0] === 'p' || p[0] === 'g' || (p[0] === 'contributions' && p[1] === 'new')) return;
   const key = p[0] === 'r' ? (p[2] ? 'member' : 'record') : (p[0] || '');
   const h = HINTS[key]; if (!h) return;
   try { if (localStorage.getItem('rc_hint_' + key)) return; } catch (e) {}
@@ -1405,6 +1535,7 @@ function checkReminders() {
 
 function setTop() {
   document.body.classList.toggle('loggedout', !user);
+  document.body.classList.toggle('locked', !!(user && appLocked && !isPublicHash()));
   const authEl = $('authPill');
   if (!authEl) return;
   if (user) {
@@ -4389,6 +4520,15 @@ function renderMore() {
         <button class="btn-danger btn-sm">Clear</button>
       </div>
 
+      <div class="item-card between" onclick="openLockSettings()" style="cursor:pointer;">
+        <div class="avatar-circle avatar-blue">🔒</div>
+        <div class="grow">
+          <b>App lock: ${lockActive() ? (lockCfg().mode === 'bio' ? 'Fingerprint / Face ID' : 'Password') : 'Off'}</b>
+          <div class="muted small">Ask for fingerprint, Face ID or password when you open the app</div>
+        </div>
+        <button class="btn-outline btn-sm">Change</button>
+      </div>
+
       <!-- Delete account -->
       <div class="item-card between" onclick="confirmWithPassword('Delete my account','This permanently deletes your Recordly account and ALL your records, people, payments, sales, debts and receipts from this phone and from our servers. It cannot be undone. Enter your password to confirm.', deleteMyAccount)" style="cursor:pointer;">
         <div class="avatar-circle avatar-red">⚠️</div>
@@ -4933,6 +5073,7 @@ async function renderCore() {
     if (p[0] === 'g' && p[1]) return await renderPublicGroup(p[1], p[2]);
     if (p[0] === 'j' && p[1]) return await renderJoinPage(p[1], p[2]);
     if (!user) return renderLoggedOut();
+    if (appLocked) return renderLock();
     if (p[0] === 'discover') return renderDiscover();
     if (p[0] === 'contributions') {
       if (p[1] === 'new') return newRecordForm();
@@ -4962,6 +5103,8 @@ async function renderCore() {
 }
 
 async function start() {
+  showSplash();
+  const splashAt = Date.now();
   initTheme();
   updateMaskIcon();
   initFit();
@@ -4970,6 +5113,7 @@ async function start() {
   try {
     const { data } = await sb.auth.getSession();
     user = data?.session?.user || null;
+    try { if (lockActive() && !isPublicHash() && !sessionStorage.getItem('rc_unlock_oauth')) appLocked = true; sessionStorage.removeItem('rc_unlock_oauth'); } catch (e) {}
     sb.auth.onAuthStateChange((event, session) => {
       const prev = user;
       user = session?.user || null;
@@ -4999,6 +5143,8 @@ async function start() {
   if (user) await loadAccountData();
   window.addEventListener('hashchange', render);
   await render();
+  hideSplash(Math.max(0, 1400 - (Date.now() - splashAt)));
+  setTimeout(maybeOfferLock, 2600);
 
   if (user) {
     syncLocalDataToSupabase({ silent: true });
