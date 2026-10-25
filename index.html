@@ -764,26 +764,48 @@ body{padding-bottom:86px}
 .header-actions .btn-icon{width:42px;height:42px;border-radius:50%;background:var(--card)}
 .bottom-nav .nav-item{font-size:11.5px}
 .ic{display:block;flex-shrink:0}
-.hero-card{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;border-radius:22px;padding:16px 18px 18px;margin-bottom:10px;position:relative;z-index:1;box-shadow:0 12px 26px rgba(15,118,110,.22)}
-.hc-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
-.hc-label{display:flex;align-items:center;gap:8px;font-size:14px;opacity:.96}
-.hc-eye{all:unset;cursor:pointer;display:grid;place-items:center;width:30px;height:30px;border-radius:50%}
-.hc-add{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.75);border-radius:99px;padding:8px 14px;font-weight:700;font-size:14px;gap:6px}
-.hc-amt{font-size:clamp(24px,8vw,32px);font-weight:800;letter-spacing:-.8px;margin:12px 0 6px;display:flex;align-items:center;gap:6px;cursor:pointer;word-break:break-all}
-.hc-sub{font-size:13.5px;opacity:.93}
-.hc-last{display:flex;align-items:center;gap:9px;background:var(--card);border:1px solid var(--line);border-top:0;border-radius:0 0 18px 18px;margin:-26px 6px 12px;padding:32px 12px 11px;font-size:13px;cursor:pointer}
-.hc-last small{white-space:nowrap}.hc-last .ok{color:var(--primary);display:grid}.hc-last .tx{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hc-last small{color:var(--muted)}
 .tiles{display:grid;gap:10px 4px;padding:14px 8px;margin-bottom:12px}
 .tiles.t3{grid-template-columns:repeat(3,1fr)}.tiles.t4{grid-template-columns:repeat(4,1fr)}
 .tile{all:unset;box-sizing:border-box;display:flex;flex-direction:column;align-items:center;gap:7px;text-align:center;font-size:12.5px;font-weight:600;color:var(--text);cursor:pointer;padding:6px 2px;border-radius:14px;line-height:1.2}
 .tile:active{background:var(--box-bg)}.tile:focus-visible{outline:2px solid var(--primary)}
 .tic{width:50px;height:50px;border-radius:50%;background:var(--primary-light);color:var(--primary);display:grid;place-items:center}
 .t3 .tic{width:58px;height:58px;border-radius:19px}
-.sumrow{display:grid;grid-template-columns:repeat(3,1fr);padding:12px 4px;margin-bottom:12px}
-.sumrow>div{text-align:center;padding:2px 4px;border-left:1px solid var(--line);min-width:0}.sumrow>div:first-child{border:0}
-.sumrow small{display:block;color:var(--muted);font-size:11.5px}.sumrow b{font-size:14px;display:block;margin-top:2px;word-break:break-all}
-.alertbar{display:flex;align-items:center;gap:10px;background:var(--primary-light);color:var(--text);border-radius:16px;padding:12px 14px;margin-bottom:12px;cursor:pointer;font-size:13.5px}
-.alertbar .ic{color:var(--primary)}
+/* ===== HOME: records and progress ===== */
+:root{--onp:#fff}[data-theme="dark"]{--onp:#04211f}
+.home{padding-bottom:96px}
+body:has(.home) #appFooter{display:none}
+.sec{display:flex;align-items:center;justify-content:space-between;margin:18px 4px 8px;font-size:13px;font-weight:700;color:var(--muted);letter-spacing:.3px}
+.sec a{color:var(--primary);cursor:pointer;font-weight:700;letter-spacing:0;padding:4px 2px}
+.prog{display:flex;align-items:center;gap:16px;padding:16px 18px;margin-bottom:0}
+.prog .pt{min-width:0}.prog .pt small{display:block;color:var(--muted);font-size:13px}
+.prog .pt b{display:block;font-size:22px;letter-spacing:-.4px;margin:2px 0}
+.ringw{position:relative;display:grid;place-items:center;flex-shrink:0}
+.ringw>b{position:absolute;font-size:12.5px;font-weight:800;color:var(--text);display:grid;place-items:center}
+.ringw>b .ic{color:var(--primary)}
+.ring circle:nth-child(2){animation:ringIn .9s ease both}
+@keyframes ringIn{from{stroke-dashoffset:var(--c)}}
+.att{padding:6px 14px}
+.arow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.arow:last-child{border-bottom:0}
+.arow .aic{width:38px;height:38px;border-radius:13px;background:var(--primary-light);color:var(--primary);display:grid;place-items:center;flex-shrink:0}
+.arow .atx{flex:1;min-width:0}.arow .atx b{display:block;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow .atx small{display:block;color:var(--muted);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arow>.ic:last-child{color:var(--muted)}
+.ok-row{display:flex;align-items:center;gap:10px;padding:14px 16px;color:var(--text);font-size:14.5px}.ok-row .ic{color:var(--primary)}
+.rrow{display:flex;align-items:center;gap:14px;padding:13px 14px;cursor:pointer;border-bottom:1px solid var(--line)}
+.rrow:last-child{border-bottom:0}
+.rrow .rtx{flex:1;min-width:0}.rrow .rtx b{display:block;font-size:15.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rrow .rtx small{display:block;color:var(--muted);font-size:13px;margin-top:1px}
+.rrow>.ic{color:var(--muted)}
+.rlist{padding:0}
+.linkrow{display:flex;align-items:center;justify-content:center;gap:6px;margin:14px 0 0;color:var(--primary);font-weight:700;font-size:14px;cursor:pointer;padding:10px}
+.empty-home{text-align:center;padding:28px 18px}.empty-home .tic{margin:0 auto 12px}.empty-home b{display:block;font-size:17px}.empty-home p{margin:6px 0 0;color:var(--muted)}
+.dock{position:fixed;left:50%;transform:translateX(-50%);width:min(calc(100% - 24px),520px);bottom:calc(var(--navh,64px) + 8px);display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px;background:var(--card);border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);z-index:45}
+.dk{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:11px 4px;min-height:60px;border-radius:16px;background:var(--box-bg);color:var(--text);border:0;font-size:12.5px;font-weight:700;min-width:0;line-height:1.15;text-align:center}
+.dk.main{background:var(--primary);color:var(--onp)}
+.dk span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(min-width:768px){.dock{bottom:18px}}
+@media(prefers-reduced-motion:reduce){.ring circle:nth-child(2){animation:none}}
 /* one colour only */
 .stat-box.green,.stat-box.red,.stat-box.blue,.stat-box.amber{background:var(--box-bg);border-color:var(--line)}
 .stat-box.green .stat-val,.stat-box.red .stat-val,.stat-box.blue .stat-val,.stat-box.amber .stat-val{color:var(--text)}
@@ -801,8 +823,6 @@ body{padding-bottom:86px}
 .prof-av img{width:100%;height:100%;object-fit:cover}
 .me-nm{font-size:20px;font-weight:800;display:flex;align-items:center;gap:4px}
 .pill{display:inline-block;background:var(--primary-light);color:var(--primary);border-radius:99px;padding:4px 11px;font-size:12px;font-weight:700;max-width:56vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.me-bal{padding:14px 16px;margin-bottom:12px}
-.me-bal .l{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:14px}.me-bal .v{font-size:26px;font-weight:800;margin:6px 0 2px;letter-spacing:-.5px}
 .sgroup{background:var(--card);border-radius:20px;padding:2px 16px;margin-bottom:12px;border:1px solid var(--line)}
 .srow{display:flex;align-items:center;gap:14px;padding:15px 0;cursor:pointer;border-bottom:1px solid var(--line)}
 .srow:last-child{border-bottom:0}
@@ -853,7 +873,7 @@ body{padding-bottom:86px}
       </button>
       <button class="btn-outline btn-icon" onclick="location.hash='#/notifications'" id="notifBell" aria-label="Alerts" style="position:relative;">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-        <span id="notifCountBadge" style="display:none;position:absolute;top:6px;right:7px;width:9px;height:9px;background:var(--accent-red);border-radius:50%;border:2px solid var(--bg)"></span>
+        <span id="notifCountBadge" style="display:none;position:absolute;top:6px;right:7px;width:9px;height:9px;background:var(--primary);border-radius:50%;border:2px solid var(--bg)"></span>
       </button>
       <div id="authPill"></div>
     </div>
@@ -2845,180 +2865,112 @@ const ICO = {
 };
 const ico = (n, sz) => `<svg class="ic" width="${sz || 22}" height="${sz || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[n] || ''}</svg>`;
 const tile = (id, icon, label, fn) => `<button class="tile"${id ? ` id="${id}"` : ''} onclick="${fn}"><span class="tic">${ico(icon)}</span>${label}</button>`;
-function earnedTodayAmt() {
-  const t = localDate(); let sum = 0;
-  (Store.data.records || []).forEach(r => (r.people || []).forEach(p => (p.payments || []).forEach(x => { if (x.paid_on === t) sum += Number(x.amount || 0); })));
-  (Store.data.sales || []).forEach(sl => { if (sl.date === t) sum += Number(sl.amount_paid || 0); });
-  return sum;
+// Progress for one record: how many people have paid their share (or paid anything, if no share is set)
+function recProgress(r) {
+  const people = r.people || [], tgt = Number(r.target || 0), unpaid = []; let paid = 0;
+  people.forEach(p => {
+    const sum = (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+    if (tgt > 0 ? sum >= tgt : sum > 0) paid++; else unpaid.push(p);
+  });
+  return { total: people.length, paid, unpaid };
 }
-function lastPaymentInfo() {
-  let last = null;
-  (Store.data.records || []).forEach(r => (r.people || []).forEach(p => (p.payments || []).forEach(x => {
-    const t = String(x.created_at || x.paid_at || x.paid_on || '');
-    if (!last || t > last.t) last = { t, who: x.payer_name || p.name, amt: x.amount, rec: r.title };
-  })));
-  return last;
+function ringHtml(pc, size, stroke) {
+  const rad = (size - stroke) / 2, c = 2 * Math.PI * rad, off = c * (1 - Math.max(0, Math.min(100, pc)) / 100), h = size / 2;
+  return `<div class="ringw" style="width:${size}px;height:${size}px">
+    <svg class="ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true" style="--c:${c.toFixed(1)}">
+      <circle cx="${h}" cy="${h}" r="${rad}" fill="none" stroke="var(--line)" stroke-width="${stroke}"/>
+      <circle cx="${h}" cy="${h}" r="${rad}" fill="none" stroke="var(--primary)" stroke-width="${stroke}" stroke-linecap="round" stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${off.toFixed(1)}" transform="rotate(-90 ${h} ${h})"/>
+    </svg><b>${pc >= 100 ? ico('check', Math.round(size * .4)) : pc + '%'}</b></div>`;
 }
 
 function renderDashboard() {
   updateNavActive('home');
+  const recs = Store.data.records || [];
+  const prog = recs.map(r => ({ r, ...recProgress(r) }));
+  const totPeople = prog.reduce((a, x) => a + x.total, 0), totPaid = prog.reduce((a, x) => a + x.paid, 0);
+  const overallPc = totPeople ? Math.round(totPaid / totPeople * 100) : 0;
 
-  // Aggregates
-  const recs = Store.data.records;
-  let totalContribCollected = 0;
-  let totalContribExpected = 0;
-  recs.forEach(r => {
-    (r.people || []).forEach(p => {
-      const paid = (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
-      totalContribCollected += paid;
-      if (r.target) totalContribExpected += Number(r.target);
-    });
+  // Needs attention: who hasn't paid, late debts, people waiting to join
+  const items = [];
+  prog.filter(x => x.unpaid.length).sort((a, b) => b.unpaid.length - a.unpaid.length).slice(0, 2).forEach(x => {
+    const n = x.unpaid.length;
+    items.push({ icon: 'users', t: n === 1 ? '1 person has not paid' : n + ' people have not paid', s: x.r.title, go: `#/r/${x.r.id}` });
   });
-
-  const sales = Store.data.sales;
-  const totalSalesAmount = sales.reduce((a, s) => a + Number(s.total || 0), 0);
-  const totalSalesCollected = sales.reduce((a, s) => a + Number(s.amount_paid || 0), 0);
-  const totalCustomerCredit = Math.max(0, totalSalesAmount - totalSalesCollected);
-
-  const expenses = Store.data.expenses;
-  const totalExpenses = expenses.reduce((a, e) => a + Number(e.amount || 0), 0);
-
-  const debts = Store.data.debts;
-  let owedToMeTotal = 0;
-  let iOweTotal = 0;
-  let overdueCount = 0;
   const todayStr = localDate();
-
-  debts.forEach(d => {
-    const repaid = (d.repayments || []).reduce((a, r) => a + Number(r.amount || 0), 0);
-    const balance = Math.max(0, Number(d.original_amount || 0) - repaid);
-    if (d.type === 'receivable') owedToMeTotal += balance;
-    else iOweTotal += balance;
-    if (balance > 0 && d.due_date && d.due_date < todayStr) overdueCount++;
-  });
-
-  const totalMoneyRecorded = totalContribCollected + totalSalesCollected;
-  const estimatedProfit = totalSalesAmount - totalExpenses;
+  (Store.data.debts || []).filter(d => {
+    const bal = Number(d.original_amount || 0) - (d.repayments || []).reduce((a, r) => a + Number(r.amount || 0), 0);
+    return bal > 0 && d.due_date && d.due_date < todayStr;
+  }).slice(0, 2).forEach(d => items.push({ icon: 'clock', t: d.type === 'receivable' ? `${d.person_name} owes you` : `You owe ${d.person_name}`, s: 'Overdue · due ' + d.due_date, go: '#/debts' }));
+  const waiting = ((typeof inbox !== 'undefined' && inbox.joins) || []).filter(j => j.status === 'pending').length;
+  if (waiting) items.push({ icon: 'user', t: waiting === 1 ? '1 person wants to join' : waiting + ' people want to join', s: 'Tap to answer', go: '#/notifications' });
   const reminders = checkReminders();
+  if (!items.length && reminders.length) items.push({ icon: 'bell', t: reminders.length === 1 ? '1 new alert' : reminders.length + ' new alerts', s: reminders[0].title, go: '#/notifications' });
+  const shown = items.slice(0, 3);
 
   $('app').innerHTML = `
-    <div class="hero-card">
-      <div class="hc-row">
-        <div class="hc-label">${ico('shield', 18)} Total collected
-          <button class="hc-eye" onclick="toggleMask()" aria-label="Hide or show amounts">${ico(maskMoney ? 'eyeoff' : 'eye', 18)}</button>
+    <div class="home">
+      ${recs.length ? `
+      <div class="card prog" onclick="location.hash='#/contributions'" style="cursor:pointer;">
+        ${ringHtml(overallPc, 76, 8)}
+        <div class="pt">
+          <small>Progress</small>
+          <b>${totPeople ? `${totPaid} of ${totPeople} paid` : 'Add your people'}</b>
+          <small>${recs.length === 1 ? '1 record' : recs.length + ' records'}</small>
         </div>
-        <button class="hc-add" id="tNew" onclick="location.hash='#/contributions/new'">${ico('plus', 16)} New record</button>
-      </div>
-      <div class="hc-amt" onclick="location.hash='#/reports'">${money(totalMoneyRecorded)} ${ico('chev', 18)}</div>
-      <div class="hc-sub">Earned today <b>${money(earnedTodayAmt())}</b></div>
-    </div>
-    ${(() => { const l = lastPaymentInfo(); return l
-      ? `<div class="hc-last" onclick="location.hash='#/reports'"><span class="ok">${ico('check', 18)}</span><span class="tx"><b>${esc(l.who)}</b> paid ${money(l.amt)} <small>· ${esc(l.rec)}</small></span><small>Reports ${ico('chev', 12)}</small></div>`
-      : `<div class="hc-last" onclick="quickLogPayment()"><span class="ok">${ico('cash', 18)}</span><span class="tx">No payments yet. Tap <b>Log payment</b> when someone pays.</span></div>`; })()}
-
-    <div class="card tiles t3">
-      ${tile('tPay', 'cash', 'Log payment', 'quickLogPayment()')}
-      ${tile('tShare', 'link', 'Share link', 'quickShareLink()')}
-      ${tile('tDisc', 'globe', 'Discover', "location.hash='#/discover'")}
-    </div>
-
-    <div class="card tiles t4" id="tGrid">
-      ${tile('', 'bag', 'Record sale', 'openSaleModal()')}
-      ${tile('', 'receipt', 'Add expense', 'openExpenseModal()')}
-      ${tile('', 'clock', 'Track debt', 'openDebtModal()')}
-      ${tile('', 'chart', 'Reports', "location.hash='#/reports'")}
-      ${tile('', 'bell', 'Alerts', "location.hash='#/notifications'")}
-      ${tile('', 'search', 'Search', 'openGlobalSearch()')}
-      ${tile('', 'download', 'Export', 'exportDataToCSV()')}
-      ${tile('', 'compass', 'Take a tour', 'openTourPicker()')}
-    </div>
-
-    <div class="card sumrow">
-      <div><small>Owed to you</small><b>${money(owedToMeTotal + totalCustomerCredit)}</b></div>
-      <div><small>You owe</small><b>${money(iOweTotal)}</b></div>
-      <div><small>Margin</small><b>${money(estimatedProfit)}</b></div>
-    </div>
-
-    ${reminders.length ? `
-      <div class="alertbar" onclick="location.hash='#/notifications'">
-        ${ico('bell', 20)}
-        <div class="grow"><b>${reminders.length} alert${reminders.length > 1 ? 's' : ''}</b> · ${esc(reminders[0].title)}</div>
-        ${ico('chev', 16)}
       </div>` : ''}
 
-    <!-- Main Section Summaries -->
-    <div class="grid-2">
-      <!-- Contributions Card -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>🤝</span> Active Contributions
-          </div>
-          <button class="btn-outline btn-sm" onclick="location.hash='#/contributions'">View All</button>
-        </div>
-        ${recs.length ? `
-          <div class="list">
-            ${recs.slice(0, 3).map(r => {
-              const paid = (r.people || []).reduce((a, p) => a + (p.payments || []).reduce((b, x) => b + Number(x.amount || 0), 0), 0);
-              const target = Number(r.target || 0) * (r.people || []).length;
-              const pc = target ? Math.min(100, Math.round(paid / target * 100)) : 0;
-              return `
-                <div class="item-card between" onclick="location.hash='#/r/${r.id}'" style="cursor:pointer;">
-                  <div class="avatar-circle">${esc((r.title || 'C').slice(0, 1).toUpperCase())}</div>
-                  <div class="grow">
-                    <div style="font-weight:700;">${esc(r.title)}</div>
-                    <div class="muted small">${(r.people || []).length} members · ${money(paid)}</div>
-                    ${target ? `<div class="progress-track"><div class="progress-fill" style="width:${pc}%"></div></div>` : ''}
-                  </div>
-                  <button class="btn-danger btn-sm" onclick="event.stopPropagation();confirmDeleteRecord('${r.id}')" title="Delete record">✕</button>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        ` : `
-          <div class="empty-box">
-            <p>No contributions recorded yet.</p>
-            <button class="btn-primary btn-sm" onclick="location.hash='#/contributions/new'">Create First Record</button>
-          </div>
-        `}
+      <div class="sec"><span>NEEDS ATTENTION</span>${reminders.length ? `<a onclick="location.hash='#/notifications'">All alerts</a>` : ''}</div>
+      <div class="card ${shown.length ? 'att' : ''}" style="padding:${shown.length ? '' : '0'}">
+        ${shown.length ? shown.map(i => `
+          <div class="arow" onclick="location.hash='${i.go}'">
+            <span class="aic">${ico(i.icon, 20)}</span>
+            <span class="atx"><b>${esc(i.t)}</b><small>${esc(i.s)}</small></span>
+            ${ico('chev', 18)}
+          </div>`).join('')
+        : `<div class="ok-row">${ico('check', 22)}<span>${recs.length ? 'All caught up' : 'Nothing to do yet'}</span></div>`}
       </div>
 
-      <!-- Business & Debts Snapshot -->
-      <div class="card">
-        <div class="card-header">
-          <div class="card-title">
-            <span>🏪</span> Recent Sales & Activity
-          </div>
-          <button class="btn-outline btn-sm" onclick="location.hash='#/business'">Manage</button>
-        </div>
-        ${sales.length ? `
-          <div class="list">
-            ${sales.slice(0, 3).map(s => `
-              <div class="item-card between" onclick="location.hash='#/business'" style="cursor:pointer;">
-                <div class="avatar-circle avatar-blue">₦</div>
-                <div class="grow">
-                  <div style="font-weight:700;">${esc(s.customer_name)}</div>
-                  <div class="muted small">${esc(s.items?.[0]?.name || 'Sale')} · ${esc(s.date)}</div>
-                </div>
-                <div style="text-align:right;">
-                  <div style="font-weight:800;">${money(s.total)}</div>
-                  <span class="badge ${s.status === 'paid' ? 'badge-green' : s.status === 'partial' ? 'badge-amber' : 'badge-red'}">
-                    ${s.status === 'paid' ? 'Paid' : s.status === 'partial' ? 'Partial' : 'Credit'}
-                  </span>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        ` : `
-          <div class="empty-box">
-            <p>No business sales recorded yet.</p>
-            <button class="btn-soft btn-sm" onclick="openSaleModal()">＋ Record a Sale</button>
-          </div>
-        `}
+      <div class="sec"><span>YOUR RECORDS</span>${recs.length > 4 ? `<a onclick="location.hash='#/contributions'">See all ${recs.length}</a>` : ''}</div>
+      ${recs.length ? `
+        <div class="card rlist">
+          ${prog.slice(0, 4).map(x => {
+            const pc = x.total ? Math.round(x.paid / x.total * 100) : 0;
+            return `<div class="rrow" onclick="location.hash='#/r/${x.r.id}'">
+              ${ringHtml(pc, 48, 5)}
+              <span class="rtx"><b>${esc(x.r.title)}</b><small>${x.total ? `${x.paid} of ${x.total} paid` : 'No people yet'}</small></span>
+              ${ico('chev', 18)}
+            </div>`;
+          }).join('')}
+        </div>`
+      : `<div class="card empty-home">
+          <span class="tic">${ico('users', 24)}</span>
+          <b>Start your first record</b>
+          <p>Add the people who pay, then tick them off as they do.</p>
+        </div>`}
+
+      <div class="sec"><span>BUSINESS</span></div>
+      <div class="card tiles t4" id="tGrid">
+        ${tile('', 'bag', 'Sale', 'openSaleModal()')}
+        ${tile('', 'receipt', 'Expense', 'openExpenseModal()')}
+        ${tile('', 'clock', 'Debt', 'openDebtModal()')}
+        ${tile('', 'chart', 'Reports', "location.hash='#/reports'")}
       </div>
+      <div class="linkrow" onclick="location.hash='#/discover'">${ico('globe', 18)} Find people &amp; groups</div>
+    </div>
+
+    <div class="dock no-print" id="homeDock">
+      <button class="dk main" id="tNew" onclick="location.hash='#/contributions/new'">${ico('plus', 22)}<span>New record</span></button>
+      <button class="dk" id="tPay" onclick="quickLogPayment()">${ico('cash', 22)}<span>Log payment</span></button>
+      <button class="dk" id="tShare" onclick="quickShareLink()">${ico('link', 22)}<span>Share link</span></button>
     </div>
   `;
+  setDockOffset();
 }
+function setDockOffset() {
+  const nb = $('bottomNav'), h = nb && nb.offsetHeight ? nb.offsetHeight : 64;
+  document.documentElement.style.setProperty('--navh', h + 'px');
+}
+window.addEventListener('resize', () => { if ($('homeDock')) setDockOffset(); });
 
 /**
  * 2. CONTRIBUTIONS SECTION (WITH DELETE AND ADMIN DESCRIPTION)
@@ -4982,9 +4934,6 @@ const bizName = () => (Store.data.settings && Store.data.settings.businessName) 
 
 function renderMore() {
   updateNavActive('more');
-  let coll = 0;
-  (Store.data.records || []).forEach(r => (r.people || []).forEach(p => (p.payments || []).forEach(x => { coll += Number(x.amount || 0); })));
-  (Store.data.sales || []).forEach(sl => { coll += Number(sl.amount_paid || 0); });
   $('app').innerHTML = `
     <div class="me-top">
       <div class="me-prof" onclick="location.hash='#/profile'">
@@ -4992,12 +4941,6 @@ function renderMore() {
         <div style="min-width:0;"><div class="me-nm">${esc(myName())} ${ico('chev', 18)}</div><span class="pill">${esc(bizName())}</span></div>
       </div>
       <button class="btn-outline btn-icon" style="width:44px;height:44px;border-radius:50%;" onclick="location.hash='#/settings'" aria-label="Settings">${ico('gear', 22)}</button>
-    </div>
-
-    <div class="card me-bal">
-      <div class="l">Total collected <button class="hc-eye" style="color:var(--muted)" onclick="toggleMask()" aria-label="Hide or show amounts">${ico(maskMoney ? 'eyeoff' : 'eye', 18)}</button></div>
-      <div class="v">${money(coll)}</div>
-      <div class="muted small">Earned today ${money(earnedTodayAmt())}</div>
     </div>
 
     <div class="card tiles t3">
