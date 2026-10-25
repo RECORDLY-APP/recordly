@@ -806,6 +806,16 @@ body:has(.home) #appFooter{display:none}
 .dk span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 @media(min-width:768px){.dock{bottom:18px}}
 @media(prefers-reduced-motion:reduce){.ring circle:nth-child(2){animation:none}}
+body.sub-page:not(.loggedout) .top-header{display:none}
+body.sub-page:not(.loggedout) #app{padding-top:8px}
+/* sale items */
+.irow{border:1px solid var(--line);border-radius:16px;padding:8px 12px 8px;margin-bottom:10px;background:var(--box-bg)}
+.irow .field{margin:6px 0}
+.irow-g{display:grid;grid-template-columns:78px 1fr 40px;gap:8px;align-items:end}
+.irow-g .xbtn{height:42px;padding:0;margin-bottom:6px}
+.isub{text-align:right;min-height:16px;margin-top:0}
+.chk{display:flex!important;align-items:center;gap:9px;font-size:14px!important;color:var(--text)!important;font-weight:500!important;margin:2px 0 10px!important}
+.chk input{width:20px;height:20px;margin:0;padding:0}
 /* one colour only */
 .stat-box.green,.stat-box.red,.stat-box.blue,.stat-box.amber{background:var(--box-bg);border-color:var(--line)}
 .stat-box.green .stat-val,.stat-box.red .stat-val,.stat-box.blue .stat-val,.stat-box.amber .stat-val{color:var(--text)}
@@ -2628,8 +2638,9 @@ function openSaleReceipt(id) {
   openReceiptModal({
     title: (Store.data.settings.businessName || 'Business') + ' - Sales Receipt', receiptNo: s.ref || receiptRef(s.id),
     date: (last && last.paid_on) || s.date, at: (last && last.at) || s.created_at || null,
-    payer: s.customer_name, amount: s.amount_paid, method: s.payment_method || 'Cash', note: s.notes || '',
-    purpose: (s.items || []).map(i => i.name + (i.qty ? ' (x' + i.qty + ')' : '')).join(', ') || 'Sale Item'
+    payer: s.customer_name, phone: s.customer_phone || '', amount: s.amount_paid, method: s.payment_method || 'Cash', note: s.notes || '',
+    items: (s.items || []).length > 1 ? s.items : null, saleTotal: s.total, balance: Math.max(0, Number(s.total || 0) - Number(s.amount_paid || 0)),
+    purpose: (s.items || []).length > 1 ? (s.items.length + ' items') : ((s.items || []).map(i => i.name + (i.qty ? ' (x' + i.qty + ')' : '')).join(', ') || 'Sale Item')
   });
 }
 function openDebtReceipt(id) {
@@ -2683,6 +2694,9 @@ function openReceiptModal(o) {
             ${o.onBehalf ? `<tr><td class="muted">On behalf of:</td><td><b>${esc(o.onBehalf)}</b></td></tr>` : ''}
             <tr><td class="muted">Purpose:</td><td>${esc(o.purpose || 'Payment')}</td></tr>
             <tr><td class="muted">Payment Method:</td><td><span class="badge badge-green">${esc(o.method || 'Cash')}</span></td></tr>
+            ${(o.items || []).map(i => `<tr><td class="muted">${esc(i.name)} ×${i.qty}</td><td><b>${moneyReal(i.qty * i.price)}</b></td></tr>`).join('')}
+            ${o.saleTotal ? `<tr><td class="muted">Sale total:</td><td><b>${moneyReal(o.saleTotal)}</b></td></tr>` : ''}
+            ${o.balance > 0 ? `<tr><td class="muted">Balance left:</td><td><b>${moneyReal(o.balance)}</b></td></tr>` : ''}
             ${o.note ? `<tr><td class="muted">Note / Ref:</td><td>${esc(o.note)}</td></tr>` : ''}
           </table>
 
@@ -2713,6 +2727,9 @@ function receiptText() {
     'Amount: ' + moneyReal(o.amount),
     'Purpose: ' + (o.purpose || 'Payment'),
     'Method: ' + (o.method || 'Cash'),
+    (o.items || []).map(i => i.name + ' x' + i.qty + ' = ' + moneyReal(i.qty * i.price)).join('\n'),
+    o.saleTotal ? 'Sale total: ' + moneyReal(o.saleTotal) : '',
+    o.balance > 0 ? 'Balance left: ' + moneyReal(o.balance) : '',
     'Date: ' + o.dateTxt,
     o.timeRow ? o.timeRow[0] + ': ' + o.timeRow[1] : ''
   ].filter(Boolean).join('\n');
@@ -2732,6 +2749,9 @@ function receiptToPng() {
     rows.push(['Received from', o.payer + (o.phone ? ' (' + o.phone + ')' : '')]);
     if (o.onBehalf) rows.push(['On behalf of', o.onBehalf]);
     rows.push(['Purpose', o.purpose || 'Payment'], ['Method', o.method || 'Cash']);
+    (o.items || []).forEach((i, k) => rows.push([k === 0 ? 'Items' : '', i.name + ' ×' + i.qty + '  ' + moneyReal(i.qty * i.price)]));
+    if (o.saleTotal) rows.push(['Sale total', moneyReal(o.saleTotal)]);
+    if (o.balance > 0) rows.push(['Balance left', moneyReal(o.balance)]);
     if (o.note) rows.push(['Note', o.note]);
     const c = document.createElement('canvas'); const ctx = c.getContext('2d');
     const wrap = (t, maxW, f) => {
@@ -2903,6 +2923,8 @@ function renderDashboard() {
   }).slice(0, 2).forEach(d => items.push({ icon: 'clock', t: d.type === 'receivable' ? `${d.person_name} owes you` : `You owe ${d.person_name}`, s: 'Overdue · due ' + d.due_date, go: '#/debts' }));
   const waiting = ((typeof inbox !== 'undefined' && inbox.joins) || []).filter(j => j.status === 'pending').length;
   if (waiting) items.push({ icon: 'user', t: waiting === 1 ? '1 person wants to join' : waiting + ' people want to join', s: 'Tap to answer', go: '#/notifications' });
+  const waitingOrders = (Store.data.sales || []).filter(x => x.fulfil === 'pending').length;
+  if (waitingOrders) items.push({ icon: 'bag', t: waitingOrders === 1 ? '1 order is waiting' : waitingOrders + ' orders are waiting', s: 'Not given to the customer yet', go: '#/business' });
   const reminders = checkReminders();
   if (!items.length && reminders.length) items.push({ icon: 'bell', t: reminders.length === 1 ? '1 new alert' : reminders.length + ' new alerts', s: reminders[0].title, go: '#/notifications' });
   const shown = items.slice(0, 3);
@@ -3747,9 +3769,11 @@ function renderSalesTab(sales) {
     <div class="list">
       ${sales.map(s => {
         const itemDesc = (s.items || []).map(i => `${i.name} (x${i.qty})`).join(', ') || 'Sale Item';
+        const how = s.channel && s.channel !== 'walkin' ? ' · ' + saleChannelLabel(s.channel) : '';
+        const waitingGive = s.fulfil === 'pending';
         const balance = Math.max(0, Number(s.total || 0) - Number(s.amount_paid || 0));
         return `
-          <div class="item-card between">
+          <div class="item-card" style="flex-wrap:wrap;align-items:flex-start;">
             <div class="avatar-circle avatar-blue">₦</div>
             <div class="grow">
               <div class="row between">
@@ -3758,13 +3782,15 @@ function renderSalesTab(sales) {
                   ${s.status === 'paid' ? 'Paid Full' : s.status === 'partial' ? 'Partial' : 'Credit / Unpaid'}
                 </span>
               </div>
-              <div class="muted small">${esc(itemDesc)} · ${esc(s.date)}</div>
+              <div class="muted small">${esc(itemDesc)} · ${esc(s.date)}${esc(how)}</div>
+              ${waitingGive ? `<div style="margin-top:4px;"><span class="badge badge-gray">Waiting to be given${s.deliver_on ? ' · ' + esc(s.deliver_on) : ''}</span></div>` : ''}
               <div class="small" style="margin-top:2px;">
                 Total: <b>${money(s.total)}</b> · Paid: <b style="color:#0f766e;">${money(s.amount_paid)}</b>
-                ${balance > 0 ? `· <span style="color:#e11d48;font-weight:700;">Remaining: ${money(balance)}</span>` : ''}
+                ${balance > 0 ? `· <span style="font-weight:700;">Remaining: ${money(balance)}</span>` : ''}
               </div>
             </div>
-            <div class="row">
+            <div class="row" style="width:100%;justify-content:flex-end;">
+              ${waitingGive ? `<button class="btn-primary btn-sm" onclick="markSaleGiven('${s.id}')">Mark given</button>` : ''}
               <button class="btn-soft btn-sm" onclick="openSaleReceipt('${s.id}')">Receipt</button>
               ${balance > 0 ? `
                 <button class="btn-primary btn-sm" onclick="openCollectSaleBalanceModal('${s.id}')">Collect</button>
@@ -3884,59 +3910,87 @@ function filterCustomerList() {
   if (container) container.innerHTML = renderCustomerListRows(filtered);
 }
 
+const SALE_CHANNELS = [['walkin', 'In person (walk-in)'], ['pickup', 'Ordered ahead (pick up)'], ['delivery', 'Delivery'], ['whatsapp', 'WhatsApp / phone order'], ['online', 'Online / social media'], ['other', 'Other']];
+const saleChannelLabel = c => (SALE_CHANNELS.find(x => x[0] === c) || [0, ''])[1];
+function saleItemRow(canRemove) {
+  return `<div class="irow">
+    <div class="field"><label>Item or service *</label><input class="si-name" placeholder="e.g. Bag of rice"></div>
+    <div class="irow-g">
+      <div class="field"><label>Qty</label><input class="si-qty" type="number" min="0" step="any" inputmode="decimal" value="1" oninput="calcSaleTotal()"></div>
+      <div class="field"><label>Price each (₦)</label><input class="si-price" type="text" inputmode="decimal" autocomplete="off" data-money placeholder="e.g. 15000" oninput="calcSaleTotal()"></div>
+      ${canRemove ? `<button class="btn-outline xbtn" onclick="removeSaleItem(this)" aria-label="Remove item">✕</button>` : '<span></span>'}
+    </div>
+    <div class="isub muted small"></div>
+  </div>`;
+}
+function addSaleItem() {
+  $('saleItems').insertAdjacentHTML('beforeend', saleItemRow(true));
+  const rows = document.querySelectorAll('#saleItems .irow'); const last = rows[rows.length - 1];
+  const n = last.querySelector('.si-name'); if (n) n.focus();
+}
+function removeSaleItem(btn) { const r = btn.closest('.irow'); if (r) r.remove(); calcSaleTotal(); }
+function saleChannelChange() {
+  const c = val('saleChannel');
+  $('saleFulfilBox').style.display = c === 'walkin' ? 'none' : 'block';
+  if (c !== 'walkin' && $('saleFulfil') && !$('saleFulfil').dataset.touched) $('saleFulfil').value = (c === 'pickup' || c === 'delivery') ? 'pending' : 'done';
+}
 function openSaleModal() {
   const custOptions = Store.data.customers.map(c => `<option value="${c.id}">${esc(c.name)} (${esc(c.phone || 'No phone')})</option>`).join('');
   $('modalRoot').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal-window">
         <div class="row between" style="margin-bottom:12px;">
-          <h2>Record Business Sale</h2>
+          <h2>Record a sale</h2>
           <button class="btn-outline btn-icon" onclick="closeModal()">✕</button>
         </div>
 
         <div class="field">
-          <label for="saleCustomer">Customer</label>
+          <label for="saleCustomer">Who bought?</label>
           <select id="saleCustomer">
-            <option value="">Walk-in Customer (Unsaved)</option>
+            <option value="">New or one-time customer</option>
             ${custOptions}
           </select>
         </div>
-
-        <div class="field" id="walkInNameField">
-          <label for="saleWalkInName">Customer Name (if walk-in)</label>
-          <input id="saleWalkInName" placeholder="e.g. John Doe">
+        <div id="saleNewCust">
+          <div class="grid-2">
+            <div class="field"><label for="saleWalkInName">Name</label><input id="saleWalkInName" placeholder="e.g. John Doe"></div>
+            <div class="field"><label for="saleCustPhone">Phone (optional)</label><input id="saleCustPhone" type="tel" inputmode="tel" placeholder="e.g. 0803 000 0000"></div>
+          </div>
+          <label class="chk"><input type="checkbox" id="saleSaveCust"> Save to my customers</label>
         </div>
 
         <div class="field">
-          <label for="saleItemName">Item / Service Description *</label>
-          <input id="saleItemName" placeholder="e.g. 50kg Rice or Web Design Service">
+          <label for="saleChannel">How did they buy?</label>
+          <select id="saleChannel" onchange="saleChannelChange()">
+            ${SALE_CHANNELS.map(c => `<option value="${c[0]}">${c[1]}</option>`).join('')}
+          </select>
         </div>
-
-        <div class="grid-2">
-          <div class="field">
-            <label for="saleQty">Quantity *</label>
-            <input id="saleQty" type="number" min="1" value="1" oninput="calcSaleTotal()">
-          </div>
-          <div class="field">
-            <label for="salePrice">Unit Price (₦) *</label>
-            <input id="salePrice" type="text" inputmode="decimal" autocomplete="off" data-money placeholder="e.g. 15000" oninput="calcSaleTotal()">
+        <div id="saleFulfilBox" style="display:none;">
+          <div class="grid-2">
+            <div class="field"><label for="saleFulfil">Order status</label>
+              <select id="saleFulfil" onchange="this.dataset.touched=1"><option value="pending">Waiting to be given</option><option value="done">Given to customer</option></select></div>
+            <div class="field"><label for="saleDeliverOn">Pick-up / delivery date</label><input id="saleDeliverOn" type="date"></div>
           </div>
         </div>
 
+        <div class="sec" style="margin:14px 2px 8px;"><span>WHAT THEY BOUGHT</span></div>
+        <div id="saleItems">${saleItemRow(false)}</div>
+        <button class="btn-soft btn-sm" style="margin-bottom:12px;" onclick="addSaleItem()">＋ Add another item</button>
+
         <div class="grid-2">
           <div class="field">
-            <label for="saleTotal">Total Amount (₦)</label>
+            <label for="saleTotal">Total (₦)</label>
             <input id="saleTotal" type="text" readonly style="background:var(--box-bg);font-weight:700;">
           </div>
           <div class="field">
-            <label for="salePaid">Amount Paid Now (₦) *</label>
+            <label for="salePaid">Paid now (₦) *</label>
             <input id="salePaid" oninput="this.dataset.touched=1" type="text" inputmode="decimal" autocomplete="off" data-money placeholder="Amount collected now">
           </div>
         </div>
 
         <div class="grid-2">
           <div class="field">
-            <label for="saleMethod">Payment Method</label>
+            <label for="saleMethod">Payment method</label>
             <select id="saleMethod">
               <option value="Cash">Cash</option>
               <option value="Bank Transfer">Bank Transfer</option>
@@ -3945,54 +3999,68 @@ function openSaleModal() {
             </select>
           </div>
           <div class="field">
-            <label for="saleDate">Sale Date</label>
+            <label for="saleDate">Sale date</label>
             <input id="saleDate" type="date" value="${localDate()}">
           </div>
         </div>
 
         <div class="field">
-          <label for="saleNotes">Notes (optional)</label>
-          <input id="saleNotes" placeholder="Delivery notes or promised repayment date">
+          <label for="saleNotes">Note (optional)</label>
+          <input id="saleNotes" placeholder="Address, size, promised payment date...">
         </div>
 
         <div class="row between" style="margin-top:16px;">
           <button class="btn-outline" onclick="closeModal()">Cancel</button>
-          <button class="btn-primary" onclick="saveNewSale()">Save Sale</button>
+          <button class="btn-primary" onclick="saveNewSale()">Save sale</button>
         </div>
       </div>
     </div>
   `;
 
-  $('saleCustomer').onchange = () => {
-    if ($('saleCustomer').value) $('walkInNameField').style.display = 'none';
-    else $('walkInNameField').style.display = 'block';
-  };
+  $('saleCustomer').onchange = () => { $('saleNewCust').style.display = $('saleCustomer').value ? 'none' : 'block'; };
 }
 
+function readSaleItems() {
+  return [...document.querySelectorAll('#saleItems .irow')].map(r => ({
+    name: r.querySelector('.si-name').value.trim(),
+    qty: Number(r.querySelector('.si-qty').value) || 0,
+    price: Number(String(r.querySelector('.si-price').value).replace(/,/g, '')) || 0
+  }));
+}
 function calcSaleTotal() {
-  const q = Number(val('saleQty')) || 0;
-  const p = Number(val('salePrice')) || 0;
-  const tot = q * p;
+  let tot = 0;
+  document.querySelectorAll('#saleItems .irow').forEach(r => {
+    const q = Number(r.querySelector('.si-qty').value) || 0;
+    const pr = Number(String(r.querySelector('.si-price').value).replace(/,/g, '')) || 0;
+    const sub = q * pr; tot += sub;
+    const el = r.querySelector('.isub'); if (el) el.textContent = sub > 0 ? 'Subtotal ₦' + fmtNum(sub) : '';
+  });
   $('saleTotal').value = fmtNum(tot);
   const paid = $('salePaid');
   if (paid && !paid.dataset.touched) paid.value = tot > 0 ? fmtNum(tot) : '';
 }
 
 function saveNewSale() {
-  const item = val('saleItemName');
-  const qty = Number(val('saleQty')) || 1;
-  const price = Number(val('salePrice')) || 0;
-  const total = qty * price;
-  if (!item || total <= 0) {
-    toast('Please enter the item and a valid price.');
-    return;
-  }
+  const rows = readSaleItems().filter(i => i.name || i.price);
+  if (rows.some(i => !i.name)) { toast('Please name every item.'); return; }
+  const items = rows.filter(i => i.qty > 0 && i.price > 0);
+  if (!items.length) { toast('Add at least one item with a price.'); return; }
+  const total = items.reduce((a, i) => a + i.qty * i.price, 0);
 
+  const channel = val('saleChannel') || 'walkin';
   const custId = val('saleCustomer');
-  let custName = val('saleWalkInName') || 'Walk-in Customer';
+  let custName = val('saleWalkInName'), custPhone = val('saleCustPhone') || null, linkedId = custId || null;
   if (custId) {
     const found = Store.data.customers.find(c => c.id === custId);
-    if (found) custName = found.name;
+    if (found) { custName = found.name; custPhone = found.phone || null; }
+  } else {
+    if (!custName && channel !== 'walkin') { toast("Please add the customer's name for this order."); return; }
+    if (!custName) custName = 'Walk-in Customer';
+    const save = $('saleSaveCust') && $('saleSaveCust').checked;
+    if (save && custName !== 'Walk-in Customer') {
+      linkedId = uid();
+      Store.data.customers.push({ id: linkedId, name: custName, phone: custPhone, address: null, notes: null, created_at: new Date().toISOString() });
+    }
   }
 
   const paid = Math.min(total, Number(val('salePaid')) || 0);
@@ -4006,13 +4074,17 @@ function saveNewSale() {
 
   const newSale = {
     id: uid(),
-    customer_id: custId || null,
+    customer_id: linkedId,
     customer_name: custName,
-    items: [{ name: item, qty, price }],
+    customer_phone: custPhone,
+    items,
     total,
     amount_paid: paid,
     payment_method: method,
     status,
+    channel,
+    fulfil: channel === 'walkin' ? 'done' : (val('saleFulfil') || 'pending'),
+    deliver_on: channel === 'walkin' ? null : (val('saleDeliverOn') || null),
     date,
     notes,
     created_at: new Date().toISOString(),
@@ -4022,8 +4094,13 @@ function saveNewSale() {
   Store.data.sales.unshift(newSale);
   Store.save();
   closeModal();
-  toast('Sale recorded!');
+  toast(items.length > 1 ? 'Sale recorded with ' + items.length + ' items!' : 'Sale recorded!');
   render();
+}
+function markSaleGiven(id) {
+  const s = Store.data.sales.find(x => x.id === id); if (!s) return;
+  s.fulfil = 'done'; s.given_at = new Date().toISOString();
+  Store.save(); toast('Marked as given to the customer.'); render();
 }
 
 function openCollectSaleBalanceModal(saleId) {
@@ -5624,6 +5701,7 @@ async function renderCore() {
   scheduleDbSync();
   try {
     const p = hash();
+    document.body.classList.toggle('sub-page', p.length > 0);   // the greeting row shows on Home only
     if (p[0] === 'p' && p[1]) return await renderPublicPerson(p[1], p[2]);
     if (p[0] === 'g' && p[1]) return await renderPublicGroup(p[1], p[2]);
     if (p[0] === 'j' && p[1]) return await renderJoinPage(p[1], p[2]);
