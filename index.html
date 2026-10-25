@@ -2220,7 +2220,7 @@ function authModal(mode = 'login') {
       try {
         let result;
         if (mode === 'signup') {
-          result = await sb.auth.signUp({ email, password, options: { data: { name: val('authName') } } });
+          result = await sb.auth.signUp({ email, password, options: { data: { name: val('authName') }, emailRedirectTo: location.origin + location.pathname } });
           try { localStorage.setItem('rc_newuser', email); } catch (e) {}
           if (!result.error && !result.data.session) {
             showAuthMsg('Account created. Please check your email to confirm, or use Gmail OTP login.');
