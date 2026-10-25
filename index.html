@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#0f766e">
 <title>Recordly — Simple records, clear progress</title>
 <meta name="description" content="Simple records, clear progress. Track contributions, business sales, expenses, and debts with private progress links and instant receipts.">
@@ -575,6 +575,86 @@ html,body{overflow-x:hidden}
   table{display:block;overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch}
   .modal-window{padding:16px}
 }
+
+/* ===== FUTURISTIC LANDING + AUTH SHEET ===== */
+body.landing{background:#060a14;color:#f1f5f9;padding-bottom:0}
+@media (max-height:680px){.lp-card{display:none}}
+@media (max-height:740px){.lp-rows,.lp-chips,.lp-hero p{display:none}.lp-hero h1{font-size:27px}.lp{gap:12px}}
+body.landing .top-header, body.landing #appFooter{display:none!important}
+body.landing .app-container{max-width:520px;padding:0}
+.lp{position:relative;min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;gap:16px;padding:calc(16px + env(safe-area-inset-top,0px)) 18px calc(14px + env(safe-area-inset-bottom,0px));overflow:hidden;isolation:isolate}
+.lp-bg{position:absolute;inset:0;z-index:-1;overflow:hidden;background:radial-gradient(120% 60% at 50% 0%,#0b2a3a 0%,#060a14 62%)}
+.lp-bg .orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.55;animation:orbFloat 14s ease-in-out infinite}
+.lp-bg .o1{width:260px;height:260px;background:#14b8a6;top:-70px;left:-70px}
+.lp-bg .o2{width:240px;height:240px;background:#6366f1;top:34%;right:-110px;animation-delay:-5s}
+.lp-bg .o3{width:220px;height:220px;background:#22d3ee;bottom:-90px;left:15%;opacity:.35;animation-delay:-9s}
+.lp-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(148,163,184,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.07) 1px,transparent 1px);background-size:34px 34px;-webkit-mask-image:radial-gradient(80% 60% at 50% 25%,#000,transparent);mask-image:radial-gradient(80% 60% at 50% 25%,#000,transparent)}
+@keyframes orbFloat{0%,100%{transform:translate(0,0)}50%{transform:translate(26px,34px)}}
+.lp-top{display:flex;align-items:center;gap:10px}
+.lp-logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#14b8a6,#22d3ee);color:#04211f;display:grid;place-items:center;font-weight:900;font-size:20px;box-shadow:0 0 24px rgba(34,211,238,.45)}
+.lp-name{font-size:22px;font-weight:800;letter-spacing:-.6px}.lp-name b{color:#2dd4bf}
+.lp-pill{margin-left:auto;font-size:10.5px;letter-spacing:1.4px;font-weight:700;color:#5eead4;border:1px solid rgba(94,234,212,.35);padding:5px 10px;border-radius:99px;background:rgba(20,184,166,.1)}
+.lp-hero{margin-top:6px}
+.lp-kicker{font-size:11px;letter-spacing:2.2px;font-weight:700;color:#67e8f9;margin-bottom:8px}
+.lp-hero h1{font-size:31px;line-height:1.12;letter-spacing:-1px;margin:0 0 10px;font-weight:800}
+.lp-hero h1 span{background:linear-gradient(90deg,#2dd4bf,#22d3ee 50%,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lp-hero p{color:#94a3b8;font-size:15px;margin:0;max-width:420px}
+.lp-card{border-radius:22px;padding:16px;background:linear-gradient(160deg,rgba(255,255,255,.09),rgba(255,255,255,.03));border:1px solid rgba(148,163,184,.22);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 20px 50px rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.08)}
+.lp-card .top{display:flex;align-items:center;gap:14px}
+.lp-ring{position:relative;width:92px;height:92px;flex-shrink:0}
+.lp-ring svg{width:92px;height:92px;transform:rotate(-90deg)}
+.lp-ring .bg{stroke:rgba(148,163,184,.2)}
+.lp-ring .fg{stroke:url(#lpg);stroke-dasharray:327;stroke-dashoffset:327;stroke-linecap:round;animation:ringIn 1.6s .4s cubic-bezier(.22,.8,.3,1) forwards;filter:drop-shadow(0 0 6px rgba(34,211,238,.7))}
+@keyframes ringIn{to{stroke-dashoffset:52}}
+.lp-ring .pc{position:absolute;inset:0;display:grid;place-items:center;font-weight:800;font-size:20px}
+.lp-card .ttl{font-size:11px;letter-spacing:1.6px;color:#67e8f9;font-weight:700}
+.lp-card .nm{font-weight:700;font-size:16px;margin:2px 0}
+.lp-card .amt{font-size:22px;font-weight:800;letter-spacing:-.5px}
+.lp-card .amt small{color:#94a3b8;font-weight:500;font-size:13px}
+.lp-rows{margin-top:12px;display:grid;gap:9px}
+.lp-row{display:flex;align-items:center;gap:10px;font-size:13px}
+.lp-row .av{width:26px;height:26px;border-radius:9px;background:rgba(45,212,191,.16);color:#5eead4;display:grid;place-items:center;font-weight:800;font-size:12px}
+.lp-row .bar{flex:1;height:5px;border-radius:9px;background:rgba(148,163,184,.2);overflow:hidden}
+.lp-row .bar i{display:block;height:100%;border-radius:9px;background:linear-gradient(90deg,#14b8a6,#22d3ee);width:0;animation:barIn 1.2s .8s ease forwards}
+.lp-row .v{color:#94a3b8;min-width:58px;text-align:right}
+@keyframes barIn{to{width:var(--w)}}
+.lp-chips{display:flex;flex-wrap:wrap;gap:8px}
+.lp-chips span{font-size:12.5px;padding:7px 11px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid rgba(148,163,184,.2);color:#cbd5e1}
+.lp-dock{margin-top:auto;padding:14px;border-radius:26px;background:rgba(10,16,30,.72);border:1px solid rgba(148,163,184,.22);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 -10px 40px rgba(0,0,0,.4);display:grid;gap:10px}
+.lp-btn{height:54px;border-radius:16px;font-size:15.5px;font-weight:800;width:100%;border:1px solid transparent;gap:10px;white-space:nowrap}
+.lp-btn.google{background:#fff;color:#0f172a}
+.lp-btn.glow{background:linear-gradient(90deg,#14b8a6,#22d3ee);color:#04211f;box-shadow:0 8px 28px rgba(34,211,238,.35)}
+.lp-btn.ghost{background:rgba(255,255,255,.06);color:#f1f5f9;border-color:rgba(148,163,184,.35)}
+.lp-two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.lp-note{text-align:center;font-size:12.5px;color:#94a3b8;margin:2px 0 0}
+@media (prefers-reduced-motion:reduce){.lp *{animation-duration:.01s!important;animation-delay:0s!important}}
+
+/* auth bottom sheet */
+.modal-overlay.auth-sheet{place-items:end center;padding:0;background:rgba(2,6,16,.72)}
+.auth-sheet .modal-window{--modal-bg:#0d1424;--text:#f1f5f9;--muted:#94a3b8;--line:#24324a;--input-bg:#080e1c;--input-border:#2b3b57;--box-bg:#080e1c;--primary:#2dd4bf;--primary-light:rgba(45,212,191,.14);--card:#0d1424;
+  width:100%;max-width:520px;max-height:92vh;max-height:92dvh;border-radius:28px 28px 0 0;border:1px solid rgba(148,163,184,.2);border-bottom:0;padding:10px 18px calc(18px + env(safe-area-inset-bottom,0px));background:linear-gradient(180deg,#111a2e,#0b1120);box-shadow:0 -20px 60px rgba(0,0,0,.55);animation:sheetUp .28s cubic-bezier(.2,.9,.3,1)}
+@keyframes sheetUp{from{transform:translateY(60px);opacity:0}to{transform:none;opacity:1}}
+.sheet-grab{width:44px;height:5px;border-radius:9px;background:rgba(148,163,184,.4);margin:2px auto 12px}
+.sheet-head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+.sheet-head h2{margin:0;flex:1;font-size:19px}
+.sheet-x{width:38px;height:38px;padding:0;border-radius:12px;background:rgba(255,255,255,.06);border:1px solid var(--line);color:var(--text);flex-shrink:0}
+.seg{flex:1;display:grid;grid-template-columns:1fr 1fr;background:#080e1c;border:1px solid var(--line);border-radius:14px;padding:4px}
+.seg button{border:0;background:transparent;color:var(--muted);height:40px;border-radius:11px;font-weight:700}
+.seg button.on{background:linear-gradient(90deg,rgba(20,184,166,.9),rgba(34,211,238,.9));color:#04211f}
+.auth-sheet input{height:52px;border-radius:14px;font-size:16px;padding:0 14px}
+.auth-sheet label{font-size:12px;letter-spacing:.3px}
+.pwwrap{position:relative}.pwwrap input{padding-right:52px}
+.pwwrap .eye{position:absolute;right:6px;top:6px;width:40px;height:40px;padding:0;background:transparent;border:0;font-size:18px;color:var(--muted)}
+.btn-glow{width:100%;height:54px;border-radius:16px;border:0;font-size:16px;font-weight:800;color:#04211f;background:linear-gradient(90deg,#14b8a6,#22d3ee);box-shadow:0 8px 28px rgba(34,211,238,.3);margin-top:8px}
+.btn-glow:disabled{opacity:.6}
+.auth-sheet .btn-primary{height:54px;border-radius:16px;font-size:16px;font-weight:800;color:#04211f;background:linear-gradient(90deg,#14b8a6,#22d3ee);box-shadow:0 8px 28px rgba(34,211,238,.3)}
+.sheet-or{display:flex;align-items:center;gap:10px;color:var(--muted);font-size:11.5px;letter-spacing:1.2px;margin:16px 0 10px}
+.sheet-or:before,.sheet-or:after{content:"";flex:1;height:1px;background:var(--line)}
+.alt3{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.alt3 button{height:50px;border-radius:14px;font-size:13px;background:rgba(255,255,255,.05);border:1px solid var(--line);color:var(--text);flex-direction:column;gap:2px;line-height:1.1}
+.alt3 button b{font-size:17px;font-weight:400}
+.auth-sheet .banner-warning{background:rgba(245,158,11,.12);color:#fbbf24}
+.auth-sheet .btn-outline{color:var(--text)}
 </style>
 </head>
 <body>
@@ -974,20 +1054,64 @@ function dismissHint(k, el) { try { localStorage.setItem('rc_hint_' + k, '1'); }
 async function render() { await renderCore(); addPageHint(); }
 
 function renderLoggedOut() {
+  document.body.classList.add('landing');
   $('app').innerHTML = `
-    <div class="card">
-      <div class="pill">RECORD KEEPING MADE SIMPLE</div>
-      <h1 style="margin-top:12px;">Know what came in, what is due, and what remains.</h1>
-      <p class="muted">Log in to create records, add people, log payments and share progress links. Your records are saved safely to your account.</p>
-      <div class="row" style="margin-top:14px;">
-        <button class="btn-primary" onclick="authModal('signup')">Create account</button>
-        <button class="btn-outline" onclick="authModal('login')">Log in</button>
+  <div class="lp">
+    <div class="lp-bg"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><div class="lp-grid"></div></div>
+    <header class="lp-top"><div class="lp-logo">R</div><span class="lp-name">Record<b>ly</b></span><span class="lp-pill">● SECURE</span></header>
+
+    <section class="lp-hero">
+      <div class="lp-kicker">RECORD KEEPING, REIMAGINED</div>
+      <h1>Know what came in. <span>What is due. What remains.</span></h1>
+      <p>Contributions, sales, expenses and debts in one place, with instant receipts and private progress links.</p>
+    </section>
+
+    <section class="lp-card" aria-hidden="true">
+      <div class="top">
+        <div class="lp-ring">
+          <svg viewBox="0 0 120 120"><defs><linearGradient id="lpg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14b8a6"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><circle class="bg" cx="60" cy="60" r="52" fill="none" stroke-width="9"/><circle class="fg" cx="60" cy="60" r="52" fill="none" stroke-width="9"/></svg>
+          <div class="pc" id="lpPct">0%</div>
+        </div>
+        <div>
+          <div class="ttl">LIVE PROGRESS</div>
+          <div class="nm">Church Building Fund</div>
+          <div class="amt"><span id="lpAmt">₦0</span> <small>of ₦1,000,000</small></div>
+        </div>
       </div>
+      <div class="lp-rows">
+        <div class="lp-row"><div class="av">A</div><span style="min-width:54px">Amina</span><div class="bar"><i style="--w:100%"></i></div><span class="v">Paid ✓</span></div>
+        <div class="lp-row"><div class="av">D</div><span style="min-width:54px">David</span><div class="bar"><i style="--w:62%"></i></div><span class="v">₦310k</span></div>
+        <div class="lp-row"><div class="av">C</div><span style="min-width:54px">Chuma</span><div class="bar"><i style="--w:28%"></i></div><span class="v">₦140k</span></div>
+      </div>
+    </section>
+
+    <div class="lp-chips"><span>🧾 Instant receipts</span><span>🔗 Private links</span><span>👆 Fingerprint lock</span></div>
+
+    <div class="lp-dock">
+      <button class="lp-btn google" onclick="signInWithGoogle()">
+        <svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg>
+        Continue with Google
+      </button>
+      <div class="lp-two">
+        <button class="lp-btn glow" onclick="authModal('login')">Log in</button>
+        <button class="lp-btn ghost" onclick="authModal('signup')">Create account</button>
+      </div>
+      <p class="lp-note">Got a progress link from a seller? Just open it. No account needed.</p>
     </div>
-    <div class="card">
-      <b>Did a seller send you a link?</b>
-      <p class="muted small" style="margin:6px 0 0;">Just open that link. You don't need an account to see your progress.</p>
-    </div>`;
+  </div>`;
+  animateLanding();
+}
+function animateLanding() {
+  const pc = $('lpPct'), am = $('lpAmt'); if (!pc || !am) return;
+  const t0 = performance.now(), D = 1700;
+  const step = t => {
+    if (!$('lpPct')) return;
+    const k = Math.min(1, Math.max(0, (t - t0 - 350) / D)), e = 1 - Math.pow(1 - k, 3);
+    pc.textContent = Math.round(84 * e) + '%';
+    am.textContent = '₦' + Math.round(840000 * e).toLocaleString('en-NG');
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
 }
 
 async function loadAccountData() {
@@ -1535,6 +1659,7 @@ function checkReminders() {
 
 function setTop() {
   document.body.classList.toggle('loggedout', !user);
+  document.body.classList.toggle('landing', !user && !isPublicHash());
   document.body.classList.toggle('locked', !!(user && appLocked && !isPublicHash()));
   const authEl = $('authPill');
   if (!authEl) return;
@@ -1595,92 +1720,52 @@ function userAccountModal() {
 let pendingOtpTarget = '';
 let pendingOtpType = 'email'; // 'email' or 'phone' or 'recovery'
 
+function togglePw(id) { const e = $(id); if (e) e.type = e.type === 'password' ? 'text' : 'password'; }
 function authModal(mode = 'login') {
   let bodyHtml = '';
 
   if (mode === 'login') {
     bodyHtml = `
-      <button class="btn-outline" style="width:100%;padding:11px;gap:10px;" onclick="signInWithGoogle()">
-        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.600-5.900c-2.100 1.400-4.900 2.300-8.300 2.300-6.300 0-11.600-4.100-13.500-9.800l-7.900 6.100C6.500 42.600 14.600 48 24 48z"/></svg>
-        Continue with Google
-      </button>
-      <div style="text-align:center;margin:14px 0;position:relative;">
-        <hr style="border:0;border-top:1px solid var(--line);">
-        <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--modal-bg);padding:0 8px;font-size:11px;color:var(--muted);">OR USE EMAIL</span>
-      </div>
       <div class="field">
-        <label for="authEmail">Email Address</label>
-        <input id="authEmail" type="email" autocomplete="email" placeholder="you@gmail.com">
+        <label for="authEmail">Email address</label>
+        <input id="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@gmail.com">
       </div>
       <div class="field">
         <div class="row between">
           <label for="authPass">Password</label>
-          <a href="#" onclick="event.preventDefault();authModal('forgot');" class="small" style="color:var(--primary);font-weight:600;">Forgot Password?</a>
+          <a href="#" onclick="event.preventDefault();authModal('forgot');" class="small" style="color:var(--primary);font-weight:700;">Forgot password?</a>
         </div>
-        <input id="authPass" type="password" autocomplete="current-password" placeholder="••••••••">
+        <div class="pwwrap"><input id="authPass" type="password" autocomplete="current-password" placeholder="Your password"><button type="button" class="eye" onclick="togglePw('authPass')" aria-label="Show password">👁</button></div>
       </div>
-      <button class="btn-primary" style="width:100%;padding:11px;margin-top:6px;" id="authSubmit">
-        Log In with Password
-      </button>
-
-      <div style="text-align:center;margin:14px 0;position:relative;">
-        <hr style="border:0;border-top:1px solid var(--line);">
-        <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--modal-bg);padding:0 8px;font-size:11px;color:var(--muted);">OR FAST LOGIN</span>
+      <button class="btn-glow" id="authSubmit">Log In</button>
+      <div class="sheet-or">OR CONTINUE WITH</div>
+      <div class="alt3">
+        <button onclick="signInWithGoogle()"><b><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg></b>Google</button>
+        <button onclick="authModal('gmail_otp')"><b>✉️</b>Email code</button>
+        <button onclick="authModal('phone_otp')"><b>📱</b>SMS code</button>
       </div>
-
-      <div class="grid-2">
-        <button class="btn-outline btn-sm" onclick="authModal('gmail_otp')">
-          📧 Gmail / Email OTP
-        </button>
-        <button class="btn-outline btn-sm" onclick="authModal('phone_otp')">
-          📱 Phone Number OTP
-        </button>
-      </div>
-
-      <p class="muted small" style="margin-top:16px;text-align:center;">
-        New to Recordly?
-        <a href="#" onclick="event.preventDefault();authModal('signup');" style="color:var(--primary);font-weight:700;">Create Account</a>
-      </p>
     `;
   } else if (mode === 'signup') {
     bodyHtml = `
-      <button class="btn-outline" style="width:100%;padding:11px;gap:10px;" onclick="signInWithGoogle()">
-        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.500 0 11.900-2.100 15.900-5.800l-7.600-5.900c-2.100 1.400-4.900 2.300-8.300 2.300-6.300 0-11.600-4.100-13.500-9.800l-7.900 6.100C6.500 42.600 14.600 48 24 48z"/></svg>
-        Continue with Google
-      </button>
-      <div style="text-align:center;margin:14px 0;position:relative;">
-        <hr style="border:0;border-top:1px solid var(--line);">
-        <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--modal-bg);padding:0 8px;font-size:11px;color:var(--muted);">OR USE EMAIL</span>
-      </div>
       <div class="field">
-        <label for="authName">Full Name</label>
+        <label for="authName">Full name</label>
         <input id="authName" autocomplete="name" placeholder="Amina Bello">
       </div>
       <div class="field">
-        <label for="authEmail">Email Address</label>
-        <input id="authEmail" type="email" autocomplete="email" placeholder="you@gmail.com">
+        <label for="authEmail">Email address</label>
+        <input id="authEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@gmail.com">
       </div>
       <div class="field">
         <label for="authPass">Password</label>
-        <input id="authPass" type="password" autocomplete="new-password" placeholder="At least 6 characters">
+        <div class="pwwrap"><input id="authPass" type="password" autocomplete="new-password" placeholder="At least 6 characters"><button type="button" class="eye" onclick="togglePw('authPass')" aria-label="Show password">👁</button></div>
       </div>
-      <button class="btn-primary" style="width:100%;padding:11px;margin-top:6px;" id="authSubmit">
-        Create Account
-      </button>
-
-      <div style="text-align:center;margin:14px 0;position:relative;">
-        <hr style="border:0;border-top:1px solid var(--line);">
-        <span style="position:absolute;top:-10px;left:50%;transform:translateX(-50%);background:var(--modal-bg);padding:0 8px;font-size:11px;color:var(--muted);">OR INSTANT VERIFY</span>
+      <button class="btn-glow" id="authSubmit">Create Account</button>
+      <div class="sheet-or">OR CONTINUE WITH</div>
+      <div class="alt3">
+        <button onclick="signInWithGoogle()"><b><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.9 2.4 30.4 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.6 5.9c4.4-4.1 7-10.1 7-17.6z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.4-.8-3-.8-4.7s.3-3.2.8-4.7l-7.9-6.1C.9 16.4 0 20.1 0 24s.9 7.6 2.6 10.8l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.6-5.9c-2.1 1.4-4.9 2.3-8.3 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.5 42.6 14.6 48 24 48z"/></svg></b>Google</button>
+        <button onclick="authModal('gmail_otp')"><b>✉️</b>Email code</button>
+        <button onclick="authModal('phone_otp')"><b>📱</b>SMS code</button>
       </div>
-
-      <button class="btn-soft" style="width:100%;" onclick="authModal('gmail_otp')">
-        Sign up with Gmail OTP (No password needed)
-      </button>
-
-      <p class="muted small" style="margin-top:16px;text-align:center;">
-        Already registered?
-        <a href="#" onclick="event.preventDefault();authModal('login');" style="color:var(--primary);font-weight:700;">Log in</a>
-      </p>
     `;
   } else if (mode === 'gmail_otp') {
     bodyHtml = `
@@ -1744,6 +1829,11 @@ function authModal(mode = 'login') {
         <a href="#" onclick="event.preventDefault();authModal('login');" style="color:var(--primary);font-weight:700;">Log in</a>
       </p>
     `;
+  } else if (mode === 'reset_sent') {
+    bodyHtml = `
+      <div class="banner banner-success" style="font-size:13.5px;">We sent a password reset link to <b>${esc(pendingOtpTarget)}</b>. Open that email on this phone and tap the link. You will come back here to choose a new password.</div>
+      <button class="btn-glow" onclick="authModal('login')">Back to Log in</button>
+    `;
   } else if (mode === 'set_new_password') {
     bodyHtml = `
       <div class="banner banner-success" style="font-size:12.5px;">
@@ -1759,12 +1849,15 @@ function authModal(mode = 'login') {
     `;
   }
 
+  const main = mode === 'login' || mode === 'signup';
+  const ttl = mode === 'gmail_otp' ? 'Email code login' : mode === 'phone_otp' ? 'Phone number login' : mode === 'forgot' ? 'Reset password' : mode === 'reset_sent' ? 'Check your email' : mode === 'set_new_password' ? 'New password' : mode === 'verify_otp' ? 'Enter your code' : 'Welcome to Recordly';
   $('modalRoot').innerHTML = `
-    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+    <div class="modal-overlay auth-sheet" onclick="if(event.target===this)closeModal()">
       <div class="modal-window">
-        <div class="row between" style="margin-bottom:12px;">
-          <h2>${mode === 'signup' ? 'Create Account' : mode === 'gmail_otp' ? 'Gmail OTP Login' : mode === 'phone_otp' ? 'Phone Number Login' : mode === 'forgot' ? 'Reset Password' : mode === 'verify_otp' ? 'Verify Code' : 'Welcome to Recordly'}</h2>
-          <button class="btn-outline btn-icon" onclick="closeModal()">✕</button>
+        <div class="sheet-grab"></div>
+        <div class="sheet-head">
+          ${main ? `<div class="seg"><button class="${mode === 'login' ? 'on' : ''}" onclick="authModal('login')">Log in</button><button class="${mode === 'signup' ? 'on' : ''}" onclick="authModal('signup')">Sign up</button></div>` : `<h2>${ttl}</h2>`}
+          <button class="sheet-x" onclick="closeModal()" aria-label="Close">✕</button>
         </div>
         <div id="authMsg" class="banner banner-warning" style="display:none;"></div>
         ${bodyHtml}
@@ -1873,31 +1966,15 @@ function authModal(mode = 'login') {
         } else {
           res = await sb.auth.verifyOtp({ email: pendingOtpTarget, token, type: 'email' });
         }
-        if (res.data?.session?.user) {
-          user = res.data.session.user;
-        } else {
-          // Fallback user session for instant verification
-          user = {
-            id: 'u_' + uid(),
-            email: pendingOtpType === 'email' ? pendingOtpTarget : null,
-            phone: pendingOtpType === 'phone' ? pendingOtpTarget : null,
-            user_metadata: { name: pendingOtpTarget.split('@')[0] }
-          };
-        }
+        if (res.error || !res.data?.session?.user) throw (res.error || new Error('That code is not correct or has expired.'));
+        user = res.data.session.user;
         closeModal();
         toast('Verification successful! You are signed in.');
         render();
       } catch (e) {
-        // Fallback gracefully so user is never stuck
-        user = {
-          id: 'u_' + uid(),
-          email: pendingOtpType === 'email' ? pendingOtpTarget : null,
-          phone: pendingOtpType === 'phone' ? pendingOtpTarget : null,
-          user_metadata: { name: pendingOtpTarget.split('@')[0] }
-        };
-        closeModal();
-        toast('Signed in successfully!');
-        render();
+        showAuthMsg((e && e.message) || 'That code is not correct or has expired. Try again.');
+        b.disabled = false;
+        b.textContent = 'Verify & Sign In';
       }
     };
   }
@@ -1913,12 +1990,11 @@ function authModal(mode = 'login') {
       b.disabled = true;
       b.textContent = 'Sending reset link…';
       try {
-        await sb.auth.resetPasswordForEmail(email);
-      } catch (e) {}
+        const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+        if (error) { showAuthMsg(error.message || 'Could not send the email. Try again.'); b.disabled = false; b.textContent = 'Send Password Reset Link'; return; }
+      } catch (e) { showAuthMsg('Could not send the email. Check your internet.'); b.disabled = false; b.textContent = 'Send Password Reset Link'; return; }
       pendingOtpTarget = email;
-      pendingOtpType = 'recovery';
-      toast(`Reset instructions sent to ${email}`);
-      authModal('set_new_password');
+      authModal('reset_sent');
     };
   }
 
@@ -1929,11 +2005,11 @@ function authModal(mode = 'login') {
         showAuthMsg('Password must be at least 6 characters.');
         return;
       }
-      try {
-        await sb.auth.updateUser({ password: p });
-      } catch (e) {}
+      let er = null;
+      try { const r = await sb.auth.updateUser({ password: p }); er = r && r.error; } catch (e) { er = e; }
+      if (er) { showAuthMsg(er.message || 'Could not update the password. Open the reset link again.'); return; }
       closeModal();
-      toast('Password updated successfully! You are logged in.');
+      toast('Password updated. You are logged in.');
       render();
     };
   }
@@ -5117,6 +5193,7 @@ async function start() {
     sb.auth.onAuthStateChange((event, session) => {
       const prev = user;
       user = session?.user || null;
+      if (event === 'PASSWORD_RECOVERY') { setTop(); render(); authModal('set_new_password'); return; }
       // Token refreshes, profile/backup updates and tab re-focus fire this event too.
       // Only restart the screen when the signed-in person actually changes.
       if ((prev?.id || null) === (user?.id || null) && event !== 'SIGNED_OUT') return;
