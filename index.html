@@ -546,6 +546,12 @@ body.locked .top-header, body.locked #bottomNav, body.locked #appFooter{display:
 .bioBtn svg{width:54px;height:54px}
 .bioCap{color:var(--primary);font-weight:700;margin-top:12px}
 .lockpw{width:100%;max-width:320px;margin-top:34px;text-align:left}
+.pinDots{display:flex;gap:14px;margin:26px 0 10px}.pinDots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--primary);transition:all .12s}.pinDots i.on{background:var(--primary)}
+.pinDots.bad{animation:shake .4s}@keyframes shake{20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.keypad{display:grid;grid-template-columns:repeat(3,76px);gap:12px 22px;margin-top:10px}
+.keypad button{width:76px;height:62px;border-radius:20px;font-size:25px;font-weight:700;padding:0}
+.keypad button.alt{background:transparent;border-color:transparent;color:var(--primary)}
+.keypad button svg{width:30px;height:30px}
 .lockLinks{margin-top:auto;padding-top:30px;font-size:14px;font-weight:700;color:var(--primary)}
 .lockLinks a{cursor:pointer;padding:6px 8px}.lockLinks span{color:var(--muted)}
 [hidden]{display:none!important}
@@ -655,6 +661,12 @@ body.landing .app-container{max-width:520px;padding:0}
 .alt3 button b{font-size:17px;font-weight:400}
 .auth-sheet .banner-warning{background:rgba(245,158,11,.12);color:#fbbf24}
 .auth-sheet .btn-outline{color:var(--text)}
+.ptable{display:grid;gap:8px;margin:8px 0 6px}
+.pr{display:grid;grid-template-columns:1.3fr 1fr 36px;gap:6px;align-items:center}
+.pr input{padding:11px 9px;min-width:0}
+.pr.ph{font-size:12px;font-weight:800;color:var(--text);letter-spacing:.2px;margin-bottom:-2px}
+.pr.ph span:nth-child(2){color:var(--muted);font-weight:700}
+.pr .xbtn{width:36px;height:40px;padding:0}
 </style>
 </head>
 <body>
@@ -791,7 +803,12 @@ let idleTimer = null;
 function startIdleLogout() {
   const reset = () => {
     clearTimeout(idleTimer);
-    idleTimer = setTimeout(async () => { if (user) { toast('Logged out after 30 minutes of inactivity.'); await logout(); } }, 1800000);
+    idleTimer = setTimeout(async () => {
+      if (!user) return;
+      if (lockActive()) { appLocked = true; lockAuto = false; closeModal(); render(); return; }
+      if (!navigator.onLine) return; // never log out offline: unsaved records would be lost
+      toast('Logged out after 30 minutes of inactivity.'); await logout();
+    }, 1800000);
   };
   ['click', 'keydown', 'touchstart', 'scroll', 'mousemove'].forEach(e => addEventListener(e, reset, { passive: true }));
   reset();
@@ -828,36 +845,78 @@ function maskId(u) {
   if (u.email) { const [a, d] = u.email.split('@'); return a.slice(0, 2) + '***@' + d; }
   const ph = u.phone || ''; return ph.length > 6 ? ph.slice(0, 3) + '****' + ph.slice(-3) : '';
 }
+let lockPin = '', pinFails = 0, pinBlockedUntil = 0;
+const PIN_LEN = 6;
+async function pinHash(pin, saltB64) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(pin), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: b64u.dec(saltB64), iterations: 150000, hash: 'SHA-256' }, key, 256);
+  return b64u.enc(bits);
+}
+async function savePin(pin) {
+  const salt = b64u.enc(crypto.getRandomValues(new Uint8Array(16)));
+  const h = await pinHash(pin, salt);
+  const c = lockCfg();
+  saveLock({ ...(c && c.uid === user.id ? c : {}), uid: user.id, mode: (c && c.uid === user.id && c.mode) || 'pin', pin: { s: salt, h } });
+}
 function renderLock() {
-  const c = lockCfg(), bio = !!(c && c.mode === 'bio');
+  const c = lockCfg() || {}, bio = c.mode === 'bio' && !!c.cred, hasPin = !!c.pin;
   const m = user.user_metadata || {}, nm = m.name || m.full_name || 'Welcome back';
   const pic = m.avatar_url || m.picture;
+  const fp = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3-.5 5.5-1.7 7.8"/><path d="M8.5 15.5c.4-1.3.5-2.6.5-4.5a3 3 0 0 1 6 0c0 1.2 0 2.3-.2 3.4"/><path d="M5.8 17.5C6.6 15.6 7 13.5 7 11a5 5 0 0 1 10 0c0 .8 0 1.6-.1 2.4"/><path d="M4 9a8 8 0 0 1 16 0c0 1.7-.1 3.3-.4 4.8"/><path d="M15.5 17.8c.3-.9.5-1.7.7-2.6"/></svg>';
+  lockPin = '';
   $('app').innerHTML = `
     <div class="lockwrap">
       <div class="lk-brand"><div class="brand-icon">R</div><div class="brand-text">Record<span>ly</span></div></div>
       <div class="lk-av">${pic ? `<img src="${esc(pic)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : esc((nm[0] || 'R').toUpperCase())}</div>
       <div class="lk-name">${esc(nm)}</div>
-      <div class="lk-id">${esc(maskId(user))}</div>
-      ${bio ? `<button class="bioBtn" onclick="bioUnlock()" aria-label="Unlock with fingerprint or Face ID"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3-.5 5.500-1.700 7.800"/><path d="M8.500 15.500c.4-1.300.5-2.600.5-4.500a3 3 0 0 1 6 0c0 1.200 0 2.300-.2 3.400"/><path d="M5.800 17.500C6.600 15.600 7 13.500 7 11a5 5 0 0 1 10 0c0 .8 0 1.600-.1 2.400"/><path d="M4 9a8 8 0 0 1 16 0c0 1.700-.1 3.300-.4 4.800"/><path d="M15.500 17.800c.3-.9.5-1.700.7-2.600"/></svg></button><div class="bioCap">Tap to unlock with fingerprint or Face ID</div>` : ''}
-      <div class="lockpw" id="lockPw" style="display:${bio ? 'none' : 'block'};">
+      <div class="lk-id">${esc(maskId(user))}${navigator.onLine ? '' : ' · offline'}</div>
+      ${hasPin ? `
+        <div class="pinDots" id="pinDots">${'<i></i>'.repeat(PIN_LEN)}</div>
+        <div id="lockErr" class="small" style="color:var(--muted);min-height:20px;">Enter your ${PIN_LEN}-digit PIN</div>
+        <div class="keypad">
+          ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map(n => `<button onclick="lockKey('${n}')">${n}</button>`).join('')}
+          <button class="alt" ${bio ? 'onclick="bioUnlock()" aria-label="Use fingerprint"' : 'disabled'}>${bio ? fp : ''}</button>
+          <button onclick="lockKey('0')">0</button>
+          <button class="alt" onclick="lockBack()" aria-label="Delete">⌫</button>
+        </div>`
+      : bio ? `<button class="bioBtn" onclick="bioUnlock()" aria-label="Unlock with fingerprint or Face ID">${fp}</button><div class="bioCap">Tap to unlock with fingerprint or Face ID</div>` : ''}
+      <div class="lockpw" id="lockPw" style="display:${(bio || hasPin) ? 'none' : 'block'};">
         ${hasPassword() ? `<label for="lockPass">Password</label><input id="lockPass" type="password" autocomplete="current-password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')lockPassword()"><button class="btn-primary" style="width:100%;margin-top:10px;" onclick="lockPassword()">Unlock</button>`
           : (user.app_metadata?.provider === 'google' ? `<button class="btn-primary" style="width:100%;" onclick="signInWithGoogle()">Continue with Google</button>` : `<p class="muted small">This account has no password. Tap Switch Account to log in again.</p>`)}
-        <div id="lockErr" class="small" style="color:var(--accent-red);min-height:20px;margin-top:6px;"></div>
+        ${hasPin ? '' : '<div id="lockErr2" class="small" style="color:var(--accent-red);min-height:20px;margin-top:6px;"></div>'}
       </div>
       <div class="lockLinks"><a onclick="switchAccount()">Switch Account</a> <span>|</span> <a onclick="showLockPw()">Login with Password</a></div>
     </div>`;
   if (bio && !lockAuto) { lockAuto = true; setTimeout(() => { if (appLocked) bioUnlock(true); }, 400); }
 }
-function showLockPw() { const e = $('lockPw'); if (e) { e.style.display = 'block'; const i = $('lockPass'); if (i) i.focus(); } }
-function unlockApp() { appLocked = false; lockAuto = false; hiddenAt = 0; closeModal(); render(); }
+function lockMsg(t) { const e = $('lockErr') || $('lockErr2'); if (e) { e.textContent = t; e.style.color = 'var(--accent-red)'; } }
+function lockDots() { document.querySelectorAll('#pinDots i').forEach((d, i) => d.classList.toggle('on', i < lockPin.length)); }
+function lockBack() { lockPin = lockPin.slice(0, -1); lockDots(); }
+async function lockKey(d) {
+  const now = Date.now();
+  if (now < pinBlockedUntil) { lockMsg('Too many tries. Wait ' + Math.ceil((pinBlockedUntil - now) / 1000) + ' seconds.'); return; }
+  if (lockPin.length >= PIN_LEN) return;
+  lockPin += d; lockDots();
+  if (lockPin.length < PIN_LEN) return;
+  const c = lockCfg(); let ok = false;
+  try { ok = !!(c && c.pin && (await pinHash(lockPin, c.pin.s)) === c.pin.h); } catch (e) {}
+  if (ok) { pinFails = 0; unlockApp(); return; }
+  pinFails++; lockPin = '';
+  const dots = $('pinDots'); if (dots) { dots.classList.add('bad'); setTimeout(() => { dots.classList.remove('bad'); lockDots(); }, 450); }
+  if (pinFails >= 5) { pinBlockedUntil = Date.now() + 30000; pinFails = 0; lockMsg('Too many wrong tries. Wait 30 seconds, or use your password.'); }
+  else lockMsg('Wrong PIN. Try again.');
+}
+function showLockPw() { const e = $('lockPw'); if (e) { e.style.display = 'block'; const i = $('lockPass'); if (i) i.focus(); if (!hasPassword()) return; if (!navigator.onLine) lockMsg('No internet. Use your PIN, or connect to use your password.'); } }
+function unlockApp() { appLocked = false; lockAuto = false; hiddenAt = 0; lockPin = ''; closeModal(); render(); }
 async function lockPassword() {
   const pw = ($('lockPass') || {}).value || '';
-  if (!pw) { $('lockErr').textContent = 'Type your password.'; return; }
-  $('lockErr').textContent = 'Checking…';
+  if (!navigator.onLine) { lockMsg('No internet. Use your PIN, or connect to use your password.'); return; }
+  if (!pw) { lockMsg('Type your password.'); return; }
+  lockMsg('Checking…');
   try {
     const { error } = await sb.auth.signInWithPassword({ email: user.email, password: pw });
-    if (error) { $('lockErr').textContent = 'Wrong password. Try again.'; return; }
-  } catch (e) { $('lockErr').textContent = 'Could not check. Check your internet.'; return; }
+    if (error) { lockMsg('Wrong password. Try again.'); return; }
+  } catch (e) { lockMsg('Could not check. Check your internet.'); return; }
   unlockApp();
 }
 async function bioUnlock(auto) {
@@ -866,7 +925,7 @@ async function bioUnlock(auto) {
     const r = await navigator.credentials.get({ publicKey: { challenge: crypto.getRandomValues(new Uint8Array(32)), rpId: location.hostname, allowCredentials: [{ type: 'public-key', id: b64u.dec(c.cred), transports: ['internal'] }], userVerification: 'required', timeout: 60000 } });
     if (r) unlockApp();
   } catch (e) {
-    if (!auto) { const er = $('lockErr'); showLockPw(); if (er) er.textContent = 'Fingerprint did not work. Use your password instead.'; }
+    if (!auto) { const c2 = lockCfg(); if (!(c2 && c2.pin)) showLockPw(); lockMsg(c2 && c2.pin ? 'Fingerprint did not work. Use your PIN.' : 'Fingerprint did not work. Use your password instead.'); }
   }
 }
 async function switchAccount() { saveLock(null); appLocked = false; await logout(); }
@@ -879,23 +938,47 @@ async function enableBiometric() {
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
       authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'discouraged' },
       timeout: 60000, attestation: 'none' } });
-    saveLock({ mode: 'bio', cred: b64u.enc(cred.rawId), uid: user.id });
+    const old = lockCfg();
+    saveLock({ ...(old && old.uid === user.id ? old : {}), mode: 'bio', cred: b64u.enc(cred.rawId), uid: user.id });
     closeModal(); toast('Fingerprint / Face ID lock is on.'); render();
+    if (!(lockCfg() || {}).pin) setTimeout(() => { $('modalRoot').innerHTML = `<div class="modal-overlay"><div class="modal-window" style="max-width:380px;text-align:center;"><div style="font-size:40px;">🔢</div><h2>Add a PIN too?</h2><p class="muted">A PIN lets you open Recordly even when you have no internet or your fingerprint fails.</p><button class="btn-primary" style="width:100%;" onclick="openPinSetup()">Set a PIN</button><button class="btn-outline" style="width:100%;margin-top:8px;" onclick="closeModal()">Not now</button></div></div>`; }, 700);
   } catch (e) { toast(e && e.name === 'NotAllowedError' ? 'Cancelled. Lock not turned on.' : 'This phone could not set up the lock.'); }
 }
-function enablePasswordLock() { saveLock({ mode: 'pw', uid: user.id }); closeModal(); toast('Password lock is on.'); render(); }
+function enablePasswordLock() { const old = lockCfg(); saveLock({ ...(old && old.uid === user.id ? old : {}), mode: 'pw', uid: user.id, cred: undefined }); closeModal(); toast('Password lock is on.'); render(); }
 function disableLock() { saveLock(null); closeModal(); toast('App lock is off.'); render(); }
 async function openLockSettings() {
   const c = lockCfg(), on = !!(c && c.uid === user.id), sup = await bioSupported();
+  const bioOn = on && c.mode === 'bio', pinOn = on && !!c.pin;
   $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;">
     <div class="row between" style="margin-bottom:8px;"><h2>App lock</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
-    <p class="muted">Ask for your fingerprint, Face ID or password each time you open Recordly.</p>
+    <p class="muted">Ask for a PIN, your fingerprint or Face ID each time you open Recordly.</p>
     <div class="list" style="margin-top:10px;">
-      <button class="${on && c.mode === 'bio' ? 'btn-soft' : 'btn-outline'}" style="justify-content:flex-start;padding:12px;" ${sup ? '' : 'disabled'} onclick="enableBiometric()">👆 Fingerprint / Face ID ${on && c.mode === 'bio' ? '✓' : ''}</button>
+      <button class="${pinOn ? 'btn-soft' : 'btn-outline'}" style="justify-content:flex-start;padding:12px;" onclick="openPinSetup()">🔢 ${pinOn ? 'Change my PIN' : 'Set an app PIN'} ${pinOn ? '✓' : ''}</button>
+      <div class="muted small" style="margin:-4px 2px 4px;">A 6-digit PIN works even when you have no internet.</div>
+      <button class="${bioOn ? 'btn-soft' : 'btn-outline'}" style="justify-content:flex-start;padding:12px;" ${sup ? '' : 'disabled'} onclick="enableBiometric()">👆 Fingerprint / Face ID ${bioOn ? '✓' : ''}</button>
       ${sup ? '' : '<div class="muted small">This phone or browser has no fingerprint or Face ID unlock set up.</div>'}
-      ${hasPassword() ? `<button class="${on && c.mode === 'pw' ? 'btn-soft' : 'btn-outline'}" style="justify-content:flex-start;padding:12px;" onclick="enablePasswordLock()">🔑 Password only ${on && c.mode === 'pw' ? '✓' : ''}</button>` : ''}
+      ${hasPassword() ? `<button class="${on && c.mode === 'pw' ? 'btn-soft' : 'btn-outline'}" style="justify-content:flex-start;padding:12px;" onclick="enablePasswordLock()">🔑 Password only (needs internet) ${on && c.mode === 'pw' ? '✓' : ''}</button>` : ''}
       ${on ? '<button class="btn-danger" style="padding:12px;" onclick="disableLock()">Turn off app lock</button>' : ''}
     </div></div></div>`;
+}
+function openPinSetup() {
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:380px;">
+    <div class="row between" style="margin-bottom:8px;"><h2>Set your PIN</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted">Choose ${PIN_LEN} digits you can remember. It is saved only on this phone, so it also works without internet.</p>
+    <div class="field"><label for="pinNew">New PIN</label><input id="pinNew" type="password" inputmode="numeric" maxlength="${PIN_LEN}" autocomplete="off" placeholder="${PIN_LEN} digits" style="font-size:22px;letter-spacing:6px;text-align:center;"></div>
+    <div class="field"><label for="pinNew2">Type it again</label><input id="pinNew2" type="password" inputmode="numeric" maxlength="${PIN_LEN}" autocomplete="off" placeholder="${PIN_LEN} digits" style="font-size:22px;letter-spacing:6px;text-align:center;"></div>
+    <div id="pinErr" class="small" style="color:var(--accent-red);min-height:20px;"></div>
+    <button class="btn-primary" style="width:100%;margin-top:6px;" onclick="submitPinSetup()">Save PIN</button>
+  </div></div>`;
+}
+async function submitPinSetup() {
+  const a = ($('pinNew') || {}).value || '', b = ($('pinNew2') || {}).value || '';
+  const err = t => { $('pinErr').textContent = t; };
+  if (!new RegExp('^\\d{' + PIN_LEN + '}$').test(a)) { err('The PIN must be exactly ' + PIN_LEN + ' digits.'); return; }
+  if (/^(\d)\1+$/.test(a) || a === '123456' || a === '654321') { err('That PIN is too easy to guess. Choose another.'); return; }
+  if (a !== b) { err('The two PINs are not the same.'); return; }
+  try { await savePin(a); } catch (e) { err('This browser could not save the PIN.'); return; }
+  closeModal(); toast('PIN saved. It works offline too.'); render();
 }
 async function maybeOfferLock() {
   try {
@@ -1657,7 +1740,9 @@ function checkReminders() {
   return notifs;
 }
 
+let offlineSession = false;
 function setTop() {
+  try { if (user && user.id && !offlineSession) localStorage.setItem('rc_lastuser', JSON.stringify({ id: user.id, email: user.email, phone: user.phone, user_metadata: user.user_metadata, app_metadata: user.app_metadata, identities: user.identities })); } catch (e) {}
   document.body.classList.toggle('loggedout', !user);
   document.body.classList.toggle('landing', !user && !isPublicHash());
   document.body.classList.toggle('locked', !!(user && appLocked && !isPublicHash()));
@@ -2028,6 +2113,7 @@ function showAuthMsg(m) {
 }
 
 async function logout() {
+  if (!navigator.onLine && !confirm('You are offline. Records not yet saved online will be lost from this phone if you log out. Log out anyway?')) return;
   try { await syncRecordsToDb(); await syncLocalDataToSupabase({ silent: true }); } catch (e) {}
   try { await sb.auth.signOut(); } catch (e) {}
   user = null;
@@ -2035,7 +2121,7 @@ async function logout() {
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
   loadingFor = null; loadedFor = null; dbSyncSig = '';
   if (liveChan) { try { sb.removeChannel(liveChan); } catch (e) {} liveChan = null; }
-  liveAlerts = []; try { localStorage.removeItem('rc_alerts'); } catch (e) {}
+  liveAlerts = []; try { localStorage.removeItem('rc_alerts'); localStorage.removeItem('rc_lastuser'); } catch (e) {}
   closeModal();
   toast('Logged out.');
   render();
@@ -2661,8 +2747,10 @@ function filterContribList() {
 
 let rf = {};
 function rfCollect() {
-  const m = { recordTitle: 'title', recordDesc: 'desc', recordTarget: 'target', recordDate: 'date', recordPeople: 'people' };
+  const m = { recordTitle: 'title', recordDesc: 'desc', recordTarget: 'target', recordDate: 'date' };
   Object.keys(m).forEach(id => { const e = $(id); if (e) rf[m[id]] = e.value.trim(); });
+  const rows = document.querySelectorAll('#pplTable .pr:not(.ph)');
+  if (rows.length) rf.people = [...rows].map(r => ({ name: r.querySelector('.pn').value.trim(), phone: r.querySelector('.pp').value.trim() }));
 }
 function rfGo(d) {
   rfCollect();
@@ -2670,6 +2758,23 @@ function rfGo(d) {
   newRecordForm(rf.step + d);
 }
 function rfFinish() { rfCollect(); saveNewRecord(); }
+function rfCount() {
+  const n = [...document.querySelectorAll('#pplTable .pn')].filter(i => i.value.trim()).length;
+  const e = $('pplCount'); if (e) e.textContent = n === 0 ? 'No one added yet' : n === 1 ? '1 person added' : n + ' people added';
+}
+function rfAddRow() { rfCollect(); rf.people = (Array.isArray(rf.people) ? rf.people : []).concat([{ name: '', phone: '' }]); newRecordForm(3); const n = document.querySelectorAll('#pplTable .pn'); if (n.length) n[n.length - 1].focus(); }
+function rfDelRow(i) { rfCollect(); rf.people.splice(i, 1); if (!rf.people.length) rf.people = [{ name: '', phone: '' }]; newRecordForm(3); }
+async function rfPickContacts() {
+  try {
+    const picked = await navigator.contacts.select(['name', 'tel'], { multiple: true });
+    if (!picked || !picked.length) return;
+    rfCollect();
+    let list = (Array.isArray(rf.people) ? rf.people : []).filter(p => p.name || p.phone);
+    picked.forEach(c => { const nm = (c.name && c.name[0]) || '', ph = (c.tel && c.tel[0]) || ''; if (nm || ph) list.push({ name: nm, phone: ph.replace(/\s+/g, ' ').trim() }); });
+    rf.people = list.length ? list : [{ name: '', phone: '' }];
+    newRecordForm(3);
+  } catch (e) { toast('Could not open your contacts.'); }
+}
 function newRecordForm(step) {
   if (!step) rf = {};
   step = step || 1; rf.step = step;
@@ -2687,10 +2792,22 @@ function newRecordForm(step) {
           <input id="recordTarget" type="number" min="0" inputmode="numeric" value="${esc(rf.target || '')}" placeholder="e.g. 25000"></div>
         <div class="field"><label for="recordDate">Last day to pay</label>
           <input id="recordDate" type="date" value="${esc(rf.date || '')}"></div>`,
-    3: `<h2>Who is paying?</h2>
-        <p class="muted">Type one person per line: name, then phone. You can skip this and add people later.</p>
-        <div class="field"><label for="recordPeople">People</label>
-          <textarea id="recordPeople" rows="6" placeholder="Amina Bello, 08012345678&#10;David Adeleke, 08087654321&#10;Chukwuma Eze">${esc(rf.people || '')}</textarea></div>`
+    3: (() => {
+      if (!Array.isArray(rf.people)) rf.people = [{ name: '', phone: '' }, { name: '', phone: '' }, { name: '', phone: '' }];
+      const nOk = rf.people.filter(p => p.name).length;
+      return `<h2>Who is paying?</h2>
+        <p class="muted">Write the name of each person who will pay you. The phone number is optional. You can add more people any time later.</p>
+        <div class="ptable" id="pplTable">
+          <div class="pr ph"><span>Name</span><span>Phone (optional)</span><span></span></div>
+          ${rf.people.map((p, i) => `<div class="pr"><input class="pn" autocomplete="off" autocapitalize="words" placeholder="e.g. Amina Bello" value="${esc(p.name || '')}" oninput="rfCount()"><input class="pp" type="tel" inputmode="tel" autocomplete="off" placeholder="Optional" value="${esc(p.phone || '')}"><button class="btn-outline xbtn" onclick="rfDelRow(${i})" aria-label="Remove this person">✕</button></div>`).join('')}
+        </div>
+        <div class="row between" style="margin:2px 0 8px;"><span class="small muted" id="pplCount">${nOk === 0 ? 'No one added yet' : nOk === 1 ? '1 person added' : nOk + ' people added'}</span></div>
+        <div class="row">
+          <button class="btn-soft" onclick="rfAddRow()">＋ Add another person</button>
+          ${(navigator.contacts && navigator.contacts.select) ? '<button class="btn-outline" onclick="rfPickContacts()">📇 From my contacts</button>' : ''}
+        </div>
+        <p class="small muted" style="margin:12px 0 0;">Not ready? Just tap <b>Save record</b> and add people later.</p>`;
+    })()
   }[step];
   $('app').innerHTML = `
     <button class="btn-outline btn-sm" onclick="location.hash='#/contributions'" style="margin-bottom:12px;">← Cancel</button>
@@ -2712,16 +2829,12 @@ function saveNewRecord() {
   const target = Number(rf.target) || null;
   const end_date = (rf.date || '') || null;
 
-  const peopleLines = (rf.people || '').split('\n').map(l => l.trim()).filter(Boolean);
-  const people = peopleLines.map(line => {
-    const parts = line.split(',');
-    return {
-      id: uid(),
-      name: parts[0].trim(),
-      phone: (parts.slice(1).join(',') || '').trim() || null,
-      payments: []
-    };
-  });
+  const people = (Array.isArray(rf.people) ? rf.people : []).filter(p => p.name).map(p => ({
+    id: uid(),
+    name: p.name,
+    phone: p.phone || null,
+    payments: []
+  }));
 
   const newRec = {
     id: uid(),
@@ -4599,8 +4712,8 @@ function renderMore() {
       <div class="item-card between" onclick="openLockSettings()" style="cursor:pointer;">
         <div class="avatar-circle avatar-blue">🔒</div>
         <div class="grow">
-          <b>App lock: ${lockActive() ? (lockCfg().mode === 'bio' ? 'Fingerprint / Face ID' : 'Password') : 'Off'}</b>
-          <div class="muted small">Ask for fingerprint, Face ID or password when you open the app</div>
+          <b>App lock: ${lockActive() ? (lockCfg().mode === 'bio' ? 'Fingerprint / Face ID' : lockCfg().mode === 'pin' ? 'PIN' : 'Password') : 'Off'}${lockActive() && lockCfg().pin && lockCfg().mode !== 'pin' ? ' + PIN' : ''}</b>
+          <div class="muted small">Ask for a PIN, fingerprint or Face ID when you open the app</div>
         </div>
         <button class="btn-outline btn-sm">Change</button>
       </div>
@@ -5189,6 +5302,10 @@ async function start() {
   try {
     const { data } = await sb.auth.getSession();
     user = data?.session?.user || null;
+    if (!user && !navigator.onLine) {
+      // No internet and no usable session: let the person in with their saved PIN so they can still work.
+      try { const c = lockCfg(), last = JSON.parse(localStorage.getItem('rc_lastuser') || 'null'); if (c && c.pin && last && c.uid === last.id) { user = last; offlineSession = true; } } catch (e) {}
+    }
     try { if (lockActive() && !isPublicHash() && !sessionStorage.getItem('rc_unlock_oauth')) appLocked = true; sessionStorage.removeItem('rc_unlock_oauth'); } catch (e) {}
     sb.auth.onAuthStateChange((event, session) => {
       const prev = user;
@@ -5213,7 +5330,10 @@ async function start() {
   startIdleLogout();
 
   // Sync when browser reconnects to internet
-  window.addEventListener('online', () => {
+  window.addEventListener('online', async () => {
+    if (offlineSession) {
+      try { const { data } = await sb.auth.getSession(); if (data?.session?.user) { user = data.session.user; offlineSession = false; toast('Back online. Syncing your records…'); } else { toast('Back online. Please log in again to sync your records.'); return; } } catch (e) { return; }
+    }
     syncLocalDataToSupabase({ silent: true });
   });
 
