@@ -554,6 +554,90 @@ body.locked .top-header, body.locked #bottomNav, body.locked #appFooter{display:
 .keypad button svg{width:30px;height:30px}
 .lockLinks{margin-top:auto;padding-top:30px;font-size:14px;font-weight:700;color:var(--primary)}
 .lockLinks a{cursor:pointer;padding:6px 8px}.lockLinks span{color:var(--muted)}
+.gate{margin:auto 0;padding:22px 18px;border-radius:26px;background:rgba(10,16,30,.72);border:1px solid rgba(148,163,184,.22);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);text-align:center}
+.gate .g-av{width:78px;height:78px;border-radius:50%;margin:0 auto;background:rgba(20,184,166,.16);color:#5eead4;display:grid;place-items:center;font-size:32px;font-weight:800;overflow:hidden}
+.gate .g-av img{width:100%;height:100%;object-fit:cover}
+.gate h2{margin:12px 0 2px;font-size:20px;color:#f1f5f9}
+.gate .g-id{color:#94a3b8;font-size:14px;margin-bottom:16px}
+.gate input{background:rgba(255,255,255,.08);border-color:rgba(148,163,184,.35);color:#f1f5f9;text-align:left}
+.gate label{color:#94a3b8;text-align:left}
+.gate .g-err{min-height:20px;font-size:13px;color:#fda4af;margin:6px 0}
+.gate .g-tip{font-size:12.5px;color:#94a3b8;margin-top:14px}
+.gate .g-links{margin-top:16px;font-size:14px;font-weight:700;color:#5eead4}.gate .g-links a{cursor:pointer;padding:6px 8px}
+/* live "how it works" demo on the logged-out screen */
+.dm-phone{border-radius:24px;padding:12px 14px 10px;background:linear-gradient(160deg,rgba(255,255,255,.10),rgba(255,255,255,.03));border:1px solid rgba(148,163,184,.25);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.dm-top{display:flex;align-items:center;gap:7px;font-size:10.5px;letter-spacing:1.5px;color:#67e8f9;font-weight:700;margin-bottom:9px}
+.dm-top i{width:7px;height:7px;border-radius:50%;background:#22d3ee;animation:dmBlink 1.4s infinite}
+@keyframes dmBlink{50%{opacity:.25}}
+.dm-stage{position:relative;height:200px;overflow:hidden}
+.lp-hero p{display:none}.lp-hero h1{font-size:28px}
+@media (max-height:860px){.lp-chips{display:none!important}}
+.dm-sl{position:absolute;inset:0;opacity:0;visibility:hidden;transition:opacity .35s,visibility .35s;display:flex;flex-direction:column;gap:9px;font-size:13px;color:#e2e8f0}
+.dm-sl.on{opacity:1;visibility:visible}
+.dm-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-weight:700}
+.dm-h b{font-size:21px;letter-spacing:-.4px;color:#5eead4}
+.dm-r{display:flex;align-items:center;gap:9px}
+.dm-r .av{width:26px;height:26px;border-radius:9px;background:rgba(45,212,191,.16);color:#5eead4;display:grid;place-items:center;font-weight:800;font-size:12px;flex-shrink:0}
+.dm-r .nm{min-width:60px}
+.dm-bar{flex:1;height:6px;border-radius:9px;background:rgba(148,163,184,.22);overflow:hidden}
+.dm-bar i{display:block;height:100%;width:var(--w);border-radius:9px;background:linear-gradient(90deg,#14b8a6,#22d3ee)}
+.dm-r .v{min-width:58px;height:16px;position:relative;color:#94a3b8;text-align:right}
+.dm-r .v span{position:absolute;right:0;top:0;white-space:nowrap}
+.dm-btn{align-self:stretch;text-align:center;padding:10px;border-radius:13px;font-weight:800;background:linear-gradient(90deg,#14b8a6,#22d3ee);color:#04211f}
+.dm-ov>.dm-btn{padding:10px 0}.dm-done{padding:10px 0;border-radius:13px;background:rgba(45,212,191,.18);border:1px solid rgba(94,234,212,.45);color:#5eead4;font-weight:800}
+.dm-muted{color:#94a3b8;font-size:12px}
+.dm-swap{position:relative;height:18px}.dm-swap>div{position:absolute;left:0;top:0;white-space:nowrap}
+.dm-sw{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(148,163,184,.2)}
+.dm-sw .sw{width:38px;height:22px;border-radius:12px;background:rgba(148,163,184,.4);position:relative;flex-shrink:0}
+.dm-sw .sw i{position:absolute;left:2px;top:2px;width:18px;height:18px;border-radius:50%;background:#fff}
+.dm-split{display:flex;gap:10px;align-items:stretch;flex:1}
+.dm-rc{flex:0 0 164px;border-radius:14px;background:#fff;color:#0f172a;padding:10px;font-size:11.5px;display:flex;flex-direction:column;gap:3px}
+.dm-rc b{color:#0f766e;font-size:13px}.dm-rc .amt{font-size:21px;font-weight:800;color:#0f766e;margin:2px 0}
+.dm-rc .tm{padding:3px 5px;border-radius:7px;display:flex;justify-content:space-between;gap:4px;white-space:nowrap;font-size:11px}
+.dm-col{flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;justify-content:center}
+.dm-sb{padding:9px;border-radius:12px;text-align:center;font-weight:800;font-size:12.5px}
+.dm-sb.t{background:linear-gradient(90deg,#14b8a6,#22d3ee);color:#04211f}.dm-sb.g{background:#25d366;color:#052e16}
+.dm-bub{border-radius:12px 12px 4px 12px;background:#dcf8c6;color:#14301c;padding:8px;font-size:11.5px;line-height:1.35}
+.dm-bub .im{height:34px;border-radius:7px;background:#fff;margin-bottom:5px;display:grid;place-items:center;color:#0f766e;font-weight:800;font-size:12px}
+.dm-tiles{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dm-tile{border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(148,163,184,.2);padding:9px 8px;min-width:0}
+.dm-tile small{display:block;color:#94a3b8;font-size:11px}.dm-tile b{display:block;font-size:13.5px;margin-top:3px;white-space:nowrap}
+.dm-mini{display:flex;align-items:flex-end;gap:3px;height:34px;margin-top:8px}.dm-mini i{flex:1;border-radius:3px;background:#2dd4bf;height:var(--h)}
+.dm-chip{align-self:flex-start;padding:7px 12px;border-radius:99px;background:rgba(251,113,133,.16);color:#fda4af;font-weight:700;font-size:12.5px}
+.dm-ph{position:absolute;inset:0;display:flex;flex-direction:column;gap:9px}
+.dm-search{padding:10px 12px;border-radius:13px;background:rgba(255,255,255,.07);border:1px solid rgba(148,163,184,.25)}
+.dm-ty{display:inline-block;overflow:hidden;white-space:nowrap;vertical-align:bottom;width:0}
+.dm-card{padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.07);border:1px solid rgba(148,163,184,.2)}
+.dm-cap{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:9px;border-top:1px solid rgba(148,163,184,.18)}
+.dm-cap b{font-size:13px}.dm-dots{display:flex;gap:5px}.dm-dots i{width:6px;height:6px;border-radius:50%;background:rgba(148,163,184,.4);transition:all .25s}.dm-dots i.on{background:#2dd4bf;width:16px;border-radius:4px}
+/* animations only run while a slide is active; the end state is the default state so reduced-motion still looks right */
+.dm-sl.on .dm-up{animation:dmUp .5s both}
+.dm-sl.on .dm-up:nth-child(2){animation-delay:.15s}.dm-sl.on .dm-up:nth-child(3){animation-delay:.3s}.dm-sl.on .dm-up:nth-child(4){animation-delay:.45s}
+@keyframes dmUp{from{opacity:0;transform:translateY(9px)}}
+@keyframes dmBar{from{width:0}}@keyframes dmGrow{to{width:var(--w2)}}@keyframes dmFade{from{opacity:0}}@keyframes dmGone{to{opacity:0}}
+@keyframes dmTap{40%{transform:scale(.94)}}@keyframes dmSw{to{transform:translateX(16px)}}@keyframes dmSwBg{to{background:#14b8a6}}
+@keyframes dmType{to{width:4.2ch}}@keyframes dmHi{50%{background:#fde68a}}@keyframes dmShake{20%,60%{transform:rotate(-10deg)}40%,80%{transform:rotate(10deg)}}
+@keyframes dmPop{from{opacity:0;transform:scale(.85) translateY(8px)}}
+.dm-sl.on .dm-bar i{animation:dmBar 1s .45s ease both}
+.dm-sl.on .dm-bar i.gr{animation:dmBar 1s .55s ease both,dmGrow .9s 2.7s ease forwards}
+.dm-sl.on .v1{animation:dmGone .3s 2.8s forwards}.dm-sl.on .v2{animation:dmFade .3s 2.9s both}
+.dm-sl.on .b1{animation:dmTap .5s 2.0s,dmGone .25s 2.55s forwards}
+.dm-sl.on .dm-done{animation:dmFade .35s 2.6s both}
+.dm-sl.on .l1{animation:dmGone .2s 2.6s forwards}.dm-sl.on .l2{animation:dmFade .3s 2.85s both}
+.dm-sl.on .sw{animation:dmSwBg .3s 2.4s forwards}.dm-sl.on .sw i{animation:dmSw .3s 2.4s forwards}
+.dm-sl.on .dm-rc{animation:dmPop .5s both}.dm-sl.on .dm-rc .tm{animation:dmHi 1s 1.1s 2}
+.dm-sl.on .sb1{animation:dmFade .4s 1.7s both}.dm-sl.on .sb2{animation:dmFade .4s 2.0s both}.dm-sl.on .dm-bub{animation:dmPop .45s 2.7s both}
+.dm-sl.on .dm-tile{animation:dmPop .5s both}.dm-sl.on .dm-tile:nth-child(2){animation-delay:.2s}.dm-sl.on .dm-tile:nth-child(3){animation-delay:.4s}
+.dm-sl.on .dm-mini i{animation:dmBar2 .7s .5s ease both}@keyframes dmBar2{from{height:0}}
+.dm-sl.on .dm-chip{animation:dmPop .45s 1.8s both}.dm-sl.on .dm-chip em{display:inline-block;font-style:normal;animation:dmShake .8s 2.2s 2}
+.dm-sl.on .ty{animation:dmType 1s .4s steps(4) forwards}
+.dm-sl.on .ph1{animation:dmGone .35s 2.9s forwards}.dm-sl.on .ph2{animation:dmFade .4s 3.1s both}
+.dm-sl.on .rs1{animation:dmGone .25s 2.2s forwards}.dm-sl.on .rs2{animation:dmFade .3s 2.3s both}
+.dm-sl.on .ap1{animation:dmGone .25s 4.1s forwards}.dm-sl.on .ap2{animation:dmFade .3s 4.2s both}
+.dm-sl.on .dm-card.c1{animation:dmPop .45s 1.2s both}
+.dm-ov{position:relative}.dm-ov>span{position:absolute;left:0;right:0;top:0;text-align:center}
+@media (max-height:740px){.dm-stage{height:172px}.dm-cap{margin-top:6px;padding-top:6px}}
+@media (prefers-reduced-motion:reduce){.dm-sl *{animation:none!important;transition:none!important}}
 [hidden]{display:none!important}
 .stat-box{min-width:0}
 .stat-val,.fit-amt{white-space:nowrap;overflow:hidden}
@@ -800,15 +884,18 @@ function scheduleDbSync() {
   dbSyncTimer = setTimeout(syncRecordsToDb, 1200);
 }
 let idleTimer = null;
+function idleMs() { if (!lockActive()) return 1800000; const a = lockAfter(); return a === 0 ? 300000 : Math.max(a, 60000); }
 function startIdleLogout() {
   const reset = () => {
     clearTimeout(idleTimer);
     idleTimer = setTimeout(async () => {
-      if (!user) return;
+      if (!user || appLocked) return;
       if (lockActive()) { appLocked = true; lockAuto = false; closeModal(); render(); return; }
-      if (!navigator.onLine) return; // never log out offline: unsaved records would be lost
+      if (!navigator.onLine) return; // offline a password lock could not be opened again, so wait
+      // No lock set up: ask for the password instead of logging out, so the person never loses their place or data.
+      if (hasPassword() || (user.app_metadata && user.app_metadata.provider === 'google')) { appLocked = true; lockAuto = false; closeModal(); render(); return; }
       toast('Logged out after 30 minutes of inactivity.'); await logout();
-    }, 1800000);
+    }, idleMs());
   };
   ['click', 'keydown', 'touchstart', 'scroll', 'mousemove'].forEach(e => addEventListener(e, reset, { passive: true }));
   reset();
@@ -928,7 +1015,7 @@ async function bioUnlock(auto) {
     if (!auto) { const c2 = lockCfg(); if (!(c2 && c2.pin)) showLockPw(); lockMsg(c2 && c2.pin ? 'Fingerprint did not work. Use your PIN.' : 'Fingerprint did not work. Use your password instead.'); }
   }
 }
-async function switchAccount() { saveLock(null); appLocked = false; await logout(); }
+async function switchAccount() { saveLock(null); appLocked = false; forgetUser(); await logout(); }
 async function enableBiometric() {
   try {
     const cred = await navigator.credentials.create({ publicKey: {
@@ -946,6 +1033,29 @@ async function enableBiometric() {
 }
 function enablePasswordLock() { const old = lockCfg(); saveLock({ ...(old && old.uid === user.id ? old : {}), mode: 'pw', uid: user.id, cred: undefined }); closeModal(); toast('Password lock is on.'); render(); }
 function disableLock() { saveLock(null); closeModal(); toast('App lock is off.'); render(); }
+const LOCK_OPTS = [[0, 'Immediately'], [30000, 'After 30 seconds'], [60000, 'After 1 minute'], [300000, 'After 5 minutes'], [900000, 'After 15 minutes'], [1800000, 'After 30 minutes']];
+function lockAfter() { const c = lockCfg(); return c && typeof c.after === 'number' ? c.after : 30000; }
+function lockAfterLabel() { const o = LOCK_OPTS.find(x => x[0] === lockAfter()); return o ? o[1].toLowerCase() : 'after 30 seconds'; }
+function setLockAfter(ms) {
+  const c = lockCfg(); if (!c || !user || c.uid !== user.id) return;
+  saveLock({ ...c, after: ms }); toast('Locks ' + lockAfterLabel() + ' after you leave the app.'); openLockSettings();
+}
+function lockNow() {
+  closeModal();
+  if (!user) return;
+  if (!lockActive()) {
+    // No fingerprint or PIN set up: lock with the account password instead.
+    if (!hasPassword() && !(user.app_metadata && user.app_metadata.provider === 'google')) { toast('Set up an app lock first (More > App lock).'); return; }
+    if (!navigator.onLine) { toast('You are offline. Set a PIN first (More > App lock) so you can unlock without internet.'); return; }
+  }
+  appLocked = true; lockAuto = false; render();
+}
+function markActive() { try { localStorage.setItem('rc_lastactive', String(Date.now())); } catch (e) {} }
+function startActiveTracker() {
+  markActive();
+  setInterval(() => { if (!document.hidden && user && !appLocked) markActive(); }, 15000);
+  addEventListener('pagehide', markActive);
+}
 async function openLockSettings() {
   const c = lockCfg(), on = !!(c && c.uid === user.id), sup = await bioSupported();
   const bioOn = on && c.mode === 'bio', pinOn = on && !!c.pin;
@@ -958,6 +1068,9 @@ async function openLockSettings() {
       <button class="${bioOn ? 'btn-soft' : 'btn-outline'}" style="justify-content:flex-start;padding:12px;" ${sup ? '' : 'disabled'} onclick="enableBiometric()">👆 Fingerprint / Face ID ${bioOn ? '✓' : ''}</button>
       ${sup ? '' : '<div class="muted small">This phone or browser has no fingerprint or Face ID unlock set up.</div>'}
       ${hasPassword() ? `<button class="${on && c.mode === 'pw' ? 'btn-soft' : 'btn-outline'}" style="justify-content:flex-start;padding:12px;" onclick="enablePasswordLock()">🔑 Password only (needs internet) ${on && c.mode === 'pw' ? '✓' : ''}</button>` : ''}
+      ${on ? `<div style="margin-top:8px;"><b>Lock the app</b><div class="muted small" style="margin:2px 0 8px;">Choose when Recordly asks again after you leave it.</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">${LOCK_OPTS.map(o => `<button class="${lockAfter() === o[0] ? 'btn-soft' : 'btn-outline'}" style="padding:10px 6px;font-size:13px;" onclick="setLockAfter(${o[0]})">${o[1]}${lockAfter() === o[0] ? ' ✓' : ''}</button>`).join('')}</div></div>
+        <button class="btn-outline" style="padding:12px;" onclick="lockNow()">🔒 Lock now</button>` : ''}
       ${on ? '<button class="btn-danger" style="padding:12px;" onclick="disableLock()">Turn off app lock</button>' : ''}
     </div></div></div>`;
 }
@@ -990,8 +1103,15 @@ async function maybeOfferLock() {
   } catch (e) {}
 }
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) { hiddenAt = Date.now(); return; }
-  if (user && !appLocked && lockActive() && hiddenAt && Date.now() - hiddenAt > 30000) { appLocked = true; lockAuto = false; closeModal(); render(); }
+  if (document.hidden) {
+    hiddenAt = Date.now(); markActive();
+    // "Immediately": cover the screen the moment the app is left, so the app switcher shows nothing private.
+    if (user && !appLocked && lockActive() && !isPublicHash() && lockAfter() === 0) { appLocked = true; lockAuto = false; closeModal(); render(); }
+    return;
+  }
+  if (!user || isPublicHash()) return;
+  if (!appLocked && lockActive() && hiddenAt && Date.now() - hiddenAt >= lockAfter()) { appLocked = true; lockAuto = false; closeModal(); render(); return; }
+  if (appLocked) { lockAuto = false; render(); }   // ask for the fingerprint again as soon as the app comes back
 });
 
 // Google-only accounts have no password, so they confirm by typing a word instead.
@@ -1136,7 +1256,71 @@ function addPageHint() {
 function dismissHint(k, el) { try { localStorage.setItem('rc_hint_' + k, '1'); } catch (e) {} el.closest('.hint-box').remove(); }
 async function render() { await renderCore(); addPageHint(); }
 
+// KNOWN DEVICE: after the first sign-in this phone remembers the account, so the person only ever sees
+// fingerprint / PIN / password. Create account and Log in are shown to brand-new people only.
+const KNOWN_KEY = 'rc_known';
+function knownUser() { try { return JSON.parse(localStorage.getItem(KNOWN_KEY) || 'null'); } catch (e) { return null; } }
+function rememberUser(u) {
+  if (!u || !u.id) return;
+  try {
+    const m = u.user_metadata || {}, ids = u.identities || [];
+    localStorage.setItem(KNOWN_KEY, JSON.stringify({
+      id: u.id, email: u.email || null, phone: u.phone || null, name: m.name || m.full_name || '', pic: m.avatar_url || m.picture || '',
+      pw: ids.some(i => i.provider === 'email'), google: ids.some(i => i.provider === 'google') || (u.app_metadata && u.app_metadata.provider === 'google')
+    }));
+  } catch (e) {}
+}
+function forgetUser() { try { localStorage.removeItem(KNOWN_KEY); } catch (e) {} }
+function gateMsg(t, calm) { const e = $('gateErr'); if (e) { e.textContent = t; e.style.color = calm ? '#94a3b8' : '#fda4af'; } }
+function renderWelcomeBack(kn) {
+  const nm = kn.name || 'Welcome back';
+  const id = kn.email ? kn.email.split('@')[0].slice(0, 2) + '***@' + kn.email.split('@')[1] : (kn.phone ? kn.phone.slice(0, 3) + '****' + kn.phone.slice(-3) : '');
+  $('app').innerHTML = `
+  <div class="lp">
+    <div class="lp-bg"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><div class="lp-grid"></div></div>
+    <header class="lp-top"><div class="lp-logo">R</div><span class="lp-name">Record<b>ly</b></span><span class="lp-pill">● SECURE</span></header>
+    <section class="gate">
+      <div class="g-av">${kn.pic ? `<img src="${esc(kn.pic)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : esc((nm[0] || 'R').toUpperCase())}</div>
+      <h2>${esc(nm)}</h2>
+      <div class="g-id">${esc(id)}${navigator.onLine ? '' : ' · offline'}</div>
+      ${kn.pw && kn.email ? `
+        <div class="field" style="margin:0;"><label for="gatePass">Password</label>
+        <input id="gatePass" type="password" autocomplete="current-password" placeholder="Enter your password" onkeydown="if(event.key==='Enter')gateLogin()"></div>
+        <div id="gateErr" class="g-err"></div>
+        <button class="lp-btn glow" id="gateBtn" onclick="gateLogin()">Unlock</button>
+        <div class="g-links"><a onclick="gateForgot()">Forgot password?</a></div>`
+      : kn.google ? `<div id="gateErr" class="g-err"></div><button class="lp-btn google" onclick="signInWithGoogle()">Continue with Google</button>`
+      : `<div id="gateErr" class="g-err"></div><button class="lp-btn glow" onclick="authModal('phone_otp')">Get my login code</button>`}
+      <div class="g-tip">Tip: use Lock app (not Log out) to keep fingerprint and PIN unlock.</div>
+      <div class="g-links"><a onclick="gateSwitch()">Not you? Switch account</a></div>
+    </section>
+  </div>`;
+}
+async function gateLogin() {
+  const kn = knownUser(); if (!kn || !kn.email) return;
+  const pw = ($('gatePass') || {}).value || '';
+  if (!pw) { gateMsg('Type your password.'); return; }
+  if (!navigator.onLine) { gateMsg('No internet. Connect to unlock.'); return; }
+  const b = $('gateBtn'); if (b) b.disabled = true; gateMsg('Checking…', true);
+  try {
+    const { data, error } = await sb.auth.signInWithPassword({ email: kn.email, password: pw });
+    if (error) { gateMsg('Wrong password. Try again.'); if (b) b.disabled = false; return; }
+    user = data.user || user; toast('Welcome back!'); render();
+  } catch (e) { gateMsg('Could not check. Check your internet.'); if (b) b.disabled = false; }
+}
+async function gateForgot() {
+  const kn = knownUser(); if (!kn || !kn.email) return;
+  if (!navigator.onLine) { gateMsg('No internet. Connect to reset your password.'); return; }
+  try { const { error } = await sb.auth.resetPasswordForEmail(kn.email, { redirectTo: location.origin + location.pathname }); if (error) throw error; gateMsg('Reset link sent. Check your email.', true); }
+  catch (e) { gateMsg('Could not send the link. Try again.'); }
+}
+function gateSwitch() {
+  if (!confirm('Use a different account on this phone? You will see the sign-in and create-account options.')) return;
+  saveLock(null); forgetUser(); render();
+}
 function renderLoggedOut() {
+  const kn = knownUser();
+  if (kn && !isPublicHash()) return renderWelcomeBack(kn);
   document.body.classList.add('landing');
   $('app').innerHTML = `
   <div class="lp">
@@ -1149,22 +1333,59 @@ function renderLoggedOut() {
       <p>Contributions, sales, expenses and debts in one place, with instant receipts and private progress links.</p>
     </section>
 
-    <section class="lp-card" aria-hidden="true">
-      <div class="top">
-        <div class="lp-ring">
-          <svg viewBox="0 0 120 120"><defs><linearGradient id="lpg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14b8a6"/><stop offset="1" stop-color="#22d3ee"/></linearGradient></defs><circle class="bg" cx="60" cy="60" r="52" fill="none" stroke-width="9"/><circle class="fg" cx="60" cy="60" r="52" fill="none" stroke-width="9"/></svg>
-          <div class="pc" id="lpPct">0%</div>
+    <section class="dm" id="dmRoot" aria-hidden="true">
+      <div class="dm-phone">
+        <div class="dm-top"><i></i>HOW RECORDLY WORKS</div>
+        <div class="dm-stage">
+          <div class="dm-sl" data-i="0">
+            <div class="dm-h dm-up"><span>Class Dues 2026</span><b data-count="115000" data-delay="350" data-ms="1500" data-count2="145000" data-delay2="2800">₦145,000</b></div>
+            <div class="dm-r dm-up"><span class="av">A</span><span class="nm">Ada</span><div class="dm-bar"><i style="--w:100%"></i></div><span class="v"><span>Paid ✓</span></span></div>
+            <div class="dm-r dm-up"><span class="av">C</span><span class="nm">Chinedu</span><div class="dm-bar"><i class="gr" style="--w:40%;--w2:100%"></i></div><span class="v"><span class="v1">₦20k</span><span class="v2">Paid ✓</span></span></div>
+            <div class="dm-r dm-up"><span class="av">F</span><span class="nm">Fatima</span><div class="dm-bar"><i style="--w:70%"></i></div><span class="v"><span>₦35k</span></span></div>
+            <div class="dm-ov" style="height:40px;"><span class="dm-btn b1">+ Log payment</span><span class="dm-done">✓ Payment recorded</span></div>
+          </div>
+          <div class="dm-sl" data-i="1">
+            <div class="dm-h dm-up"><span>🔗 Ada's private link</span><span class="dm-muted">only she can open it</span></div>
+            <div class="dm-up"><div class="dm-muted">TOTAL PAID</div><div style="font-size:26px;font-weight:800;color:#5eead4;" data-count="35000" data-delay="300" data-ms="1300">₦35,000</div></div>
+            <div class="dm-bar dm-up" style="flex:none;"><i style="--w:70%"></i></div>
+            <div class="dm-swap dm-up"><div class="l1 dm-muted">70% completed · ₦15,000 remaining</div><div class="l2" style="color:#5eead4;font-weight:700;">🔒 The balance is private</div></div>
+            <div class="dm-sw dm-up"><span>Hide balance from visitors</span><div class="sw"><i></i></div></div>
+          </div>
+          <div class="dm-sl" data-i="2">
+            <div class="dm-split">
+              <div class="dm-rc"><b>Class Dues 2026</b><small>Payment Receipt</small><div class="amt">₦15,000</div><div class="tm"><span>Time paid</span><b style="color:#0f172a">10:42 AM</b></div><div>Ada Okafor · Transfer</div></div>
+              <div class="dm-col">
+                <div class="dm-sb t sb1">📤 Share</div>
+                <div class="dm-sb g sb2">WhatsApp</div>
+                <div class="dm-bub"><div class="im">Receipt image</div>Join Recordly · app link</div>
+              </div>
+            </div>
+          </div>
+          <div class="dm-sl" data-i="3">
+            <div class="dm-tiles">
+              <div class="dm-tile"><small>Sales</small><b data-count="1240000" data-delay="400" data-ms="1400">₦1,240,000</b><div class="dm-mini"><i style="--h:40%"></i><i style="--h:65%"></i><i style="--h:50%"></i><i style="--h:85%"></i><i style="--h:100%"></i></div></div>
+              <div class="dm-tile"><small>Expenses</small><b data-count="386500" data-delay="600" data-ms="1400">₦386,500</b><div class="dm-mini"><i style="--h:60%;background:#fbbf24"></i><i style="--h:35%;background:#fbbf24"></i><i style="--h:55%;background:#fbbf24"></i><i style="--h:30%;background:#fbbf24"></i><i style="--h:45%;background:#fbbf24"></i></div></div>
+              <div class="dm-tile"><small>Owed to you</small><b data-count="210000" data-delay="800" data-ms="1400">₦210,000</b><div class="dm-mini"><i style="--h:100%;background:#fb7185"></i><i style="--h:70%;background:#fb7185"></i><i style="--h:40%;background:#fb7185"></i><i style="--h:25%;background:#fb7185"></i><i style="--h:15%;background:#fb7185"></i></div></div>
+            </div>
+            <div class="dm-chip"><em>🔔</em> 2 payments are overdue. Recordly reminds you.</div>
+            <div class="dm-muted">Reports and CSV export included.</div>
+          </div>
+          <div class="dm-sl" data-i="4">
+            <div class="dm-ph ph1">
+              <div class="dm-h"><span>Find people &amp; groups</span></div>
+              <div class="dm-search">🔍 <span class="dm-ty ty">dues</span></div>
+              <div class="dm-card c1"><b>Class Dues 2026</b><div class="dm-muted">by Ada Okafor · 12 members</div>
+                <div class="dm-ov" style="height:36px;margin-top:8px;"><span class="rs1 dm-btn" style="padding:8px;">Ask to join</span><span class="rs2" style="padding:8px;border-radius:13px;background:rgba(251,191,36,.18);color:#fde68a;font-weight:700;font-size:12.5px;">Request sent · waiting for admin</span></div></div>
+            </div>
+            <div class="dm-ph ph2">
+              <div class="dm-h"><span>Admin · Join requests (1)</span></div>
+              <div class="dm-card"><b>Tunde Bello</b> <span class="dm-muted">wants to join Class Dues 2026</span>
+                <div class="dm-ov" style="height:36px;margin-top:8px;"><span class="ap1 dm-btn" style="padding:8px;">Approve</span><span class="ap2" style="padding:8px;border-radius:13px;background:rgba(45,212,191,.18);color:#5eead4;font-weight:700;font-size:12.5px;">✓ Approved. Tunde is now a member</span></div></div>
+              <div class="dm-muted">Nobody joins without the admin's yes.</div>
+            </div>
+          </div>
         </div>
-        <div>
-          <div class="ttl">LIVE PROGRESS</div>
-          <div class="nm">Church Building Fund</div>
-          <div class="amt"><span id="lpAmt">₦0</span> <small>of ₦1,000,000</small></div>
-        </div>
-      </div>
-      <div class="lp-rows">
-        <div class="lp-row"><div class="av">A</div><span style="min-width:54px">Amina</span><div class="bar"><i style="--w:100%"></i></div><span class="v">Paid ✓</span></div>
-        <div class="lp-row"><div class="av">D</div><span style="min-width:54px">David</span><div class="bar"><i style="--w:62%"></i></div><span class="v">₦310k</span></div>
-        <div class="lp-row"><div class="av">C</div><span style="min-width:54px">Chuma</span><div class="bar"><i style="--w:28%"></i></div><span class="v">₦140k</span></div>
+        <div class="dm-cap"><b id="dmCap"></b><div class="dm-dots" id="dmDots"><i></i><i></i><i></i><i></i><i></i></div></div>
       </div>
     </section>
 
@@ -1183,7 +1404,40 @@ function renderLoggedOut() {
     </div>
   </div>`;
   animateLanding();
+  startLandingDemo();
 }
+// LIVE "HOW IT WORKS" DEMO (logged-out screen)
+const DM_CAPS = ['Log payments in seconds', 'A private link per member', 'Instant receipts you can share', 'Sales, expenses and debts too', 'Joining needs admin approval'];
+const DM_MS = [5200, 5000, 5200, 5000, 6200];
+let dmTimer = null, dmIdx = -1, dmRaf = [];
+function dmTween(el, from, to, ms, delay) {
+  const t0 = performance.now() + delay;
+  const step = now => {
+    if (!el.isConnected) return;
+    const k = Math.max(0, Math.min(1, (now - t0) / ms)), e = 1 - Math.pow(1 - k, 3);
+    el.textContent = '₦' + Math.round(from + (to - from) * e).toLocaleString('en-NG');
+    if (k < 1) dmRaf.push(requestAnimationFrame(step));
+  };
+  dmRaf.push(requestAnimationFrame(step));
+}
+function dmNext() {
+  const root = $('dmRoot'); if (!root) { clearTimeout(dmTimer); return; }
+  dmRaf.forEach(cancelAnimationFrame); dmRaf = [];
+  dmIdx = (dmIdx + 1) % DM_CAPS.length;
+  root.querySelectorAll('.dm-sl').forEach(x => x.classList.remove('on'));
+  const el = root.querySelector('.dm-sl[data-i="' + dmIdx + '"]'); void el.offsetWidth; el.classList.add('on');
+  $('dmCap').textContent = (dmIdx + 1) + ' · ' + DM_CAPS[dmIdx];
+  root.querySelectorAll('#dmDots i').forEach((d, i) => d.classList.toggle('on', i === dmIdx));
+  el.querySelectorAll('[data-count]').forEach(n => {
+    const to = Number(n.dataset.count), ms = Number(n.dataset.ms || 1400), dl = Number(n.dataset.delay || 0);
+    n.textContent = '₦0'; dmTween(n, 0, to, ms, dl);
+    if (n.dataset.count2) dmTween(n, to, Number(n.dataset.count2), 800, Number(n.dataset.delay2 || 2800));
+  });
+  clearTimeout(dmTimer); dmTimer = setTimeout(dmNext, DM_MS[dmIdx]);
+}
+function startLandingDemo() { clearTimeout(dmTimer); dmIdx = -1; dmNext(); }
+document.addEventListener('visibilitychange', () => { if (!document.hidden && $('dmRoot')) { clearTimeout(dmTimer); dmTimer = setTimeout(dmNext, 400); } });
+
 function animateLanding() {
   const pc = $('lpPct'), am = $('lpAmt'); if (!pc || !am) return;
   const t0 = performance.now(), D = 1700;
@@ -1743,6 +1997,7 @@ function checkReminders() {
 let offlineSession = false;
 function setTop() {
   try { if (user && user.id && !offlineSession) localStorage.setItem('rc_lastuser', JSON.stringify({ id: user.id, email: user.email, phone: user.phone, user_metadata: user.user_metadata, app_metadata: user.app_metadata, identities: user.identities })); } catch (e) {}
+  if (user && !offlineSession) rememberUser(user);
   document.body.classList.toggle('loggedout', !user);
   document.body.classList.toggle('landing', !user && !isPublicHash());
   document.body.classList.toggle('locked', !!(user && appLocked && !isPublicHash()));
@@ -1793,6 +2048,7 @@ function userAccountModal() {
           </div>
         </div>
 
+        <button class="btn-soft" style="width:100%;margin-bottom:8px;" onclick="lockNow()">🔒 Lock app now</button>
         <button class="btn-danger" style="width:100%" onclick="logout()">Log out</button>
       </div>
     </div>
@@ -4713,7 +4969,7 @@ function renderMore() {
         <div class="avatar-circle avatar-blue">🔒</div>
         <div class="grow">
           <b>App lock: ${lockActive() ? (lockCfg().mode === 'bio' ? 'Fingerprint / Face ID' : lockCfg().mode === 'pin' ? 'PIN' : 'Password') : 'Off'}${lockActive() && lockCfg().pin && lockCfg().mode !== 'pin' ? ' + PIN' : ''}</b>
-          <div class="muted small">Ask for a PIN, fingerprint or Face ID when you open the app</div>
+          <div class="muted small">${lockActive() ? 'Locks ' + lockAfterLabel() + ' after you leave the app' : 'Ask for a PIN, fingerprint or Face ID when you open the app'}</div>
         </div>
         <button class="btn-outline btn-sm">Change</button>
       </div>
@@ -5306,7 +5562,7 @@ async function start() {
       // No internet and no usable session: let the person in with their saved PIN so they can still work.
       try { const c = lockCfg(), last = JSON.parse(localStorage.getItem('rc_lastuser') || 'null'); if (c && c.pin && last && c.uid === last.id) { user = last; offlineSession = true; } } catch (e) {}
     }
-    try { if (lockActive() && !isPublicHash() && !sessionStorage.getItem('rc_unlock_oauth')) appLocked = true; sessionStorage.removeItem('rc_unlock_oauth'); } catch (e) {}
+    try { if (lockActive() && !isPublicHash() && !sessionStorage.getItem('rc_unlock_oauth') && (lockAfter() === 0 || Date.now() - Number(localStorage.getItem('rc_lastactive') || 0) >= lockAfter())) appLocked = true; sessionStorage.removeItem('rc_unlock_oauth'); } catch (e) {}
     sb.auth.onAuthStateChange((event, session) => {
       const prev = user;
       user = session?.user || null;
@@ -5328,6 +5584,7 @@ async function start() {
   // Start periodic cloud sync every 45 seconds
   startPeriodicCloudSync(45000);
   startIdleLogout();
+  startActiveTracker();
 
   // Sync when browser reconnects to internet
   window.addEventListener('online', async () => {
