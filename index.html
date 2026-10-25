@@ -859,7 +859,7 @@ const sb = window.supabase.createClient(SB_URL, SB_KEY);
 
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
-const val = id => ($(id)?.value || '').trim();
+const val = id => { const e = $(id); const v = (e?.value || '').trim(); return e && e.dataset && e.dataset.money !== undefined ? v.replace(/,/g, '') : v; };
 const hash = () => location.hash.replace(/^#\/?/, '').split('/').filter(Boolean);
 const moneyReal = n => new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 2 }).format(Number(n || 0));
 let maskMoney = false; try { maskMoney = localStorage.getItem('rc_mask') === '1'; } catch (e) {}
@@ -974,7 +974,7 @@ function renderLock() {
       </div>
       <div class="lockLinks"><a onclick="switchAccount()">Switch Account</a> <span>|</span> <a onclick="showLockPw()">Login with Password</a></div>
     </div>`;
-  if (bio && !lockAuto) { lockAuto = true; setTimeout(() => { if (appLocked) bioUnlock(true); }, 400); }
+  // The fingerprint prompt only opens when the person taps the fingerprint button.
 }
 function lockMsg(t) { const e = $('lockErr') || $('lockErr2'); if (e) { e.textContent = t; e.style.color = 'var(--accent-red)'; } }
 function lockDots() { document.querySelectorAll('#pinDots i').forEach((d, i) => d.classList.toggle('on', i < lockPin.length)); }
@@ -1111,7 +1111,7 @@ document.addEventListener('visibilitychange', () => {
   }
   if (!user || isPublicHash()) return;
   if (!appLocked && lockActive() && hiddenAt && Date.now() - hiddenAt >= lockAfter()) { appLocked = true; lockAuto = false; closeModal(); render(); return; }
-  if (appLocked) { lockAuto = false; render(); }   // ask for the fingerprint again as soon as the app comes back
+  if (appLocked && !$('lockPw') && !$('pinDots') && !document.querySelector('.bioBtn')) render();   // lock screen only; never opens the fingerprint prompt by itself
 });
 
 // Google-only accounts have no password, so they confirm by typing a word instead.
@@ -3004,7 +3004,7 @@ function filterContribList() {
 let rf = {};
 function rfCollect() {
   const m = { recordTitle: 'title', recordDesc: 'desc', recordTarget: 'target', recordDate: 'date' };
-  Object.keys(m).forEach(id => { const e = $(id); if (e) rf[m[id]] = e.value.trim(); });
+  Object.keys(m).forEach(id => { const e = $(id); if (e) rf[m[id]] = id === 'recordTarget' ? e.value.replace(/,/g, '').trim() : e.value.trim(); });
   const rows = document.querySelectorAll('#pplTable .pr:not(.ph)');
   if (rows.length) rf.people = [...rows].map(r => ({ name: r.querySelector('.pn').value.trim(), phone: r.querySelector('.pp').value.trim() }));
 }
@@ -3045,7 +3045,7 @@ function newRecordForm(step) {
     2: `<h2>How much should each person pay?</h2>
         <p class="muted">Leave these empty if there is no fixed amount or date.</p>
         <div class="field"><label for="recordTarget">Amount per person (₦)</label>
-          <input id="recordTarget" type="number" min="0" inputmode="numeric" value="${esc(rf.target || '')}" placeholder="e.g. 25000"></div>
+          <input id="recordTarget" type="text" inputmode="decimal" autocomplete="off" data-money value="${esc(rf.target || '')}" placeholder="e.g. 25000"></div>
         <div class="field"><label for="recordDate">Last day to pay</label>
           <input id="recordDate" type="date" value="${esc(rf.date || '')}"></div>`,
     3: (() => {
@@ -3460,7 +3460,7 @@ function renderMemberAdmin(rid, pid) {
       <div class="grid-2">
         <div class="field">
           <label for="payAmount">Amount Received (₦) *</label>
-          <input id="payAmount" type="number" min="1" placeholder="e.g. 10000">
+          <input id="payAmount" type="text" inputmode="decimal" autocomplete="off" data-money placeholder="e.g. 10000">
         </div>
         <div class="field">
           <label for="payMethod">Payment Method</label>
@@ -3858,18 +3858,18 @@ function openSaleModal() {
           </div>
           <div class="field">
             <label for="salePrice">Unit Price (₦) *</label>
-            <input id="salePrice" type="number" min="0" placeholder="e.g. 15000" oninput="calcSaleTotal()">
+            <input id="salePrice" type="text" inputmode="decimal" autocomplete="off" data-money placeholder="e.g. 15000" oninput="calcSaleTotal()">
           </div>
         </div>
 
         <div class="grid-2">
           <div class="field">
             <label for="saleTotal">Total Amount (₦)</label>
-            <input id="saleTotal" type="number" readonly style="background:var(--box-bg);font-weight:700;">
+            <input id="saleTotal" type="text" readonly style="background:var(--box-bg);font-weight:700;">
           </div>
           <div class="field">
             <label for="salePaid">Amount Paid Now (₦) *</label>
-            <input id="salePaid" type="number" min="0" placeholder="Amount collected now">
+            <input id="salePaid" oninput="this.dataset.touched=1" type="text" inputmode="decimal" autocomplete="off" data-money placeholder="Amount collected now">
           </div>
         </div>
 
@@ -3912,10 +3912,9 @@ function calcSaleTotal() {
   const q = Number(val('saleQty')) || 0;
   const p = Number(val('salePrice')) || 0;
   const tot = q * p;
-  $('saleTotal').value = tot;
-  if (!$('salePaid').value || Number($('salePaid').value) === 0) {
-    $('salePaid').value = tot;
-  }
+  $('saleTotal').value = fmtNum(tot);
+  const paid = $('salePaid');
+  if (paid && !paid.dataset.touched) paid.value = tot > 0 ? fmtNum(tot) : '';
 }
 
 function saveNewSale() {
@@ -3986,7 +3985,7 @@ function openCollectSaleBalanceModal(saleId) {
 
         <div class="field">
           <label for="collectAmt">Payment Amount (₦) *</label>
-          <input id="collectAmt" type="number" min="1" max="${balance}" value="${balance}">
+          <input id="collectAmt" type="text" inputmode="decimal" autocomplete="off" data-money value="${balance}">
         </div>
 
         <div class="field">
@@ -4081,7 +4080,7 @@ function openExpenseModal() {
         <div class="grid-2">
           <div class="field">
             <label for="expAmount">Amount (₦) *</label>
-            <input id="expAmount" type="number" min="1" placeholder="e.g. 8500">
+            <input id="expAmount" type="text" inputmode="decimal" autocomplete="off" data-money placeholder="e.g. 8500">
           </div>
           <div class="field">
             <label for="expDate">Date</label>
@@ -4583,7 +4582,7 @@ function openDebtModal() {
         <div class="grid-2">
           <div class="field">
             <label for="debtAmount">Original Amount (₦) *</label>
-            <input id="debtAmount" type="number" min="1" placeholder="e.g. 50000">
+            <input id="debtAmount" type="text" inputmode="decimal" autocomplete="off" data-money placeholder="e.g. 50000">
           </div>
           <div class="field">
             <label for="debtDueDate">Repayment Due Date</label>
@@ -4653,7 +4652,7 @@ function openRepaymentModal(debtId) {
 
         <div class="field">
           <label for="repAmount">Repayment Amount (₦) *</label>
-          <input id="repAmount" type="number" min="1" max="${balance}" value="${balance}">
+          <input id="repAmount" type="text" inputmode="decimal" autocomplete="off" data-money value="${balance}">
         </div>
 
         <div class="field">
@@ -5547,12 +5546,36 @@ async function renderCore() {
   }
 }
 
+// MONEY INPUTS: commas appear as you type (1,234,567.50); the keypad is numeric; saving still gets the plain number.
+const fmtNum = n => Number(n || 0).toLocaleString('en-US', { maximumFractionDigits: 2 });
+function fmtMoneyEl(el) {
+  const old = el.value; let caret = el.selectionStart;
+  if (caret === null || caret === undefined) caret = old.length;
+  const parts = old.replace(/[^\d.]/g, '').split('.');
+  let int = parts[0].replace(/^0+(?=\d)/, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const out = parts.length > 1 ? (int || '0') + '.' + parts.slice(1).join('').slice(0, 2) : int;
+  if (out === old) return;
+  const keep = old.slice(0, caret).replace(/[^\d.]/g, '').length;
+  el.value = out;
+  let pos = 0, n = 0;
+  while (pos < out.length && n < keep) { if (/[\d.]/.test(out[pos])) n++; pos++; }
+  try { el.setSelectionRange(pos, pos); } catch (e) {}
+}
+function initMoneyInputs() {
+  document.addEventListener('input', e => { const t = e.target; if (t && t.dataset && t.dataset.money !== undefined) fmtMoneyEl(t); }, true);
+  const fresh = () => document.querySelectorAll('[data-money]:not([data-mf])').forEach(el => { el.setAttribute('data-mf', '1'); if (el.value) fmtMoneyEl(el); });
+  const mo = new MutationObserver(fresh);
+  ['app', 'modalRoot'].forEach(id => { const n = $(id); if (n) mo.observe(n, { childList: true, subtree: true }); });
+  fresh();
+}
+
 async function start() {
   showSplash();
   const splashAt = Date.now();
   initTheme();
   updateMaskIcon();
   initFit();
+  initMoneyInputs();
   Store.init();
 
   try {
