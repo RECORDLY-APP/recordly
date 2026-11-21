@@ -1055,6 +1055,39 @@ body.sub-page:not(.loggedout) #app{padding-top:8px}
 .tskip{background:transparent;border:0;color:var(--muted);padding:8px 6px;font-weight:600}
 .tour-item{display:flex;align-items:center;gap:13px;padding:13px 4px;border-bottom:1px solid var(--line);cursor:pointer}
 .tour-item:last-child{border-bottom:0}.tour-item .tic{width:42px;height:42px;border-radius:14px}
+/* view switch, floating + button */
+.rolesw{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 2px 12px}
+.rolesw small{color:var(--muted);font-size:12px}
+.rolesw .rs{display:flex;background:var(--box-bg);border:1px solid var(--line);border-radius:12px;padding:3px}
+.rolesw .rs button{border:0;background:transparent;color:var(--muted);padding:6px 14px;border-radius:9px;font-size:13px;font-weight:700}
+.rolesw .rs button.on{background:var(--primary);color:var(--onp)}
+.fabwrap{position:fixed;right:max(16px,calc(50% - 454px));bottom:calc(var(--navh,64px) + 16px);z-index:45;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
+.fab{width:56px;height:56px;border-radius:50%;padding:0;background:var(--primary);color:var(--onp);border:0;box-shadow:var(--shadow-lg);transition:transform .2s}
+.fab.open{transform:rotate(45deg)}
+.fabmenu{display:none;flex-direction:column;gap:8px;align-items:flex-end}
+.fabwrap.open .fabmenu{display:flex}
+.fabmenu button{height:46px;padding:0 18px;border-radius:23px;background:var(--card);border:1px solid var(--line);box-shadow:var(--shadow);font-size:14px}
+.fabscrim{display:none;position:fixed;inset:0;z-index:-1;background:rgba(15,23,42,.35)}
+.fabwrap.open .fabscrim{display:block}
+@media(min-width:768px){.fabwrap{bottom:24px}}
+/* member statement */
+.stmt-paper{background:#fff;color:#0f172a;border:1px solid #cbd5e1;border-radius:14px;padding:20px;font-size:13px}
+.stmt-paper h3{margin:0;font-size:20px;color:#0f766e}
+.stmt-paper .tw{overflow-x:auto}
+.stmt-paper table{display:table!important;width:100%;border-collapse:collapse;margin-top:12px}
+.stmt-paper th{color:#64748b;font-size:11px;text-transform:uppercase;text-align:left;padding:8px 6px;border-bottom:2px solid #e2e8f0}
+.stmt-paper td{padding:8px 6px;border-bottom:1px solid #e2e8f0;color:#0f172a;vertical-align:top}
+.stmt-paper .r{text-align:right;white-space:nowrap}
+.stmt-paper .sub{color:#64748b;font-size:11.5px}
+.stmt-sum{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}
+.stmt-sum div{background:#f1f5f9;border-radius:10px;padding:9px 10px;min-width:0}
+.stmt-sum small{display:block;color:#64748b;font-size:11px}
+.stmt-sum b{font-size:14px;color:#0f172a;word-break:break-word}
+@media print{
+  body.print-stmt #app,body.print-stmt #appFooter{display:none!important}
+  body.print-stmt .modal-window{background:#fff!important}
+  .stmt-paper{border:none!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style>
 </head>
 <body>
@@ -3602,11 +3635,16 @@ function applyRoleNav() {
   set('nav-business', mem ? 'Alerts' : 'Business', mem ? '#/notifications' : '#/business', true, mem ? 'bell' : null);
   set('nav-debts', 'Debts', '#/debts', !mem, null);
 }
-function roleSwitchHtml(cur) {
+function roleSwitchHtml() { return ''; }   // replaced by the toggle at the top of the home page
+function roleToggleHtml(cur) {
   if (!(isMemberRole() && ownsStuff())) return '';
-  const to = cur === 'admin' ? 'member' : 'admin';
-  return `<p class="muted small" style="text-align:center;margin:16px 0;">Viewing as ${cur === 'admin' ? 'Group Admin' : 'Member'} · <a href="#" style="color:var(--primary);" onclick="event.preventDefault();setRole('${to}')">Switch to ${to === 'admin' ? 'Admin' : 'Member'} view</a></p>`;
+  return `<div class="rolesw"><small>Viewing as</small><div class="rs">
+    <button class="${cur === 'admin' ? 'on' : ''}" onclick="setRole('admin')">Admin</button>
+    <button class="${cur === 'member' ? 'on' : ''}" onclick="setRole('member')">Member</button></div></div>`;
 }
+function toggleFab() { const w = $('homeDock'); if (!w) return; w.classList.toggle('open'); const f = $('tFab'); if (f) f.classList.toggle('open'); }
+let joinedAll = false;
+function toggleJoinedAll() { joinedAll = !joinedAll; render(); }
 function openPastedLink() {
   const v = ($('pasteLink') ? $('pasteLink').value : '').trim();
   const m = v.match(/#\/.+$/);
@@ -3626,6 +3664,7 @@ function renderMemberHome() {
     </div>`;
   };
   $('app').innerHTML = `<div class="home">
+    ${roleToggleHtml('member')}
     <div class="card">
       <div class="pill">MEMBER</div>
       <h1 style="margin-top:8px;">My contributions</h1>
@@ -3644,7 +3683,6 @@ function renderMemberHome() {
       <p class="muted small" style="margin:4px 0 10px;">Create your own group and become its admin. You can switch between admin and member views any time.</p>
       <button class="btn-primary full" style="height:50px;border-radius:16px;" onclick="startMyOwnGroup()">${ico('plus', 20)} Start my own group</button>
     </div>
-    ${roleSwitchHtml('member')}
   </div>`;
 }
 // Groups the person has joined as a member (excluding ones they run themselves), shown on the admin home
@@ -3653,7 +3691,7 @@ function joinedGroupsSectionHtml(ownRecs) {
   const gs = (myGroups || []).filter(g => !own.has(g.record_id));
   const pend = myReqs.filter(r => r.status === 'pending' && !own.has(r.record_id)).length;
   if (!gs.length && !pend) return '';
-  const rows = gs.map(g => {
+  const rows = (joinedAll ? gs : gs.slice(0, 3)).map(g => {
     const t = Number(g.target || 0), paid = Number(g.paid || 0), pc = t ? Math.min(100, Math.round(paid / t * 100)) : 0;
     const sub = t ? `${moneyReal(paid)} of ${moneyReal(t)} paid` : (g.hide_balance ? 'Balance is private' : `${moneyReal(paid)} paid`);
     return `<div class="rrow" onclick="location.hash='#/p/${g.person_id}'">
@@ -3663,7 +3701,7 @@ function joinedGroupsSectionHtml(ownRecs) {
     </div>`;
   }).join('');
   return `
-      <div class="sec"><span>GROUPS I JOINED</span>${gs.length ? `<a onclick="location.hash='#/discover'">Find more</a>` : ''}</div>
+      <div class="sec"><span>GROUPS I JOINED</span>${gs.length > 3 ? `<a onclick="toggleJoinedAll()">${joinedAll ? 'Show less' : 'See all ' + gs.length}</a>` : gs.length ? `<a onclick="location.hash='#/discover'">Find more</a>` : ''}</div>
       ${gs.length ? `<div class="card rlist">${rows}</div>` : ''}
       ${pend ? `<div class="banner banner-warning" style="margin-top:8px;"><div>⏳ ${pend === 1 ? '1 request is' : pend + ' requests are'} waiting for admin approval.</div></div>` : ''}`;
 }
@@ -3706,6 +3744,7 @@ function renderAdminHome() {
 
   $('app').innerHTML = `
     <div class="home">
+      ${roleToggleHtml('admin')}
       ${recs.length ? `
       <div class="card prog" onclick="location.hash='#/contributions'" style="cursor:pointer;">
         ${ringHtml(overallPc, 76, 8)}
@@ -3757,10 +3796,14 @@ function renderAdminHome() {
       <div class="linkrow" onclick="location.hash='#/discover'">${ico('globe', 18)} Find people &amp; groups</div>
     </div>
 
-    <div class="dock no-print" id="homeDock">
-      <button class="dk main" id="tNew" onclick="location.hash='#/contributions/new'">${ico('plus', 22)}<span>New record</span></button>
-      <button class="dk" id="tPay" onclick="quickLogPayment()">${ico('cash', 22)}<span>Log payment</span></button>
-      <button class="dk" id="tShare" onclick="quickShareLink()">${ico('link', 22)}<span>Share link</span></button>
+    <div class="fabwrap no-print" id="homeDock">
+      <div class="fabscrim" onclick="toggleFab()"></div>
+      <div class="fabmenu">
+        <button id="tNew" onclick="toggleFab();location.hash='#/contributions/new'">${ico('plus', 18)} New record</button>
+        <button id="tPay" onclick="toggleFab();quickLogPayment()">${ico('cash', 18)} Log payment</button>
+        <button id="tShare" onclick="toggleFab();quickShareLink()">${ico('link', 18)} Share link</button>
+      </div>
+      <button class="fab" id="tFab" onclick="toggleFab()" aria-label="Add or share">${ico('plus', 26)}</button>
     </div>
   `;
   setDockOffset();
@@ -4369,7 +4412,10 @@ function renderMemberAdmin(rid, pid) {
           <h1>${esc(p.name)}</h1>
           <p class="muted">${esc(p.phone || 'No phone registered')}</p>
         </div>
-        <button class="btn-danger btn-sm" onclick="confirmDeleteMember('${rid}', '${pid}')">Remove Member</button>
+        <div class="row" style="gap:6px;flex-wrap:nowrap;">
+          <button class="btn-soft btn-sm" onclick="openMemberStatement('${rid}', '${pid}')">${ico('file', 15)} Statement</button>
+          <button class="btn-danger btn-sm" onclick="confirmDeleteMember('${rid}', '${pid}')">Remove Member</button>
+        </div>
       </div>
 
       <div class="grid-3" style="margin-top:14px;">
@@ -4476,6 +4522,63 @@ function renderMemberAdmin(rid, pid) {
     <div id="commentsBox"></div>
   `;
   renderCommentsBox(pid);
+}
+
+// Printable / PDF statement for one person: every payment, its date and the running balance, on the business letterhead
+function openMemberStatement(rid, pid) {
+  const r = Store.data.records.find(x => x.id === rid), p = r && (r.people || []).find(x => x.id === pid);
+  if (!r || !p) return;
+  const biz = bizName(), target = Number(r.target || 0);
+  const pays = (p.payments || []).slice().sort((a, b) => (a.paid_on || '').localeCompare(b.paid_on || '') || (a.paid_at || '').localeCompare(b.paid_at || ''));
+  const paid = pays.reduce((a, x) => a + Number(x.amount || 0), 0);
+  const bal = Math.max(0, target - paid);
+  let run = 0;
+  const rows = pays.map(x => {
+    run += Number(x.amount || 0);
+    const det = [x.method, x.note, x.payer_name ? 'Paid by ' + x.payer_name : ''].filter(Boolean).join(' · ');
+    return `<tr><td>${esc(x.paid_on || '')}<div class="sub">${esc(payTimeTxt(x).replace(/^ at /, ''))}</div></td><td>${esc(det)}${x.ref ? `<div class="sub">${esc(x.ref)}</div>` : ''}</td><td class="r"><b>${moneyReal(x.amount)}</b></td>${target ? `<td class="r">${moneyReal(Math.max(0, target - run))}</td>` : ''}</tr>`;
+  }).join('');
+  const status = target ? (paid >= target ? 'Paid in full' : 'Balance outstanding') : '';
+  const ref = 'STM-' + String(pid).replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase();
+  $('modalRoot').innerHTML = `
+    <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
+      <div class="modal-window" style="max-width:640px;">
+        <div class="row between no-print" style="margin-bottom:12px;">
+          <h2>Payment statement</h2>
+          <button class="btn-outline btn-icon" onclick="closeModal()">✕</button>
+        </div>
+        <div class="stmt-paper" id="printableStatement">
+          <div class="row between" style="align-items:flex-start;flex-wrap:nowrap;gap:10px;">
+            <div><h3>${esc(biz)}</h3><div class="sub">Statement of payments</div></div>
+            <div style="text-align:right;"><div class="sub">Ref: ${esc(ref)}</div><div class="sub">Issued: ${esc(localDate())}</div></div>
+          </div>
+          <div style="margin-top:14px;"><b style="font-size:16px;">${esc(p.name)}</b>${p.phone ? `<div class="sub">${esc(p.phone)}</div>` : ''}
+            <div class="sub" style="margin-top:2px;">${esc(r.title)}${r.end_date ? ' · Due ' + esc(r.end_date) : ''}</div></div>
+          <div class="stmt-sum">
+            <div><small>Total paid</small><b>${moneyReal(paid)}</b></div>
+            <div><small>${target ? 'Amount due' : 'Payments'}</small><b>${target ? moneyReal(target) : pays.length}</b></div>
+            <div><small>${target ? 'Balance' : 'Status'}</small><b>${target ? moneyReal(bal) : 'No fixed amount'}</b></div>
+          </div>
+          ${status ? `<div style="margin-top:8px;font-weight:700;color:${paid >= target ? '#0f766e' : '#b45309'};">${status}</div>` : ''}
+          <div class="tw"><table>
+            <thead><tr><th>Date</th><th>Details</th><th class="r">Amount</th>${target ? '<th class="r">Balance</th>' : ''}</tr></thead>
+            <tbody>${rows || `<tr><td colspan="${target ? 4 : 3}" class="sub" style="text-align:center;padding:18px;">No payments recorded yet.</td></tr>`}</tbody>
+          </table></div>
+          <div class="sub" style="margin-top:16px;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px;">Issued by ${esc(biz)} · Recorded with Recordly</div>
+        </div>
+        <div class="grid-2 no-print" style="margin-top:14px;">
+          <button class="btn-primary" onclick="printStatement()">Print / Save PDF</button>
+          <button class="btn-outline" onclick="closeModal()">Close</button>
+        </div>
+        <p class="muted small no-print" style="margin:8px 2px 0;">Tap Print, then choose "Save as PDF" to send it as a file.</p>
+      </div>
+    </div>`;
+}
+function printStatement() {
+  document.body.classList.add('print-stmt');
+  const done = () => { document.body.classList.remove('print-stmt'); window.removeEventListener('afterprint', done); };
+  window.addEventListener('afterprint', done);
+  window.print();
 }
 
 function saveMemberPayment(rid, pid) {
@@ -6052,9 +6155,7 @@ function updateBizName() {
 const byText = txt => [...document.querySelectorAll('#app button, #app a, #app .tile')].find(e => e.textContent.replace(/\s+/g, ' ').toLowerCase().includes(txt)) || null;
 const TOURS = {
   welcome: { label: 'Start here', sub: 'The main buttons in 30 seconds', icon: 'compass', steps: [
-    { hash: '#/', sel: '#tNew', icon: 'plus', t: 'Start a record', s: 'Name it, add who pays' },
-    { hash: '#/', sel: '#tPay', icon: 'cash', t: 'Log a payment', s: 'Tap when someone pays' },
-    { hash: '#/', sel: '#tShare', icon: 'link', t: 'Share progress', s: 'Each person gets a link' },
+    { hash: '#/', sel: '#tFab', icon: 'plus', t: 'Tap the + button', s: 'New record, log payment, share link' },
     { hash: '#/', sel: '#tGrid', icon: 'bag', t: 'Sales, expenses, debts', s: 'One tap away' },
     { hash: '#/', sel: '#nav-contributions', icon: 'users', t: 'Your groups', s: 'Every record lives here' },
     { hash: '#/', sel: '#hdrLeft', icon: 'user', t: 'Your profile', s: 'Set your business name' },
@@ -6064,8 +6165,7 @@ const TOURS = {
     { hash: '#/contributions/new', sel: '#recordTitle', icon: 'file', t: 'Name it', s: 'Example: Church Fund' },
     { hash: '#/contributions/new', sel: () => byText('next'), icon: 'chevron', t: 'Then Next', s: '3 quick steps' } ] },
   payments: { label: 'Log & share payments', sub: 'Money in, progress out', icon: 'cash', steps: [
-    { hash: '#/', sel: '#tPay', icon: 'cash', t: 'Log payment', s: 'Pick who paid' },
-    { hash: '#/', sel: '#tShare', icon: 'link', t: 'Share link', s: 'Send by WhatsApp' } ] },
+    { hash: '#/', sel: '#tFab', icon: 'cash', t: 'Tap +, then Log payment', s: 'Or Share link to send by WhatsApp' } ] },
   business: { label: 'Sales & expenses', sub: 'Run your shop', icon: 'bag', steps: [
     { hash: '#/', sel: '#tGrid', icon: 'bag', t: 'Sale or expense', s: 'Tap the icon you need' },
     { hash: '#/business', sel: () => byText('sale') || document.querySelector('#app .btn-primary'), icon: 'bag', t: 'Record a sale', s: 'Paid, partial or credit' } ] },
