@@ -3524,6 +3524,7 @@ function openReceiptModal(o) {
         </div>
 
         <div class="receipt-paper receipt-flash" id="printableReceipt">
+          <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--line);"><div class="brand-icon">${BRAND_MARK_SVG}</div><div class="brand-text">Record<span>ly</span></div></div>
           <div style="text-align:center;margin-bottom:16px;">
             <div style="font-size:18px;font-weight:800;color:var(--primary);">${esc(window._rcpt.biz)}</div>
             <div class="muted small">${esc(o.title || 'Official Payment Receipt')}</div>
@@ -3610,39 +3611,48 @@ function receiptToPng() {
     const valW = W - pad * 2 - 200;
     const wrapped = rows.map(([k, v]) => [k, wrap(v, valW, '600 22px ' + font)]);
     const titleLine = wrap(o.title || 'Official Payment Receipt', W - pad * 2, '500 20px ' + font)[0];
-    let H = 310; wrapped.forEach(([k, ls]) => { H += ls.length * 30 + 18; }); H += 80;
+    let H = 380; wrapped.forEach(([k, ls]) => { H += ls.length * 30 + 18; }); H += 100;
     c.width = W * scale; c.height = H * scale; ctx.scale(scale, scale);
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
     ctx.fillStyle = '#0f766e'; ctx.fillRect(0, 0, W, 12);
-    ctx.textAlign = 'center';
-    ctx.font = '800 30px ' + font; ctx.fillText(o.biz, W / 2, 70);
-    ctx.fillStyle = '#64748b'; ctx.font = '500 20px ' + font; ctx.fillText(titleLine, W / 2, 102);
-    ctx.font = '500 18px monospace'; ctx.fillText('Ref: ' + o.receiptNo, W / 2, 134);
-    ctx.fillStyle = '#f1f5f9'; ctx.fillRect(pad, 160, W - pad * 2, 100);
-    ctx.fillStyle = '#64748b'; ctx.font = '600 18px ' + font; ctx.fillText('AMOUNT PAID', W / 2, 192);
+    { const g = ctx.createLinearGradient(pad, 26, pad + 44, 70); g.addColorStop(0, '#0f766e'); g.addColorStop(1, '#14b8a6');
+      ctx.fillStyle = g; ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(pad, 26, 44, 44, 12); else ctx.rect(pad, 26, 44, 44); ctx.fill();
+      ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.font = '800 28px ' + font; ctx.fillText('R', pad + 22, 58);
+      ctx.textAlign = 'left'; ctx.fillStyle = '#0f766e'; ctx.font = '800 26px ' + font; ctx.fillText('Recordly', pad + 56, 58);
+      ctx.textAlign = 'right'; ctx.fillStyle = '#94a3b8'; ctx.font = '600 15px ' + font; ctx.fillText('RECEIPT', W - pad, 54);
+      ctx.strokeStyle = '#e2e8f0'; ctx.beginPath(); ctx.moveTo(pad, 86); ctx.lineTo(W - pad, 86); ctx.stroke(); }
+    ctx.textAlign = 'center'; ctx.fillStyle = '#0f766e';
+    ctx.font = '800 30px ' + font; ctx.fillText(o.biz, W / 2, 134);
+    ctx.fillStyle = '#64748b'; ctx.font = '500 20px ' + font; ctx.fillText(titleLine, W / 2, 166);
+    ctx.font = '500 18px monospace'; ctx.fillText('Ref: ' + o.receiptNo, W / 2, 198);
+    ctx.fillStyle = '#f1f5f9'; ctx.fillRect(pad, 224, W - pad * 2, 100);
+    ctx.fillStyle = '#64748b'; ctx.font = '600 18px ' + font; ctx.fillText('AMOUNT PAID', W / 2, 256);
     ctx.fillStyle = '#0f766e';
     let amtSize = 42; const amtTxt = moneyReal(o.amount);
     do { ctx.font = '900 ' + amtSize + 'px ' + font; amtSize -= 2; } while (ctx.measureText(amtTxt).width > W - pad * 2 - 40 && amtSize > 14);
-    ctx.fillText(amtTxt, W / 2, 242);
-    let y = 305; ctx.textAlign = 'left';
+    ctx.fillText(amtTxt, W / 2, 306);
+    let y = 369; ctx.textAlign = 'left';
     wrapped.forEach(([k, ls]) => {
       ctx.fillStyle = '#64748b'; ctx.font = '600 20px ' + font; ctx.fillText(k, pad, y);
       ctx.fillStyle = '#0f172a'; ctx.font = '600 22px ' + font; ls.forEach((l, i) => ctx.fillText(l, pad + 200, y + i * 30));
       y += ls.length * 30 + 18;
       ctx.strokeStyle = '#e2e8f0'; ctx.beginPath(); ctx.moveTo(pad, y - 20); ctx.lineTo(W - pad, y - 20); ctx.stroke();
     });
-    ctx.textAlign = 'center'; ctx.fillStyle = '#94a3b8'; ctx.font = '500 17px ' + font; ctx.fillText('Recorded with Recordly', W / 2, H - 32);
+    ctx.textAlign = 'center'; ctx.fillStyle = '#94a3b8'; ctx.font = '500 17px ' + font; ctx.fillText('Recorded with Recordly', W / 2, H - 52);
+    ctx.fillStyle = '#0f766e'; ctx.font = '700 17px ' + font; ctx.fillText(appInviteLink().replace(/^https?:\/\//, '').replace(/\/$/, ''), W / 2, H - 26);
     c.toBlob(b => b ? resolve(b) : reject(new Error('Could not draw receipt')), 'image/png');
   });
 }
 function appInviteLink() { return location.origin + location.pathname; }
+// Text that travels with a shared receipt: a short line first, then the app link
+function appInviteText() { return 'Keep every payment clear. Join Recordly today 👇\n' + appInviteLink(); }
 function saveReceiptImage(blob, o) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'receipt-' + o.receiptNo + '.png';
   document.body.appendChild(a); a.click(); a.remove();
 }
 async function shareReceipt(mode) {
   const o = window._rcpt; if (!o) return;
-  const invite = appInviteLink();          // the only text that goes with the receipt image
+  const invite = appInviteText();          // the only text that goes with the receipt image
   let blob = null;
   try {
     blob = await receiptToPng();
@@ -5248,7 +5258,7 @@ function statementToPng() {
 }
 async function shareStatement(mode) {
   const o = window._stmt; if (!o) return;
-  const invite = appInviteLink();
+  const invite = appInviteText();
   let blob = null;
   try {
     blob = await statementToPng();
