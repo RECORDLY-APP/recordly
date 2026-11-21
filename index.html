@@ -3639,8 +3639,38 @@ function renderMemberHome() {
       <button class="btn-primary" onclick="location.hash='#/discover'">🌍 Find a group</button>
       <div class="field" style="margin-top:12px;"><input id="pasteLink" placeholder="Paste a link here"></div>
       <button class="btn-outline btn-sm" onclick="openPastedLink()">Open link</button></div>`}
+    <div class="card" style="text-align:center;">
+      <b>Want to collect money from your own people?</b>
+      <p class="muted small" style="margin:4px 0 10px;">Create your own group and become its admin. You can switch between admin and member views any time.</p>
+      <button class="btn-primary full" style="height:50px;border-radius:16px;" onclick="startMyOwnGroup()">${ico('plus', 20)} Start my own group</button>
+    </div>
     ${roleSwitchHtml('member')}
   </div>`;
+}
+// Groups the person has joined as a member (excluding ones they run themselves), shown on the admin home
+function joinedGroupsSectionHtml(ownRecs) {
+  const own = new Set((ownRecs || []).map(r => r.id));
+  const gs = (myGroups || []).filter(g => !own.has(g.record_id));
+  const pend = myReqs.filter(r => r.status === 'pending' && !own.has(r.record_id)).length;
+  if (!gs.length && !pend) return '';
+  const rows = gs.map(g => {
+    const t = Number(g.target || 0), paid = Number(g.paid || 0), pc = t ? Math.min(100, Math.round(paid / t * 100)) : 0;
+    const sub = t ? `${moneyReal(paid)} of ${moneyReal(t)} paid` : (g.hide_balance ? 'Balance is private' : `${moneyReal(paid)} paid`);
+    return `<div class="rrow" onclick="location.hash='#/p/${g.person_id}'">
+      ${t ? ringHtml(pc, 48, 5) : `<span class="aic">${ico('users', 20)}</span>`}
+      <span class="rtx"><b>${esc(g.title)}</b><small>Run by ${esc(g.owner_name)} · ${esc(sub)}</small></span>
+      ${ico('chev', 18)}
+    </div>`;
+  }).join('');
+  return `
+      <div class="sec"><span>GROUPS I JOINED</span>${gs.length ? `<a onclick="location.hash='#/discover'">Find more</a>` : ''}</div>
+      ${gs.length ? `<div class="card rlist">${rows}</div>` : ''}
+      ${pend ? `<div class="banner banner-warning" style="margin-top:8px;"><div>⏳ ${pend === 1 ? '1 request is' : pend + ' requests are'} waiting for admin approval.</div></div>` : ''}`;
+}
+function startMyOwnGroup() {
+  // Creating a group makes them an admin; open the admin view so they see their new group.
+  try { localStorage.setItem('rc_role', 'admin'); } catch (e) {}
+  location.hash = '#/contributions/new';
 }
 function renderDashboard() {
   if (viewRole() === 'member') return renderMemberHome();
@@ -3714,6 +3744,8 @@ function renderAdminHome() {
           <b>Start your first record</b>
           <p>Add the people who pay, then tick them off as they do.</p>
         </div>`}
+
+      ${joinedGroupsSectionHtml(recs)}
 
       <div class="sec"><span>BUSINESS</span></div>
       <div class="card tiles t4" id="tGrid">
@@ -4003,6 +4035,7 @@ function saveNewRecord() {
 
   Store.data.records.unshift(newRec);
   Store.save();
+  try { localStorage.setItem('rc_role', 'admin'); } catch (e) {}   // creating a group makes them an admin
   rf = {};
   toast('Record created successfully!');
   location.hash = '#/r/' + newRec.id;
