@@ -1059,6 +1059,17 @@ body{padding-bottom:86px}
 body.bars-hidden .top-header{transform:translateY(-110%)}
 body.bars-hidden .bottom-nav{transform:translateY(110%)}
 body.bars-hidden .fab:not(.open){transform:translateY(130px);opacity:0}
+/* Notifications: tabs with counts, one card per alert (time on the left, View on the right) */
+.ntabs{display:flex;gap:8px;margin:4px 0 12px;padding-top:8px;overflow-x:auto}
+.ntab{position:relative;border:0;background:var(--box-bg);color:var(--muted);padding:10px 16px;border-radius:999px;font-weight:600;font-size:14px;white-space:nowrap}
+.ntab.on{background:var(--primary-light);color:var(--primary-dark);box-shadow:inset 0 0 0 1.5px var(--primary)}
+.nbadge{position:absolute;top:-7px;right:-3px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#f43f5e;color:#fff;font-size:11px;font-style:normal;font-weight:700;display:flex;align-items:center;justify-content:center}
+.ncard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:16px;margin-bottom:12px;cursor:pointer}
+.nhead{display:flex;align-items:center;gap:10px;font-size:15.5px}
+.nico{width:34px;height:34px;border-radius:50%;background:var(--primary-light);display:flex;align-items:center;justify-content:center;flex:none}
+.nbody{color:var(--muted);font-size:14px;line-height:1.5;margin:10px 0 12px}
+.nfoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:10px;font-size:12.5px;color:var(--muted)}
+.nview{color:var(--primary);font-weight:700;font-size:14px}
 .card{border-radius:20px;border:1px solid var(--line);box-shadow:none}
 .top-header{padding:10px 0 12px}
 .hd-left{display:flex;align-items:center;gap:11px;cursor:pointer;min-width:0;flex:1}
@@ -2874,7 +2885,7 @@ function updateNavActive(tab) {
 }
 
 function checkReminders() {
-  const notifs = liveAlerts.map(a => ({ type: 'info', title: a.title, desc: a.desc, link: a.link }));
+  const notifs = liveAlerts.map(a => ({ type: 'info', title: a.title, desc: a.desc, link: a.link, at: a.at }));
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
 
@@ -6955,46 +6966,34 @@ function tourNext() {
 /**
  * 7. NOTIFICATIONS & REMINDERS CENTER
  */
+let notifTab = null;
+function notifKind(n) { if (n.type && n.type !== 'info') return 'rem'; return /\bpa(y|id|yment)/i.test(n.title + ' ' + n.desc) ? 'pay' : 'act'; }
+function notifTime(ms) {
+  const d = new Date(ms), now = new Date(), t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const day = x => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diff = Math.round((day(now) - day(d)) / 864e5);
+  return diff === 0 ? 'Today ' + t : diff === 1 ? 'Yesterday ' + t : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + t;
+}
+function setNotifTab(k) { notifTab = k; render(); }
 function renderNotifications() {
-  const notifs = checkReminders();
+  const all = checkReminders();
+  const KIND = { pay: ['Payments', '💰'], rem: ['Reminders', '⏰'], act: ['Activity', '👀'] };
+  const groups = { pay: [], rem: [], act: [] };
+  all.forEach(n => groups[notifKind(n)].push(n));
+  if (!notifTab) notifTab = ['pay', 'rem', 'act'].find(k => groups[k].length) || 'pay';
+  const list = groups[notifTab];
+  const card = n => `<div class="ncard" onclick="location.hash='${n.link}'">
+      <div class="nhead"><span class="nico">${KIND[notifKind(n)][1]}</span><b>${esc(n.title)}</b></div>
+      <div class="nbody">${esc(n.desc)}</div>
+      <div class="nfoot"><span>${n.at ? notifTime(n.at) : (n.type === 'danger' ? 'Overdue' : 'Needs attention')}</span><span class="nview">View ›</span></div>
+    </div>`;
   $('app').innerHTML = `
-    <button class="btn-outline btn-sm" onclick="location.hash='#/'" style="margin-bottom:12px;">← Back to Dashboard</button>
-    <div class="card">
-      <div class="row between">
-        <div>
-          <h1>🔔 Reminders & Notifications</h1>
-          <p class="muted">Automated alerts for overdue payments and deadlines</p>
-        </div>
-        <div class="row" style="gap:6px;">
-          <button class="btn-outline btn-sm" onclick="openSoundSettings()">${soundEnabled ? '🔊 ' + esc(soundToneLabel()) : '🔇 Muted'}</button>
-          <span class="badge ${notifs.length ? 'badge-red' : 'badge-green'}">${notifs.length} Active</span>
-        </div>
-      </div>
-    </div>
-
+    <div class="page-head"><button class="btn-outline pback" onclick="location.hash='#/'" aria-label="Back">${ico('back', 20)}</button><h1>Notifications</h1>
+      <button class="btn-outline btn-sm" onclick="openSoundSettings()">${soundEnabled ? '🔊 ' + esc(soundToneLabel()) : '🔇 Muted'}</button></div>
+    <div class="ntabs">${['pay', 'rem', 'act'].map(k => `<button class="ntab ${notifTab === k ? 'on' : ''}" onclick="setNotifTab('${k}')">${KIND[k][0]}${groups[k].length ? `<i class="nbadge">${groups[k].length}</i>` : ''}</button>`).join('')}</div>
     ${remindCardHtml()}
-
     ${joinInboxHtml()}
-
-    ${notifs.length ? `
-      <div class="list">
-        ${notifs.map(n => `
-          <div class="item-card between" onclick="location.hash='${n.link}'" style="cursor:pointer;border-left:4px solid ${n.type === 'danger' ? 'var(--accent-red)' : 'var(--accent-amber)'};">
-            <div>
-              <div style="font-weight:700;">${esc(n.title)}</div>
-              <div class="muted small">${esc(n.desc)}</div>
-            </div>
-            <button class="btn-soft btn-sm">Resolve ›</button>
-          </div>
-        `).join('')}
-      </div>
-    ` : `
-      <div class="card empty-box">
-        <h3>🎉 All caught up!</h3>
-        <p class="muted">No overdue debts or approaching deadlines detected.</p>
-        <button class="btn-primary" onclick="location.hash='#/'">Return to Dashboard</button>
-      </div>
-    `}
+    ${list.length ? list.map(card).join('') : `<div class="card empty-box"><h3>🎉 All caught up</h3><p class="muted">Nothing new under ${KIND[notifTab][0]}.</p></div>`}
   `;
 }
 
