@@ -110,14 +110,16 @@ body {
   width: 36px;
   height: 36px;
   border-radius: 10px;
-  background: linear-gradient(135deg, #0f766e, #14b8a6);
+  background: linear-gradient(135deg, #0b3b3c, #0f766e 55%, #14b8a6);
   color: white;
   display: grid;
   place-items: center;
   font-weight: 800;
   font-size: 19px;
   box-shadow: 0 4px 10px rgba(15,118,110,0.25);
+  overflow: hidden;
 }
+.brand-icon svg, .lp-logo svg, .sp-logo svg { width: 100%; height: 100%; display: block; }
 .brand-text { font-size: 21px; font-weight: 800; letter-spacing: -0.6px; line-height: 1.1; }
 .brand-text span { color: var(--primary); }
 .brand-tag { font-size: 11px; color: var(--muted); font-weight: 500; }
@@ -487,6 +489,7 @@ th { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: upp
   border-radius: 16px;
   padding: 24px;
   position: relative;
+  overflow: hidden;
 }
 .receipt-paper::before {
   content: "OFFICIAL RECEIPT";
@@ -501,12 +504,58 @@ th { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: upp
   padding: 2px 6px;
   border-radius: 4px;
 }
+.receipt-paper.receipt-flash {
+  animation: receiptFlash 0.78s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.receipt-paper.receipt-flash::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(112deg, transparent 22%, rgba(20, 184, 166, 0.14) 44%, rgba(255, 255, 255, 0.85) 50%, rgba(20, 184, 166, 0.14) 56%, transparent 78%);
+  transform: translateX(-125%);
+  animation: receiptSheen 0.78s cubic-bezier(0.22, 1, 0.36, 1) 0.04s both;
+}
+@keyframes receiptFlash {
+  0% {
+    opacity: 0.85;
+    transform: scale(0.985);
+    border-color: #14b8a6;
+    box-shadow: 0 0 0 0 rgba(20, 184, 166, 0), 0 0 0 0 rgba(20, 184, 166, 0);
+  }
+  28% {
+    opacity: 1;
+    transform: scale(1.008);
+    border-color: #0f766e;
+    background: #f0fdfa;
+    box-shadow: 0 0 0 5px rgba(20, 184, 166, 0.24), 0 12px 28px rgba(15, 118, 110, 0.16);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    border-color: #94a3b8;
+    background: #ffffff;
+    box-shadow: 0 2px 10px rgba(15, 23, 42, 0.04);
+  }
+}
+@keyframes receiptSheen {
+  0% { transform: translateX(-125%); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translateX(125%); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .receipt-paper.receipt-flash,
+  .receipt-paper.receipt-flash::after {
+    animation: none !important;
+  }
+}
 @media print {
   body { padding: 0; background: white; color: black; }
   .top-header, .bottom-nav, .no-print, button, #toastRoot { display: none !important; }
   .modal-overlay { position: static; background: none; padding: 0; }
   .modal-window { width: 100%; max-height: none; box-shadow: none; padding: 0; border: none; }
-  .receipt-paper { border: 1px solid #000; }
+  .receipt-paper { border: 1px solid #000; animation: none !important; box-shadow: none !important; background: #fff !important; }
+  .receipt-paper::after { display: none !important; }
 }
 
 .search-input {
@@ -525,11 +574,148 @@ th { color: var(--muted); font-size: 11px; font-weight: 700; text-transform: upp
   height: 16px;
   color: var(--muted);
 }
+.contrib-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.contrib-toolbar .search-input {
+  flex: 1 1 240px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.sort-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 0 0 auto;
+}
+.sort-wrap label {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sort-wrap select {
+  width: auto;
+  min-width: 175px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 10px;
+}
+@media (max-width: 560px) {
+  .sort-wrap { width: 100%; }
+  .sort-wrap select { flex: 1; min-width: 0; }
+}
+/* Group Chat */
+.gchat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.gchat-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--primary);
+  background: var(--primary-light);
+  padding: 4px 10px;
+  border-radius: 99px;
+}
+.gchat-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary);
+  animation: dmBlink 1.6s infinite;
+}
+.gchat-dot.off {
+  background: var(--muted);
+  animation: none;
+}
+.gchat-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 310px;
+  min-height: 110px;
+  overflow-y: auto;
+  padding: 10px;
+  background: var(--box-bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  scroll-behavior: smooth;
+}
+.gchat-msg {
+  align-self: flex-start;
+  max-width: 85%;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 14px 14px 14px 4px;
+  padding: 8px 12px;
+  box-shadow: var(--shadow-sm);
+}
+.gchat-msg.mine {
+  align-self: flex-end;
+  background: var(--primary);
+  color: var(--onp);
+  border-color: transparent;
+  border-radius: 14px 14px 4px 14px;
+}
+.gchat-msg.pending {
+  opacity: 0.72;
+}
+.gchat-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-bottom: 2px;
+  opacity: 0.85;
+}
+.gchat-body {
+  font-size: 13.5px;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.gchat-typing {
+  min-height: 18px;
+  font-size: 12px;
+  color: var(--muted);
+  margin: 6px 2px 0;
+  font-style: italic;
+}
+.gchat-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  align-items: center;
+}
+.gchat-form input {
+  flex: 1;
+  min-width: 0;
+}
+.gchat-form button {
+  flex-shrink: 0;
+  padding: 10px 16px;
+}
 body.loggedout #bottomNav{display:none}
 body.locked .top-header, body.locked #bottomNav, body.locked #appFooter{display:none!important}
 #splash{position:fixed;inset:0;z-index:400;background:linear-gradient(160deg,#0f766e,#115e59 55%,#12244f);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px;transition:opacity .45s ease}
 #splash.out{opacity:0;pointer-events:none}
-#splash .sp-logo{width:84px;height:84px;border-radius:24px;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:44px;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+#splash .sp-logo{width:84px;height:84px;border-radius:24px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);display:grid;place-items:center;font-size:44px;font-weight:800;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden}
 #splash .sp-name{font-size:34px;font-weight:800;letter-spacing:-1px}
 #splash .sp-tag{font-size:16px;opacity:.9;max-width:260px}
 #splash .sp-dots{margin-top:26px;display:flex;gap:7px}
@@ -681,7 +867,7 @@ body.landing .app-container{max-width:520px;padding:0}
 .lp-grid{position:absolute;inset:0;background-image:linear-gradient(rgba(148,163,184,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(148,163,184,.07) 1px,transparent 1px);background-size:34px 34px;-webkit-mask-image:radial-gradient(80% 60% at 50% 25%,#000,transparent);mask-image:radial-gradient(80% 60% at 50% 25%,#000,transparent)}
 @keyframes orbFloat{0%,100%{transform:translate(0,0)}50%{transform:translate(26px,34px)}}
 .lp-top{display:flex;align-items:center;gap:10px}
-.lp-logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#14b8a6,#22d3ee);color:#04211f;display:grid;place-items:center;font-weight:900;font-size:20px;box-shadow:0 0 24px rgba(34,211,238,.45)}
+.lp-logo{width:38px;height:38px;border-radius:12px;background:linear-gradient(135deg,#0b3b3c,#0f766e 55%,#14b8a6);border:1px solid rgba(94,234,212,.38);color:#fff;display:grid;place-items:center;font-weight:900;font-size:20px;box-shadow:0 0 24px rgba(34,211,238,.35);overflow:hidden}
 .lp-name{font-size:22px;font-weight:800;letter-spacing:-.6px}.lp-name b{color:#2dd4bf}
 .lp-pill{margin-left:auto;font-size:10.5px;letter-spacing:1.4px;font-weight:700;color:#5eead4;border:1px solid rgba(94,234,212,.35);padding:5px 10px;border-radius:99px;background:rgba(20,184,166,.1)}
 .lp-hero{margin-top:6px}
@@ -1014,11 +1200,12 @@ function lockCfg() { try { return JSON.parse(localStorage.getItem('rc_lock') || 
 function saveLock(c) { try { c ? localStorage.setItem('rc_lock', JSON.stringify(c)) : localStorage.removeItem('rc_lock'); } catch (e) {} }
 const lockActive = () => { const c = lockCfg(); return !!(user && c && c.uid === user.id); };
 async function bioSupported() { try { return !!(window.PublicKeyCredential && await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()); } catch (e) { return false; } }
+const BRAND_MARK_SVG = '<svg viewBox="0 0 512 512" aria-hidden="true"><circle cx="256" cy="256" r="166" fill="none" stroke="#fff" stroke-opacity="0.2" stroke-width="28"/><path d="M 256 90 A 166 166 0 1 1 100 199.2" fill="none" stroke="#5eead4" stroke-width="28" stroke-linecap="round"/><path d="M 206 334 V 178 H 266 A 42 42 0 0 1 266 262 H 206 M 258 262 L 312 334" fill="none" stroke="#fff" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 function showSplash() {
   if (document.getElementById('splash') || isPublicHash()) return;
   try { if (sessionStorage.getItem('rc_splash')) return; sessionStorage.setItem('rc_splash', '1'); } catch (e) {}
   const d = document.createElement('div'); d.id = 'splash';
-  d.innerHTML = `<div class="sp-logo">R</div><div class="sp-name">Recordly</div><div class="sp-tag">${esc(SPLASH_TAGLINE)}</div><div class="sp-dots"><i></i><i></i><i></i></div>`;
+  d.innerHTML = `<div class="sp-logo">${BRAND_MARK_SVG}</div><div class="sp-name">Recordly</div><div class="sp-tag">${esc(SPLASH_TAGLINE)}</div><div class="sp-dots"><i></i><i></i><i></i></div>`;
   document.body.appendChild(d);
 }
 function hideSplash(delay) { const d = document.getElementById('splash'); if (!d) return; setTimeout(() => { d.classList.add('out'); setTimeout(() => d.remove(), 500); }, delay || 0); }
@@ -1047,7 +1234,7 @@ function renderLock() {
   lockPin = '';
   $('app').innerHTML = `
     <div class="lockwrap">
-      <div class="lk-brand"><div class="brand-icon">R</div><div class="brand-text">Record<span>ly</span></div></div>
+      <div class="lk-brand"><div class="brand-icon">${BRAND_MARK_SVG}</div><div class="brand-text">Record<span>ly</span></div></div>
       <div class="lk-av">${pic ? `<img src="${esc(pic)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : esc((nm[0] || 'R').toUpperCase())}</div>
       <div class="lk-name">${esc(nm)}</div>
       <div class="lk-id">${esc(maskId(user))}${navigator.onLine ? '' : ' · offline'}</div>
@@ -1235,10 +1422,121 @@ async function runPwConfirm() {
   const f = window._pwOk; closeModal(); if (f) f();
 }
 
-let liveChan = null, liveAlerts = [];
+let liveChan = null, liveAlerts = [], alertAudioCtx = null;
 try { liveAlerts = JSON.parse(localStorage.getItem('rc_alerts') || '[]'); } catch (e) {}
-function playPing() {
-  try { const c = new (window.AudioContext || window.webkitAudioContext)(), o = c.createOscillator(), g = c.createGain(); o.connect(g); g.connect(c.destination); o.frequency.value = 880; g.gain.value = 0.15; o.start(); o.stop(c.currentTime + 0.2); } catch (e) {}
+let soundEnabled = true;
+try { soundEnabled = localStorage.getItem('rc_sound') !== '0'; } catch (e) {}
+let soundTone = 'chime';
+try {
+  const st = localStorage.getItem('rc_sound_tone');
+  if (['chime', 'bell', 'soft'].includes(st)) soundTone = st;
+} catch (e) {}
+const SOUND_TONES = {
+  chime: { label: 'Gentle chime', desc: 'Warm two-note chime' },
+  bell: { label: 'Clear bell', desc: 'Crisp ring for busy rooms' },
+  soft: { label: 'Soft ping', desc: 'Subtle single note' }
+};
+function soundToneLabel() {
+  return soundEnabled ? ((SOUND_TONES[soundTone] && SOUND_TONES[soundTone].label) || 'Gentle chime') : 'Muted';
+}
+function getAudioCtx() {
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) return null;
+  if (!alertAudioCtx || alertAudioCtx.state === 'closed') alertAudioCtx = new AC();
+  return alertAudioCtx;
+}
+function unlockAlertAudio() {
+  try {
+    const c = getAudioCtx();
+    if (c && c.state === 'suspended') c.resume().catch(() => {});
+  } catch (e) {}
+}
+['pointerdown', 'keydown'].forEach(ev => addEventListener(ev, unlockAlertAudio, { passive: true }));
+function playToneNote(c, freq, startOffset, dur, peakGain, type) {
+  const t0 = c.currentTime + startOffset;
+  const o = c.createOscillator(), g = c.createGain();
+  o.type = type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peakGain, t0 + 0.015);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.connect(g);
+  g.connect(c.destination);
+  o.start(t0);
+  o.stop(t0 + dur + 0.02);
+}
+function playPing(force, toneOverride) {
+  if (!force && !soundEnabled) return;
+  try {
+    const c = getAudioCtx();
+    if (!c) return;
+    const play = () => {
+      const tone = toneOverride || soundTone;
+      if (tone === 'bell') {
+        playToneNote(c, 987.77, 0, 0.38, 0.14, 'sine');
+        playToneNote(c, 1975.53, 0, 0.28, 0.05, 'triangle');
+        playToneNote(c, 1318.51, 0.11, 0.45, 0.13, 'sine');
+      } else if (tone === 'soft') {
+        playToneNote(c, 659.25, 0, 0.28, 0.13, 'sine');
+      } else {
+        playToneNote(c, 783.99, 0, 0.24, 0.12, 'sine');
+        playToneNote(c, 1046.50, 0.09, 0.38, 0.14, 'sine');
+      }
+    };
+    if (c.state === 'suspended') c.resume().then(play).catch(() => {});
+    else play();
+  } catch (e) {}
+}
+function refreshSoundViews() {
+  const h = hash()[0];
+  if (h === 'settings') renderSettings();
+  else if (h === 'notifications') renderNotifications();
+}
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  try { localStorage.setItem('rc_sound', soundEnabled ? '1' : '0'); } catch (e) {}
+  if (soundEnabled) {
+    playPing(true);
+    toast('Notification sound is on.');
+  } else {
+    toast('Notification sound muted.');
+  }
+  refreshSoundViews();
+}
+function setSoundTone(tone) {
+  if (!SOUND_TONES[tone]) return;
+  soundTone = tone;
+  soundEnabled = true;
+  try {
+    localStorage.setItem('rc_sound_tone', tone);
+    localStorage.setItem('rc_sound', '1');
+  } catch (e) {}
+  playPing(true, tone);
+  refreshSoundViews();
+  openSoundSettings();
+}
+function openSoundSettings() {
+  $('modalRoot').innerHTML = miniModal('Notification sound', `
+    <p class="muted" style="margin-top:0;">Choose whether Recordly plays a sound for incoming payments, join requests, and alerts.</p>
+    <div class="sgroup" style="margin-bottom:12px;">
+      <div class="srow" onclick="toggleSound();openSoundSettings()">
+        <span class="sic">${ico('volume', 20)}</span>
+        <span class="slab">Play notification sound<small>${soundEnabled ? 'Plays on new alerts' : 'All alert sounds are muted'}</small></span>
+        ${swt(soundEnabled)}
+      </div>
+    </div>
+    <div class="sh-title" style="margin-top:6px;">CHOOSE TONE</div>
+    <div class="list">
+      ${Object.keys(SOUND_TONES).map(k => {
+        const t = SOUND_TONES[k], on = soundEnabled && soundTone === k;
+        return `<button class="${on ? 'btn-soft' : 'btn-outline'}" style="justify-content:space-between;padding:12px 14px;" onclick="setSoundTone('${k}')">
+          <span style="text-align:left;"><b style="display:block;">${esc(t.label)}</b><span class="small muted">${esc(t.desc)}</span></span>
+          <span>${on ? '✓' : '▶'}</span>
+        </button>`;
+      }).join('')}
+    </div>
+    <button class="btn-primary full" style="margin-top:14px;" onclick="playPing(true)">🔊 Test notification sound</button>
+  `);
 }
 function pushAlert(title, desc, link, key) {
   liveAlerts.unshift({ title, desc, link: link || '#/notifications', at: Date.now(), key: key || null });
@@ -1293,6 +1591,350 @@ async function postComment(pid) {
   const { error } = await sb.rpc('add_comment', { pid, msg: t, who: user.user_metadata?.name || user.email });
   if (error) { toast(error.message); return; }
   renderCommentsBox(pid);
+}
+
+// ===== REAL-TIME CONTRIBUTION GROUP CHAT (Supabase Realtime + DB) =====
+let groupChat = {
+  rid: null,
+  isOwner: false,
+  chan: null,
+  status: 'idle',
+  msgs: [],
+  ids: new Set(),
+  online: [],
+  typing: {},
+  lastTypingSent: 0,
+  dbMissing: false,
+  allowed: true,
+  loading: false
+};
+
+function chatDisplayName() {
+  if (!user) return 'Guest';
+  const m = user.user_metadata || {};
+  return m.name || m.full_name || (user.email ? user.email.split('@')[0] : '') || user.phone || 'Member';
+}
+
+function closeGroupChat() {
+  if (groupChat.chan) {
+    try { sb.removeChannel(groupChat.chan); } catch (e) {}
+  }
+  Object.keys(groupChat.typing || {}).forEach(k => clearTimeout(groupChat.typing[k]?.timer));
+  groupChat = {
+    rid: null,
+    isOwner: false,
+    chan: null,
+    status: 'idle',
+    msgs: [],
+    ids: new Set(),
+    online: [],
+    typing: {},
+    lastTypingSent: 0,
+    dbMissing: false,
+    allowed: true,
+    loading: false
+  };
+}
+
+function addGroupChatMsg(raw) {
+  if (!raw || !raw.id) return false;
+  const id = String(raw.id);
+  const idx = groupChat.msgs.findIndex(m => m.id === id);
+  const normalized = {
+    id,
+    record_id: raw.record_id || groupChat.rid,
+    author_id: raw.author_id || null,
+    author_name: String(raw.author_name || raw.who || 'Member').slice(0, 60),
+    body: String(raw.body || raw.msg || '').slice(0, 500),
+    created_at: raw.created_at || new Date().toISOString(),
+    pending: !!raw.pending
+  };
+  if (!normalized.body.trim()) return false;
+  if (idx !== -1) {
+    groupChat.msgs[idx] = Object.assign({}, groupChat.msgs[idx], normalized, { pending: !!raw.pending });
+    return false;
+  }
+  groupChat.ids.add(id);
+  groupChat.msgs.push(normalized);
+  groupChat.msgs.sort((a, b) => (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0));
+  if (groupChat.msgs.length > 150) {
+    groupChat.msgs = groupChat.msgs.slice(-150);
+    groupChat.ids = new Set(groupChat.msgs.map(m => m.id));
+  }
+  return true;
+}
+
+function fmtChatTime(iso) {
+  const d = new Date(iso || Date.now());
+  return isNaN(d) ? '' : d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function renderGroupChatFeed(scrollBottom) {
+  const listEl = $('gchatList');
+  if (listEl) {
+    const wasNearBottom = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 60;
+    if (groupChat.loading && !groupChat.msgs.length) {
+      listEl.innerHTML = '<div class="muted small" style="text-align:center;padding:24px 8px;">Loading messages…</div>';
+    } else if (!groupChat.msgs.length) {
+      listEl.innerHTML = '<div class="muted small" style="text-align:center;padding:24px 8px;">No messages yet. Start the conversation about contributions!</div>';
+    } else {
+      listEl.innerHTML = groupChat.msgs.map(m => {
+        const mine = !!(user && m.author_id && m.author_id === user.id);
+        return `
+          <div class="gchat-msg${mine ? ' mine' : ''}${m.pending ? ' pending' : ''}">
+            <div class="gchat-meta">
+              <span>${esc(mine ? 'You' : m.author_name)}</span>
+              <span>· ${esc(fmtChatTime(m.created_at))}${m.pending ? ' · sending…' : ''}</span>
+            </div>
+            <div class="gchat-body">${esc(m.body)}</div>
+          </div>`;
+      }).join('');
+    }
+    if (scrollBottom || wasNearBottom) listEl.scrollTop = listEl.scrollHeight;
+  }
+  const stEl = $('gchatStatus');
+  if (stEl) {
+    const n = groupChat.online.length;
+    const live = groupChat.status === 'SUBSCRIBED';
+    stEl.innerHTML = `<i class="gchat-dot${live ? '' : ' off'}"></i><span>${live ? (n > 1 ? n + ' online' : 'Live') : 'Connecting…'}</span>`;
+  }
+  const typEl = $('gchatTyping');
+  if (typEl) {
+    const names = Object.values(groupChat.typing).map(x => x.name).filter(Boolean);
+    typEl.textContent = names.length ? (names.length === 1 ? names[0] + ' is typing…' : names.slice(0, 2).join(', ') + ' are typing…') : '';
+  }
+}
+
+function renderGroupChatBox() {
+  const box = $('groupChatBox');
+  if (!box) return;
+  if (!user) {
+    box.innerHTML = `
+      <div class="card">
+        <div class="gchat-head">
+          <div class="card-title">💬 Group Chat</div>
+          <span class="gchat-status"><i class="gchat-dot off"></i>Members only</span>
+        </div>
+        <p class="muted small">Sign in or create an account to discuss contributions with this group in real time.</p>
+        <div class="row">
+          <button class="btn-primary btn-sm" onclick="authModal('signup')">Create account</button>
+          <button class="btn-outline btn-sm" onclick="authModal('login')">Log in</button>
+        </div>
+      </div>`;
+    return;
+  }
+  if (!groupChat.allowed) {
+    box.innerHTML = `
+      <div class="card">
+        <div class="gchat-head">
+          <div class="card-title">💬 Group Chat</div>
+          <span class="gchat-status"><i class="gchat-dot off"></i>Members only</span>
+        </div>
+        <p class="muted small">Tap your name in the list above and link your member page ("This is my page") to join the live group chat.</p>
+      </div>`;
+    return;
+  }
+  box.innerHTML = `
+    <div class="card">
+      <div class="gchat-head">
+        <div class="card-title">💬 Group Chat</div>
+        <span class="gchat-status" id="gchatStatus"><i class="gchat-dot off"></i><span>Connecting…</span></span>
+      </div>
+      <p class="muted small" style="margin:-4px 0 10px;">Real-time discussion for members of this contribution group.</p>
+      ${groupChat.dbMissing ? '<div class="banner banner-info small" style="margin-bottom:10px;">Live chat is active over Supabase Realtime. Run the updated schema.sql in Supabase to save chat history across reloads.</div>' : ''}
+      <div class="gchat-list" id="gchatList"></div>
+      <div class="gchat-typing" id="gchatTyping"></div>
+      <form class="gchat-form" onsubmit="event.preventDefault();sendGroupChatMsg();">
+        <input id="gchatInput" maxlength="500" autocomplete="off" placeholder="Write a message to the group..." oninput="notifyGroupChatTyping()">
+        <button type="submit" class="btn-primary" id="gchatSendBtn">Send</button>
+      </form>
+    </div>`;
+  renderGroupChatFeed(true);
+}
+
+function notifyGroupChatTyping() {
+  if (!groupChat.chan || groupChat.status !== 'SUBSCRIBED' || !user) return;
+  const now = Date.now();
+  if (now - groupChat.lastTypingSent < 1400) return;
+  groupChat.lastTypingSent = now;
+  try {
+    groupChat.chan.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { uid: user.id, name: chatDisplayName() }
+    });
+  } catch (e) {}
+}
+
+async function sendGroupChatMsg() {
+  if (!user || !groupChat.rid) return;
+  const inp = $('gchatInput');
+  const txt = (inp?.value || '').trim();
+  if (!txt) return;
+  const rid = groupChat.rid;
+  const msgId = uid();
+  const who = chatDisplayName();
+  const optimistic = {
+    id: msgId,
+    record_id: rid,
+    author_id: user.id,
+    author_name: who,
+    body: txt.slice(0, 500),
+    created_at: new Date().toISOString(),
+    pending: true
+  };
+  if (inp) inp.value = '';
+  addGroupChatMsg(optimistic);
+  renderGroupChatFeed(true);
+
+  const btn = $('gchatSendBtn');
+  if (btn) btn.disabled = true;
+  try {
+    let savedRow = null;
+    if (UUID_RE.test(rid) && !groupChat.dbMissing) {
+      let res = await sb.rpc('send_group_message', { rid, msg: optimistic.body, who, msg_id: msgId });
+      if (res.error && groupChat.isOwner && /Not allowed/i.test(res.error.message || '') && typeof syncRecordsToDb === 'function') {
+        await syncRecordsToDb().catch(() => {});
+        res = await sb.rpc('send_group_message', { rid, msg: optimistic.body, who, msg_id: msgId });
+      }
+      if (res.error) {
+        const em = String(res.error.message || '') + ' ' + String(res.error.code || '');
+        if (/function|does not exist|schema cache|PGRST202|42P01/i.test(em)) {
+          groupChat.dbMissing = true;
+          optimistic.pending = false;
+          addGroupChatMsg(optimistic);
+          if (groupChat.chan && groupChat.status === 'SUBSCRIBED') {
+            groupChat.chan.send({ type: 'broadcast', event: 'msg', payload: optimistic }).catch(() => {});
+          }
+          renderGroupChatBox();
+          return;
+        }
+        throw res.error;
+      }
+      savedRow = res.data;
+    }
+    const finalMsg = savedRow ? Object.assign({}, savedRow, { pending: false }) : Object.assign({}, optimistic, { pending: false });
+    addGroupChatMsg(finalMsg);
+    if (groupChat.chan && groupChat.status === 'SUBSCRIBED') {
+      groupChat.chan.send({ type: 'broadcast', event: 'msg', payload: finalMsg }).catch(() => {});
+    }
+    renderGroupChatFeed(true);
+  } catch (e) {
+    groupChat.msgs = groupChat.msgs.filter(m => m.id !== msgId);
+    groupChat.ids.delete(msgId);
+    if (inp && !inp.value) inp.value = txt;
+    renderGroupChatFeed(false);
+    toast(e?.message || 'Could not send message.');
+  } finally {
+    const b2 = $('gchatSendBtn');
+    if (b2) b2.disabled = false;
+  }
+}
+
+async function initGroupChat(rid, opts) {
+  if (!rid) return;
+  const sameRoom = groupChat.rid === rid && groupChat.chan;
+  if (!sameRoom) {
+    closeGroupChat();
+    groupChat.rid = rid;
+    groupChat.isOwner = !!(opts && opts.isOwner);
+    groupChat.loading = !!(user && UUID_RE.test(rid));
+    groupChat.allowed = !user ? false : (groupChat.isOwner || (Store.data.records || []).some(r => r.id === rid));
+  }
+  renderGroupChatBox();
+  if (!user) return;
+
+  if (!sameRoom && UUID_RE.test(rid)) {
+    try {
+      const { data, error } = await sb.rpc('get_group_messages', { rid });
+      if (groupChat.rid !== rid) return;
+      if (error) {
+        const em = String(error.message || '') + ' ' + String(error.code || '');
+        if (/function|does not exist|schema cache|PGRST202|42P01/i.test(em)) {
+          groupChat.dbMissing = true;
+          if (!groupChat.allowed) {
+            const chk = await sb.from('people').select('id').eq('record_id', rid).eq('user_id', user.id).maybeSingle();
+            if (groupChat.rid !== rid) return;
+            groupChat.allowed = !!(chk && chk.data && chk.data.id);
+          }
+        }
+      } else if (data === null) {
+        groupChat.allowed = groupChat.isOwner;
+      } else if (Array.isArray(data)) {
+        groupChat.allowed = true;
+        data.forEach(m => addGroupChatMsg(Object.assign({}, m, { pending: false })));
+      }
+    } catch (e) {}
+    groupChat.loading = false;
+    renderGroupChatBox();
+    if (!groupChat.allowed) return;
+  } else {
+    groupChat.loading = false;
+    groupChat.allowed = true;
+    renderGroupChatBox();
+  }
+
+  if (sameRoom) return;
+
+  const ch = sb.channel('group-chat-' + rid, {
+    config: {
+      broadcast: { self: false },
+      presence: { key: user.id }
+    }
+  });
+  groupChat.chan = ch;
+
+  ch.on('broadcast', { event: 'msg' }, ({ payload }) => {
+    if (groupChat.rid !== rid || !payload) return;
+    const added = addGroupChatMsg(Object.assign({}, payload, { pending: false }));
+    if (added) {
+      if (payload.author_id !== user.id) playPing();
+      renderGroupChatFeed(false);
+    }
+  });
+
+  ch.on('broadcast', { event: 'typing' }, ({ payload }) => {
+    if (groupChat.rid !== rid || !payload || !payload.uid || payload.uid === user.id) return;
+    if (groupChat.typing[payload.uid]) clearTimeout(groupChat.typing[payload.uid].timer);
+    groupChat.typing[payload.uid] = {
+      name: String(payload.name || 'Someone').slice(0, 40),
+      timer: setTimeout(() => {
+        delete groupChat.typing[payload.uid];
+        renderGroupChatFeed(false);
+      }, 2400)
+    };
+    renderGroupChatFeed(false);
+  });
+
+  if (UUID_RE.test(rid)) {
+    ch.on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'group_messages',
+      filter: 'record_id=eq.' + rid
+    }, m => {
+      if (groupChat.rid !== rid || !m || !m.new) return;
+      const added = addGroupChatMsg(Object.assign({}, m.new, { pending: false }));
+      if (added && m.new.author_id !== user.id) playPing();
+      renderGroupChatFeed(false);
+    });
+  }
+
+  ch.on('presence', { event: 'sync' }, () => {
+    if (groupChat.rid !== rid) return;
+    const st = ch.presenceState() || {};
+    groupChat.online = Object.keys(st).map(k => ({ uid: k, name: (st[k] && st[k][0] && st[k][0].name) || 'Member' }));
+    renderGroupChatFeed(false);
+  });
+
+  ch.subscribe(status => {
+    if (groupChat.rid !== rid) return;
+    groupChat.status = status;
+    if (status === 'SUBSCRIBED') {
+      ch.track({ uid: user.id, name: chatDisplayName(), at: Date.now() }).catch(() => {});
+    }
+    renderGroupChatFeed(false);
+  });
 }
 
 function miniModal(title, inner) {
@@ -1373,7 +2015,7 @@ function renderWelcomeBack(kn) {
   $('app').innerHTML = `
   <div class="lp">
     <div class="lp-bg"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><div class="lp-grid"></div></div>
-    <header class="lp-top"><div class="lp-logo">R</div><span class="lp-name">Record<b>ly</b></span><span class="lp-pill">● SECURE</span></header>
+    <header class="lp-top"><div class="lp-logo">${BRAND_MARK_SVG}</div><span class="lp-name">Record<b>ly</b></span><span class="lp-pill">● SECURE</span></header>
     <section class="gate">
       <div class="g-av">${kn.pic ? `<img src="${esc(kn.pic)}" alt="" referrerpolicy="no-referrer" onerror="this.remove()">` : esc((nm[0] || 'R').toUpperCase())}</div>
       <h2>${esc(nm)}</h2>
@@ -1420,7 +2062,7 @@ function renderLoggedOut() {
   $('app').innerHTML = `
   <div class="lp">
     <div class="lp-bg"><i class="orb o1"></i><i class="orb o2"></i><i class="orb o3"></i><div class="lp-grid"></div></div>
-    <header class="lp-top"><div class="lp-logo">R</div><span class="lp-name">Record<b>ly</b></span><span class="lp-pill">● SECURE</span></header>
+    <header class="lp-top"><div class="lp-logo">${BRAND_MARK_SVG}</div><span class="lp-name">Record<b>ly</b></span><span class="lp-pill">● SECURE</span></header>
 
     <section class="lp-hero">
       <div class="lp-kicker">RECORD KEEPING, REIMAGINED</div>
@@ -2091,6 +2733,7 @@ function checkReminders() {
 
 let offlineSession = false;
 function setTop() {
+  try { scheduleSnapshot(); } catch (e) {}
   try { if (user && user.id && !offlineSession) localStorage.setItem('rc_lastuser', JSON.stringify({ id: user.id, email: user.email, phone: user.phone, user_metadata: user.user_metadata, app_metadata: user.app_metadata, identities: user.identities })); } catch (e) {}
   if (user && !offlineSession) rememberUser(user);
   document.body.classList.toggle('loggedout', !user);
@@ -2109,7 +2752,7 @@ function setTop() {
   } else {
     if (hl) {
       hl.onclick = () => { location.hash = '#/'; };
-      hl.innerHTML = `<div class="brand-icon">R</div><div class="brand-text">Record<span>ly</span></div>`;
+      hl.innerHTML = `<div class="brand-icon">${BRAND_MARK_SVG}</div><div class="brand-text">Record<span>ly</span></div>`;
     }
     authEl.innerHTML = `
       <button class="btn-primary btn-sm" onclick="authModal('login')">
@@ -2474,6 +3117,7 @@ async function logout() {
   try { await syncRecordsToDb(); await syncLocalDataToSupabase({ silent: true }); } catch (e) {}
   try { await sb.auth.signOut(); } catch (e) {}
   user = null;
+  try { kvSet('snap', { on: false, items: [] }); } catch (e) {}
   Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
   loadingFor = null; loadedFor = null; dbSyncSig = '';
@@ -2675,7 +3319,7 @@ function openReceiptModal(o) {
           <button class="btn-outline btn-icon" onclick="closeModal()">✕</button>
         </div>
 
-        <div class="receipt-paper" id="printableReceipt">
+        <div class="receipt-paper receipt-flash" id="printableReceipt">
           <div style="text-align:center;margin-bottom:16px;">
             <div style="font-size:18px;font-weight:800;color:var(--primary);">${esc(window._rcpt.biz)}</div>
             <div class="muted small">${esc(o.title || 'Official Payment Receipt')}</div>
@@ -2881,6 +3525,7 @@ const ICO = {
   check: '<path d="M20 6 9 17l-5-5"/>',
   store: '<path d="M3 9l1-5h16l1 5"/><path d="M4 9v11h16V9"/><path d="M9 20v-6h6v6"/>',
   back: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  volume: '<polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19.1 4.9a10 10 0 0 1 0 14.2"/>',
   pointer: '<path d="M5 3l14 7-6.2 2.2L10.6 19z" fill="currentColor"/>'
 };
 const ico = (n, sz) => `<svg class="ic" width="${sz || 22}" height="${sz || 22}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICO[n] || ''}</svg>`;
@@ -2925,6 +3570,7 @@ function renderDashboard() {
   if (waiting) items.push({ icon: 'user', t: waiting === 1 ? '1 person wants to join' : waiting + ' people want to join', s: 'Tap to answer', go: '#/notifications' });
   const waitingOrders = (Store.data.sales || []).filter(x => x.fulfil === 'pending').length;
   if (waitingOrders) items.push({ icon: 'bag', t: waitingOrders === 1 ? '1 order is waiting' : waitingOrders + ' orders are waiting', s: 'Not given to the customer yet', go: '#/business' });
+  { const cfgR = remCfg(), dueN = cfgR.on ? dueNudges(cfgR).length : 0; if (dueN) items.unshift({ icon: 'bell', t: dueN === 1 ? '1 person is due a reminder' : dueN + ' people are due a reminder', s: 'Tap to send', go: '#/notifications' }); }
   const reminders = checkReminders();
   if (!items.length && reminders.length) items.push({ icon: 'bell', t: reminders.length === 1 ? '1 new alert' : reminders.length + ' new alerts', s: reminders[0].title, go: '#/notifications' });
   const shown = items.slice(0, 3);
@@ -2997,11 +3643,63 @@ window.addEventListener('resize', () => { if ($('homeDock')) setDockOffset(); })
 /**
  * 2. CONTRIBUTIONS SECTION (WITH DELETE AND ADMIN DESCRIPTION)
  */
+let contribSort = 'date_desc';
+try {
+  const savedSort = localStorage.getItem('rc_contrib_sort');
+  if (['date_desc', 'date_asc', 'name_asc', 'name_desc', 'pct_desc', 'pct_asc'].includes(savedSort)) {
+    contribSort = savedSort;
+  }
+} catch (e) {}
+
+function contribRecordStats(r) {
+  const paid = (r.people || []).reduce((a, p) => a + (p.payments || []).reduce((b, x) => b + Number(x.amount || 0), 0), 0);
+  const target = Number(r.target || 0) * (r.people || []).length;
+  const pc = target ? Math.min(100, Math.round(paid / target * 100)) : 0;
+  return { paid, target, pc };
+}
+
+function sortContribRows(rows) {
+  return rows.slice().sort((a, b) => {
+    if (contribSort === 'name_asc' || contribSort === 'name_desc') {
+      const cmp = (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base', numeric: true });
+      if (cmp !== 0) return contribSort === 'name_asc' ? cmp : -cmp;
+    } else if (contribSort === 'pct_desc' || contribSort === 'pct_asc') {
+      const sa = contribRecordStats(a), sb = contribRecordStats(b);
+      if (sa.pc !== sb.pc) return contribSort === 'pct_desc' ? (sb.pc - sa.pc) : (sa.pc - sb.pc);
+      if (sa.paid !== sb.paid) return contribSort === 'pct_desc' ? (sb.paid - sa.paid) : (sa.paid - sb.paid);
+      const cmp = (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base', numeric: true });
+      if (cmp !== 0) return cmp;
+    } else {
+      const da = Date.parse(a.created_at || '') || 0;
+      const db = Date.parse(b.created_at || '') || 0;
+      if (da !== db) return contribSort === 'date_asc' ? (da - db) : (db - da);
+      const cmp = (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base', numeric: true });
+      if (cmp !== 0) return cmp;
+    }
+    return 0;
+  });
+}
+
+function setContribSort(mode) {
+  contribSort = mode || 'date_desc';
+  try { localStorage.setItem('rc_contrib_sort', contribSort); } catch (e) {}
+  filterContribList();
+}
+
 function renderContributions() {
   updateNavActive('contributions');
   const rows = Store.data.records;
+  const sorted = sortContribRows(rows);
   const total = rows.reduce((a, r) => a + (r.people || []).reduce((b, p) => b + (p.payments || []).reduce((c, x) => c + Number(x.amount || 0), 0), 0), 0);
   const peopleCount = rows.reduce((a, r) => a + (r.people || []).length, 0);
+  const sortOpts = [
+    ['date_desc', 'Creation date (Newest)'],
+    ['date_asc', 'Creation date (Oldest)'],
+    ['name_asc', 'Name (A–Z)'],
+    ['name_desc', 'Name (Z–A)'],
+    ['pct_desc', 'Completion % (High–Low)'],
+    ['pct_asc', 'Completion % (Low–High)']
+  ];
 
   $('app').innerHTML = `
     <div class="card">
@@ -3029,19 +3727,35 @@ function renderContributions() {
       </div>
     </div>
 
-    <div class="search-input">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      <input id="contribSearch" placeholder="Search records by title, description or keyword..." oninput="filterContribList()">
+    <div class="contrib-toolbar">
+      <div class="search-input">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="contribSearch" placeholder="Search records by title, description or keyword..." oninput="filterContribList()">
+      </div>
+      <div class="sort-wrap">
+        <label for="contribSort">Sort by</label>
+        <select id="contribSort" aria-label="Sort contribution groups" onchange="setContribSort(this.value)">
+          ${sortOpts.map(([v, lbl]) => `<option value="${v}"${contribSort === v ? ' selected' : ''}>${lbl}</option>`).join('')}
+        </select>
+      </div>
     </div>
 
     <div class="list" id="contribListContainer">
-      ${renderContribListRows(rows)}
+      ${renderContribListRows(sorted)}
     </div>
   `;
 }
 
-function renderContribListRows(rows) {
+function renderContribListRows(rows, isFiltered) {
   if (!rows.length) {
+    if (isFiltered && Store.data.records.length) {
+      return `
+        <div class="empty-box">
+          <h3>No matching records</h3>
+          <p class="muted">Try a different search word.</p>
+        </div>
+      `;
+    }
     return `
       <div class="empty-box">
         <h3>No contribution records yet</h3>
@@ -3052,9 +3766,7 @@ function renderContribListRows(rows) {
   }
 
   return rows.map(r => {
-    const paid = (r.people || []).reduce((a, p) => a + (p.payments || []).reduce((b, x) => b + Number(x.amount || 0), 0), 0);
-    const target = Number(r.target || 0) * (r.people || []).length;
-    const pc = target ? Math.min(100, Math.round(paid / target * 100)) : 0;
+    const { paid, target, pc } = contribRecordStats(r);
     return `
       <div class="item-card between" onclick="location.hash='#/r/${r.id}'" style="cursor:pointer;">
         <div class="avatar-circle">${esc((r.title || 'R').slice(0, 1).toUpperCase())}</div>
@@ -3079,9 +3791,12 @@ function renderContribListRows(rows) {
 }
 
 function filterContribList() {
-  const q = val('contribSearch').toLowerCase();
-  const filtered = Store.data.records.filter(r => (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q));
-  $('contribListContainer').innerHTML = renderContribListRows(filtered);
+  const q = (($('contribSearch') || {}).value || '').trim().toLowerCase();
+  const filtered = q
+    ? Store.data.records.filter(r => (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q))
+    : Store.data.records;
+  const sorted = sortContribRows(filtered);
+  $('contribListContainer').innerHTML = renderContribListRows(sorted, !!q);
 }
 
 let rf = {};
@@ -3270,7 +3985,7 @@ function renderRecordDetail(rid) {
         <div class="card-title">
           <span>👥</span> Members (${people.length})
         </div>
-        <button class="btn-primary btn-sm" onclick="openAddMemberModal('${r.id}')">＋ Add Member</button>
+        <span class="row" style="gap:6px;flex-wrap:nowrap;"><button class="btn-outline btn-sm" onclick="openRemindQueue('${r.id}')">Remind unpaid</button><button class="btn-primary btn-sm" onclick="openAddMemberModal('${r.id}')">＋ Add Member</button></span>
       </div>
 
       <div class="search-input">
@@ -3345,7 +4060,10 @@ function renderRecordDetail(rid) {
         </div>
       ` : ''}
     </div>
+
+    <div id="groupChatBox"></div>
   `;
+  initGroupChat(r.id, { isOwner: true, title: r.title });
 }
 
 function openEditRecordDescModal(rid) {
@@ -3408,8 +4126,9 @@ function renderRecordMembersList(r, people) {
               ${isCompleted ? 'Completed' : paid > 0 ? `${pc}%` : 'Unpaid'}
             </span>
           </div>
-          <div class="muted small">${esc(p.phone || 'No phone')} · <b>${money(paid)}</b> paid ${target ? `(remains ${money(Math.max(0, target - paid))})` : ''}</div>
+          <div class="muted small">${esc(p.phone || 'No phone')} · <b>${money(paid)}</b> paid ${target ? `(remains ${money(Math.max(0, target - paid))})` : ''}${p.last_reminded ? ' · reminded ' + remAgo(p.last_reminded) : ''}</div>
           ${target ? `<div class="progress-track"><div class="progress-fill" style="width:${pc}%"></div></div>` : ''}
+          ${target && !isCompleted ? `<button class="btn-soft btn-sm" style="margin-top:6px;" onclick="event.stopPropagation();remindOne('${r.id}','${p.id}')">Remind</button>` : ''}
         </div>
         <div class="row">
           <button class="btn-primary btn-sm" onclick="location.hash='#/r/${r.id}/${p.id}'">Manage</button>
@@ -5051,6 +5770,12 @@ function renderSettings() {
       ${srow('store', 'Business name', `<span class="sval">${esc(bizName())}</span>`, "location.hash='#/profile'", { sub: 'Shown on your receipts' })}
     </div>
 
+    <div class="sh-title">SHARE</div>
+    <div class="sgroup">
+      ${srow('link', 'Share Recordly', '', 'shareApp()', { sub: 'Send the app link to friends and your group' })}
+      ${srow('file', 'Copy app link', '', 'copyAppLink()', { noChev: true })}
+    </div>
+
     <div class="sh-title">PRIVACY & SECURITY</div>
     <div class="sgroup">
       ${srow('eyeoff', 'Hide money amounts', swt(maskMoney), 'toggleMask()', { noChev: true, sub: 'Cover balances on this screen' })}
@@ -5061,7 +5786,9 @@ function renderSettings() {
     <div class="sh-title">PREFERENCES</div>
     <div class="sgroup">
       ${srow('sun', 'Dark mode', swt(currentTheme === 'dark'), 'toggleTheme();renderSettings()', { noChev: true })}
-      ${srow('bell', 'Alerts & reminders', '', "location.hash='#/notifications'")}
+      ${srow('volume', 'Notification sound', `<span class="sval">${esc(soundToneLabel())}</span>`, 'openSoundSettings()', { sub: 'Chime & tone for incoming alerts' })}
+      ${srow('bell', 'Reminders', `<span class="sval">${remCfg().on ? 'On' : 'Off'}</span>`, 'openReminderSettings()', { sub: 'Automatic nudges & phone notifications' })}
+      ${srow('bell', 'Alerts', '', "location.hash='#/notifications'")}
     </div>
 
     <div class="sh-title">DATA</div>
@@ -5083,6 +5810,32 @@ function renderSettings() {
       ${srow('logout', 'Log out', '', 'logout()', { danger: true, noChev: true })}
     </div>
   `;
+}
+const appLink = () => location.origin + location.pathname.replace(/index\.html$/, '');
+const appInvite = () => 'Keep clear records and see your payment progress with Recordly: ' + appLink();
+function copyAppLink() {
+  const t = appLink();
+  (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('App link copied.')).catch(() => {
+    const i = document.createElement('input'); i.value = t; document.body.appendChild(i); i.select();
+    try { document.execCommand('copy'); toast('App link copied.'); } catch (e) { toast(t); } i.remove();
+  });
+}
+async function shareAppNative() {
+  try { await navigator.share({ title: 'Recordly', text: 'Keep clear records and see your payment progress with Recordly.', url: appLink() }); }
+  catch (e) { if (!e || e.name !== 'AbortError') copyAppLink(); }
+}
+function shareApp() {
+  const link = appLink(), canShare = !!navigator.share;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:380px;">
+    <div class="row between" style="margin-bottom:10px;"><h2>Share Recordly</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <div style="text-align:center;margin:4px 0 14px;"><div class="prof-av" style="margin:0 auto 8px;width:64px;height:64px;font-size:26px;">R</div><div class="muted small">Anyone with this link can open Recordly and create their own account.</div></div>
+    <div class="rc-prev" style="border-color:var(--line);background:var(--box-bg);color:var(--text);padding:11px 12px;"><div style="font-family:monospace;font-size:12.5px;word-break:break-all;">${esc(link)}</div></div>
+    <div class="list">
+      ${canShare ? `<button class="btn-primary full" style="height:50px;border-radius:16px;" onclick="shareAppNative()">${ico('link', 18)} Share…</button>` : ''}
+      <button class="${canShare ? 'btn-soft' : 'btn-primary'} full" style="height:50px;border-radius:16px;" onclick="window.open('https://wa.me/?text=' + encodeURIComponent(appInvite()), '_blank')">Send on WhatsApp</button>
+      <button class="btn-outline full" style="height:50px;border-radius:16px;" onclick="copyAppLink()">Copy link</button>
+    </div>
+  </div></div>`;
 }
 function aboutRecordly() {
   $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:360px;text-align:center;"><div class="prof-av" style="margin:0 auto 10px;">R</div><h2>Recordly</h2><p class="muted">Simple records, clear progress.</p><p class="small muted">Contributions, sales, expenses and debts with private progress links and instant receipts.</p><button class="btn-primary full" onclick="closeModal()">Close</button></div></div>`;
@@ -5144,6 +5897,7 @@ async function deleteMyAccount() {
   if (err) { toast('Could not delete your account: ' + (err.message || 'please try again.')); return; }
   try { await sb.auth.signOut(); } catch (e) {}
   user = null;
+  try { kvSet('snap', { on: false, items: [] }); } catch (e) {}
   Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
   try { Object.keys(localStorage).filter(k => k === STORAGE_KEY || k.startsWith('rc_')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
   loadingFor = null; loadedFor = null; dbSyncSig = '';
@@ -5265,9 +6019,14 @@ function renderNotifications() {
           <h1>🔔 Reminders & Notifications</h1>
           <p class="muted">Automated alerts for overdue payments and deadlines</p>
         </div>
-        <span class="badge ${notifs.length ? 'badge-red' : 'badge-green'}">${notifs.length} Active</span>
+        <div class="row" style="gap:6px;">
+          <button class="btn-outline btn-sm" onclick="openSoundSettings()">${soundEnabled ? '🔊 ' + esc(soundToneLabel()) : '🔇 Muted'}</button>
+          <span class="badge ${notifs.length ? 'badge-red' : 'badge-green'}">${notifs.length} Active</span>
+        </div>
       </div>
     </div>
+
+    ${remindCardHtml()}
 
     ${joinInboxHtml()}
 
@@ -5432,14 +6191,229 @@ async function renderPublicGroup(rid, src) {
         </div>
       `).join('')}
     </div>
+    <div id="groupChatBox" style="margin-top:14px;"></div>
+
     <div style="text-align:center;margin-top:16px;">
       <button class="btn-outline" onclick="location.hash='#/j/${rid}/link'">Not on the list? Ask to join</button>
     </div>
   `;
+  initGroupChat(rid, { isOwner: false, title: r.title });
 }
 
 function copyText(txt) {
   navigator.clipboard.writeText(txt).then(() => toast('Link copied to clipboard!'));
+}
+
+
+/**
+ * AUTOMATIC REMINDERS + OFFLINE NOTIFICATIONS
+ * Recordly works out who is due a reminder and prepares the message; one tap sends it (WhatsApp / SMS).
+ * Phone notifications are built from a snapshot saved on the phone, so they work with no internet.
+ */
+const REM_DEFAULT = { on: true, daysBefore: 3, every: 7, daily: true, hour: 8, notify: false,
+  tpl: 'Hi {name}, a friendly reminder from {business}: you have {balance} left to pay for {record} ({paid} of {target} paid). Thank you!' };
+function remCfg() { try { return { ...REM_DEFAULT, ...(JSON.parse(localStorage.getItem('rc_remind') || '{}')) }; } catch (e) { return { ...REM_DEFAULT }; } }
+function remSave(c) { try { localStorage.setItem('rc_remind', JSON.stringify(c)); } catch (e) {} scheduleSnapshot(); }
+const REM_DAY = 864e5;
+const paidOf = p => (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+const debtBal = d => Number(d.original_amount || 0) - (d.repayments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+const daysUntil = ds => { if (!ds) return null; const a = new Date(ds + 'T00:00:00'), b = new Date(localDate() + 'T00:00:00'); return Math.round((a - b) / REM_DAY); };
+const remAgo = iso => { const d = Math.floor((Date.now() - Date.parse(iso)) / REM_DAY); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; };
+function remPhone(p) { let t = String(p || '').replace(/[^\d+]/g, ''); if (!t) return ''; if (t[0] === '+') return t.slice(1); if (t.startsWith('00')) return t.slice(2); if (t[0] === '0') return '234' + t.slice(1); return t; }
+
+// who is due a reminder (all = everyone who has not paid)
+function dueNudges(cfg, onlyRid, all) {
+  const now = Date.now(), out = [];
+  (Store.data.records || []).forEach(r => {
+    if (onlyRid && r.id !== onlyRid) return;
+    const target = Number(r.target || 0); if (!target) return;
+    const dl = r.end_date ? daysUntil(r.end_date) : null;
+    (r.people || []).forEach(p => {
+      const paid = paidOf(p), bal = target - paid; if (bal <= 0) return;
+      const last = p.last_reminded ? Date.parse(p.last_reminded) : 0;
+      const since = last ? (now - last) / REM_DAY : Infinity;
+      let due = false, why = '';
+      if (dl !== null && dl < 0) { due = since >= 3; why = 'Overdue'; }
+      else if (dl !== null && dl <= cfg.daysBefore) { due = since >= 2; why = dl === 0 ? 'Closes today' : 'Closes in ' + dl + (dl === 1 ? ' day' : ' days'); }
+      else if (dl === null) { const ref = last || Date.parse(r.created_at || '') || 0; due = !!ref && (now - ref) / REM_DAY >= cfg.every; why = 'Not paid yet'; }
+      if (due || all) out.push({ kind: 'person', rid: r.id, pid: p.id, name: p.name, phone: p.phone || '', title: r.title, bal, paid, target, why: why || 'Not paid yet', key: r.id + '|' + p.id });
+    });
+  });
+  return out;
+}
+function dueDebtNudges(cfg, all) {
+  const out = [];
+  (Store.data.debts || []).forEach(d => {
+    if (d.type !== 'receivable') return;
+    const bal = debtBal(d); if (bal <= 0 || !d.due_date) return;
+    const dl = daysUntil(d.due_date), last = d.last_reminded ? Date.parse(d.last_reminded) : 0, since = last ? (Date.now() - last) / REM_DAY : Infinity;
+    if ((dl <= cfg.daysBefore && since >= 3) || all) out.push({ kind: 'debt', did: d.id, name: d.person_name, phone: d.phone || d.person_phone || '', title: 'Debt', bal, due: d.due_date, why: dl < 0 ? 'Overdue' : dl === 0 ? 'Due today' : 'Due in ' + dl + ' days', key: 'debt|' + d.id });
+  });
+  return out;
+}
+function remindText(n) {
+  const cfg = remCfg(), biz = (Store.data.settings && Store.data.settings.businessName) || 'Recordly';
+  if (n.kind === 'debt') return `Hi ${n.name}, a friendly reminder from ${biz}: ${moneyReal(n.bal)} is due${n.due ? ' on ' + n.due : ''}. Thank you!`;
+  const o = { name: n.name, business: biz, record: n.title, balance: moneyReal(n.bal), paid: moneyReal(n.paid), target: moneyReal(n.target) };
+  return cfg.tpl.replace(/\{(\w+)\}/g, (m, k) => o[k] !== undefined ? o[k] : m);
+}
+function markReminded(n) {
+  const now = new Date().toISOString();
+  if (n.kind === 'debt') { const d = (Store.data.debts || []).find(x => x.id === n.did); if (d) d.last_reminded = now; }
+  else { const r = (Store.data.records || []).find(x => x.id === n.rid), p = r && (r.people || []).find(x => x.id === n.pid); if (p) p.last_reminded = now; }
+  try { Store.save(); } catch (e) {}
+  scheduleSnapshot();
+}
+function sendOne(n, via) {
+  const txt = remindText(n);
+  if (via === 'sms') location.href = 'sms:' + (n.phone || '') + '?body=' + encodeURIComponent(txt);
+  else window.open('https://wa.me/' + remPhone(n.phone) + '?text=' + encodeURIComponent(txt), '_blank');
+  markReminded(n);
+}
+function remindOne(rid, pid) {
+  const n = dueNudges(remCfg(), rid, true).find(x => x.pid === pid); if (!n) { toast('This person has paid in full.'); return; }
+  sendOne(n, 'wa'); toast('Reminder opened in WhatsApp.');
+}
+
+// the reminder queue (one tap per person, or "Send next")
+let remQueue = [], remSent = new Set(), remScope = null, remAll = false;
+function openRemindQueue(rid, all) {
+  remScope = rid || null; remAll = !!(all || rid); remSent = new Set();
+  const cfg = remCfg();
+  remQueue = dueNudges(cfg, remScope, remAll).concat(remScope ? [] : dueDebtNudges(cfg, remAll));
+  renderRemindQueue();
+}
+function renderRemindQueue() {
+  const left = remQueue.filter(n => !remSent.has(n.key)).length, cfg = remCfg();
+  const preview = remQueue.length ? remindText(remQueue[0]) : cfg.tpl;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:440px;">
+    <div class="row between" style="margin-bottom:6px;"><h2>Send reminders</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    ${remQueue.length ? `
+      <div class="rc-prev" style="text-align:left;border-color:var(--line);background:var(--box-bg);color:var(--text);padding:10px 12px;margin:4px 0 10px;"><div class="small muted" style="margin-bottom:3px;">MESSAGE · <a onclick="openReminderSettings()" style="color:var(--primary);font-weight:700;cursor:pointer;">edit</a></div><div style="font-size:13px;">${esc(preview)}</div></div>
+      <button class="btn-primary full" style="height:48px;border-radius:14px;margin-bottom:8px;" ${left ? '' : 'disabled'} onclick="sendNextReminder()">${left ? 'Send next (' + left + ' left)' : 'All done ✓'}</button>
+      <div class="list" style="max-height:46vh;overflow:auto;">
+        ${remQueue.map((n, i) => `<div class="item-card between" style="padding:10px 12px;">
+          <div class="grow" style="min-width:0;"><b>${esc(n.name)}</b><div class="muted small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(n.title)} · ${moneyReal(n.bal)} · ${esc(n.why)}</div></div>
+          ${remSent.has(n.key) ? '<span class="badge badge-green">Sent ✓</span>' : `<span class="row" style="gap:6px;flex-wrap:nowrap;"><button class="btn-primary btn-sm" onclick="queueSend(${i},'wa')">WhatsApp</button>${n.phone ? `<button class="btn-outline btn-sm" onclick="queueSend(${i},'sms')">SMS</button>` : ''}</span>`}
+        </div>`).join('')}
+      </div>
+      ${!remScope && !remAll ? '<button class="btn-outline btn-sm" style="margin-top:10px;" onclick="openRemindQueue(null,true)">Show everyone who has not paid</button>' : ''}
+    ` : `<div class="empty-box"><h3>Nobody is due a reminder</h3><p class="muted small">Recordly will tell you when someone should be nudged.</p><button class="btn-outline btn-sm" onclick="openRemindQueue(null,true)">Show everyone who has not paid</button></div>`}
+  </div></div>`;
+}
+function queueSend(i, via) { const n = remQueue[i]; if (!n) return; sendOne(n, via); remSent.add(n.key); renderRemindQueue(); }
+function sendNextReminder() { const i = remQueue.findIndex(n => !remSent.has(n.key)); if (i >= 0) queueSend(i, 'wa'); }
+function remindCardHtml() {
+  const cfg = remCfg(), n = dueNudges(cfg).length + dueDebtNudges(cfg).length;
+  return `<div class="card">
+    <div class="row between" style="flex-wrap:nowrap;gap:10px;">
+      <div><b>${n ? n + (n === 1 ? ' reminder is due' : ' reminders are due') : 'No reminders due'}</b><div class="muted small">Recordly writes the message. You tap to send.</div></div>
+      <button class="btn-primary" ${n ? '' : 'disabled'} onclick="openRemindQueue()">Send</button>
+    </div>
+    <div class="row" style="margin-top:10px;gap:8px;"><button class="btn-outline btn-sm" onclick="openRemindQueue(null,true)">Everyone unpaid</button><button class="btn-outline btn-sm" onclick="openReminderSettings()">Reminder settings</button></div>
+  </div>`;
+}
+
+// phone notifications that also work offline (snapshot in IndexedDB, shown by the service worker)
+function idbOpen() { return new Promise((res, rej) => { const q = indexedDB.open('recordly-rem', 1); q.onupgradeneeded = () => q.result.createObjectStore('kv'); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function kvSet(k, v) { const db = await idbOpen(); return new Promise((res, rej) => { const t = db.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = () => { db.close(); res(); }; t.onerror = () => rej(t.error); }); }
+function buildNotifItems(cfg) {
+  const items = [], now = Date.now(), withAmt = !maskMoney, today = localDate();
+  const addDays = (ymd, n) => { const d = new Date(ymd + 'T12:00:00'); d.setDate(d.getDate() + n); return localDate(d); };
+  const at = ymd => { const [y, m, d] = ymd.split('-').map(Number); return new Date(y, m - 1, d, cfg.hour, 0, 0).getTime(); };
+  const push = (tag, when, title, body, url) => { if (when > now - 36 * 3600e3 && when < now + 15 * REM_DAY) items.push({ tag, when, title, body, url }); };
+  const inDays = n => n === 1 ? 'tomorrow' : 'in ' + n + ' days';
+  (Store.data.records || []).forEach(r => {
+    if (!r.end_date || !Number(r.target)) return;
+    const unpaid = (r.people || []).filter(p => paidOf(p) < Number(r.target)).length; if (!unpaid) return;
+    const body = `${unpaid} ${unpaid === 1 ? "person hasn't" : "people haven't"} paid yet. Tap to remind them.`;
+    push(`dl|${r.id}|pre|${r.end_date}|${cfg.daysBefore}`, at(addDays(r.end_date, -cfg.daysBefore)), `${r.title} closes ${inDays(cfg.daysBefore)}`, body, `#/r/${r.id}`);
+    push(`dl|${r.id}|day|${r.end_date}`, at(r.end_date), `${r.title} closes today`, body, `#/r/${r.id}`);
+    push(`dl|${r.id}|over|${r.end_date}`, at(addDays(r.end_date, 1)), `${r.title}: deadline has passed`, body, `#/r/${r.id}`);
+  });
+  let overdueDebts = 0;
+  (Store.data.debts || []).forEach(d => {
+    const bal = debtBal(d); if (bal <= 0 || !d.due_date) return;
+    if (daysUntil(d.due_date) < 0) overdueDebts++;
+    const who = d.type === 'receivable' ? `${d.person_name} owes you` : `You owe ${d.person_name}`, tail = withAmt ? ' ' + moneyReal(bal) + '.' : '.';
+    push(`db|${d.id}|pre|${d.due_date}|${cfg.daysBefore}`, at(addDays(d.due_date, -cfg.daysBefore)), `Debt due ${inDays(cfg.daysBefore)}`, who + tail, '#/debts');
+    push(`db|${d.id}|day|${d.due_date}`, at(d.due_date), 'Debt due today', who + tail, '#/debts');
+    push(`db|${d.id}|over|${d.due_date}`, at(addDays(d.due_date, 1)), 'Debt is overdue', who + tail, '#/debts');
+  });
+  if (cfg.daily) {
+    const n = dueNudges(cfg).length + dueDebtNudges(cfg).length;
+    if (n || overdueDebts) {
+      const parts = []; if (n) parts.push(n + (n === 1 ? ' reminder is' : ' reminders are') + ' due'); if (overdueDebts) parts.push(overdueDebts + (overdueDebts === 1 ? ' debt is' : ' debts are') + ' overdue');
+      for (let k = 0; k < 4; k++) { const day = addDays(today, k); push('daily|' + day, at(day), 'Good morning from Recordly', parts.join(' · ') + '. Tap to send reminders.', '#/notifications'); }
+    }
+  }
+  return items;
+}
+let snapTimer = null;
+function scheduleSnapshot() { clearTimeout(snapTimer); snapTimer = setTimeout(pushSnapshot, 1200); }
+async function pushSnapshot() {
+  try {
+    const cfg = remCfg(), on = !!(user && cfg.on && cfg.notify && 'Notification' in window && Notification.permission === 'granted');
+    await kvSet('snap', { on, at: Date.now(), items: on ? buildNotifItems(cfg) : [] });
+    if (on) pingSW();
+  } catch (e) {}
+}
+function pingSW() { try { navigator.serviceWorker.ready.then(r => r.active && r.active.postMessage({ type: 'check' })); } catch (e) {} }
+async function registerPeriodic() {
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    if ('periodicSync' in reg) {
+      let ok = true; try { const st = await navigator.permissions.query({ name: 'periodic-background-sync' }); ok = st.state === 'granted'; } catch (e) {}
+      if (ok) { await reg.periodicSync.register('recordly-reminders', { minInterval: 12 * 3600 * 1000 }); localStorage.setItem('rc_periodic', '1'); return true; }
+    }
+  } catch (e) {}
+  try { localStorage.removeItem('rc_periodic'); } catch (e) {}
+  return false;
+}
+async function toggleNotify() {
+  const c = remCfg();
+  if (c.notify) { c.notify = false; remSave(c); pushSnapshot(); openReminderSettings(); return; }
+  if (!('Notification' in window) || !('serviceWorker' in navigator)) { toast('This phone or browser cannot show notifications.'); return; }
+  let perm = Notification.permission; if (perm === 'default') perm = await Notification.requestPermission();
+  if (perm !== 'granted') { toast('Notifications are blocked. Allow them for Recordly in your phone settings.'); return; }
+  c.notify = true; remSave(c); await registerPeriodic(); pushSnapshot(); toast('Phone notifications are on.'); openReminderSettings();
+}
+async function testNotify() {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') { toast('Turn on phone notifications first.'); return; }
+    const reg = await navigator.serviceWorker.ready;
+    await reg.showNotification('Recordly test', { body: 'Notifications are working on this phone.', icon: 'icon-192.png', badge: 'icon-192.png', tag: 'rc-test', data: { url: '#/notifications' } });
+  } catch (e) { toast('Could not show a test notification.'); }
+}
+function setRem(k, v) { const c = remCfg(); c[k] = v; remSave(c); openReminderSettings(); }
+function saveRemTpl() { const t = ($('remTpl') || {}).value; if (t && t.trim()) { const c = remCfg(); c.tpl = t.trim(); remSave(c); } }
+function resetRemTpl() { const c = remCfg(); c.tpl = REM_DEFAULT.tpl; remSave(c); openReminderSettings(); }
+function openReminderSettings() {
+  const c = remCfg(), perm = ('Notification' in window) ? Notification.permission : 'unsupported', notifOn = c.notify && perm === 'granted';
+  let periodic = false; try { periodic = localStorage.getItem('rc_periodic') === '1'; } catch (e) {}
+  const chips = (key, opts, fmt) => `<div class="row" style="gap:6px;">${opts.map(o => `<button class="${c[key] === o ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="saveRemTpl();setRem('${key}',${o})">${fmt(o)}</button>`).join('')}</div>`;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this){saveRemTpl();closeModal();}"><div class="modal-window" style="max-width:440px;max-height:88vh;overflow:auto;">
+    <div class="row between" style="margin-bottom:6px;"><h2>Reminders</h2><button class="btn-outline btn-icon" onclick="saveRemTpl();closeModal()">✕</button></div>
+    <div class="sgroup" style="margin:6px 0 10px;">
+      ${srow('bell', 'Automatic reminders', swt(c.on), `saveRemTpl();setRem('on',${!c.on})`, { noChev: true, sub: 'Find who should be nudged' })}
+      ${srow('clock', 'Daily summary', swt(c.daily), `saveRemTpl();setRem('daily',${!c.daily})`, { noChev: true, sub: 'A short note every morning at 8:00' })}
+      ${srow('phone', 'Phone notifications', swt(notifOn), 'saveRemTpl();toggleNotify()', { noChev: true, sub: perm === 'denied' ? 'Blocked in your phone settings' : notifOn ? (periodic ? 'On. Works in the background, even offline.' : 'On. Works while Recordly is open. Install the app for background alerts.') : 'Get alerts even with no internet' })}
+    </div>
+    <div class="small muted" style="font-weight:700;margin:8px 2px 6px;">WARN ME BEFORE A DEADLINE</div>
+    ${chips('daysBefore', [1, 3, 7], o => o + (o === 1 ? ' day' : ' days'))}
+    <div class="small muted" style="font-weight:700;margin:12px 2px 6px;">NUDGE PEOPLE WHO HAVE NOT PAID EVERY</div>
+    ${chips('every', [3, 7, 14, 30], o => o + ' days')}
+    <div class="small muted" style="font-weight:700;margin:12px 2px 6px;">MESSAGE TO SEND</div>
+    <textarea id="remTpl" rows="4" style="font-size:14px;">${esc(c.tpl)}</textarea>
+    <div class="muted small" style="margin:4px 2px 8px;">You can use {name}, {business}, {record}, {balance}, {paid} and {target}.</div>
+    <div class="row" style="gap:8px;"><button class="btn-outline btn-sm" onclick="resetRemTpl()">Reset message</button>${notifOn ? '<button class="btn-outline btn-sm" onclick="testNotify()">Send test notification</button>' : ''}</div>
+    <button class="btn-primary full" style="height:48px;border-radius:14px;margin-top:12px;" onclick="saveRemTpl();closeModal();toast('Reminder settings saved.')">Done</button>
+  </div></div>`;
+}
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', e => { if (e.data && e.data.type === 'goto' && e.data.hash) location.hash = e.data.hash; });
+  document.addEventListener('visibilitychange', () => { if (document.hidden) pushSnapshot(); else if (remCfg().notify) pingSW(); });
+  setInterval(() => { if (user && remCfg().notify) pingSW(); }, 60000);
 }
 
 /**
@@ -5701,6 +6675,8 @@ async function renderCore() {
   scheduleDbSync();
   try {
     const p = hash();
+    const onGroupView = (p[0] === 'r' && p[1] && !p[2]) || (p[0] === 'g' && p[1]);
+    if (!onGroupView || groupChat.rid !== p[1]) closeGroupChat();
     document.body.classList.toggle('sub-page', p.length > 0);   // the greeting row shows on Home only
     if (p[0] === 'p' && p[1]) return await renderPublicPerson(p[1], p[2]);
     if (p[0] === 'g' && p[1]) return await renderPublicGroup(p[1], p[2]);
