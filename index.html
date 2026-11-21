@@ -2888,14 +2888,14 @@ function authModal(mode = 'login') {
         ✉️ Confirmation code sent to <b>${esc(pendingOtpTarget)}</b>. Please check your inbox or SMS.
       </div>
       <div class="field">
-        <label for="otpToken">Enter 6-Digit Code</label>
-        <input id="otpToken" type="text" inputmode="numeric" maxlength="6" placeholder="e.g. 123456" style="font-size:22px;letter-spacing:4px;text-align:center;font-weight:700;">
+        <label for="otpToken">Enter the code from your email</label>
+        <input id="otpToken" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="8" placeholder="e.g. 123456" style="font-size:22px;letter-spacing:4px;text-align:center;font-weight:700;">
       </div>
       <button class="btn-primary" style="width:100%;padding:11px;" id="verifyOtpBtn">
         Verify & Sign In
       </button>
       <div class="row between" style="margin-top:14px;">
-        <a href="#" onclick="event.preventDefault();authModal(pendingOtpType === 'phone' ? 'phone_otp' : 'gmail_otp');" class="small" style="color:var(--muted);">Change ${pendingOtpType === 'phone' ? 'Number' : 'Email'}</a>
+        <a href="#" onclick="event.preventDefault();authModal(pendingOtpType === 'phone' ? 'phone_otp' : pendingOtpType === 'signup' ? 'signup' : 'gmail_otp');" class="small" style="color:var(--muted);">Change ${pendingOtpType === 'phone' ? 'Number' : 'Email'}</a>
         <button class="btn-outline btn-sm" onclick="resendOtp()">Resend Code</button>
       </div>
     `;
@@ -2966,10 +2966,17 @@ function authModal(mode = 'login') {
         if (mode === 'signup') {
           result = await sb.auth.signUp({ email, password, options: { data: { name: val('authName') }, emailRedirectTo: location.origin + location.pathname } });
           try { localStorage.setItem('rc_newuser', email); } catch (e) {}
-          if (!result.error && !result.data.session) {
-            showAuthMsg('Account created. Please check your email to confirm, or use Gmail OTP login.');
+          if (!result.error && result.data && result.data.user && Array.isArray(result.data.user.identities) && result.data.user.identities.length === 0) {
+            showAuthMsg('This email already has an account. Please log in instead.');
             b.disabled = false;
             b.textContent = 'Create Account';
+            return;
+          }
+          if (!result.error && !result.data.session) {
+            pendingOtpTarget = email;
+            pendingOtpType = 'signup';
+            toast('We sent a code to ' + email);
+            authModal('verify_otp');
             return;
           }
         } else {
@@ -3049,7 +3056,11 @@ function authModal(mode = 'login') {
         if (pendingOtpType === 'phone') {
           res = await sb.auth.verifyOtp({ phone: pendingOtpTarget, token, type: 'sms' });
         } else {
-          res = await sb.auth.verifyOtp({ email: pendingOtpTarget, token, type: 'email' });
+          res = await sb.auth.verifyOtp({ email: pendingOtpTarget, token, type: pendingOtpType === 'signup' ? 'signup' : 'email' });
+          if ((res.error || !res.data?.session?.user) && pendingOtpType === 'signup') {
+            const alt = await sb.auth.verifyOtp({ email: pendingOtpTarget, token, type: 'email' });
+            if (!alt.error && alt.data?.session?.user) res = alt;
+          }
         }
         if (res.error || !res.data?.session?.user) throw (res.error || new Error('That code is not correct or has expired.'));
         user = res.data.session.user;
@@ -3100,8 +3111,15 @@ function authModal(mode = 'login') {
   }
 }
 
-function resendOtp() {
-  toast(`A new 6-digit code was sent to ${pendingOtpTarget}`);
+async function resendOtp() {
+  try {
+    let r;
+    if (pendingOtpType === 'phone') r = await sb.auth.signInWithOtp({ phone: pendingOtpTarget });
+    else if (pendingOtpType === 'signup') r = await sb.auth.resend({ type: 'signup', email: pendingOtpTarget });
+    else r = await sb.auth.signInWithOtp({ email: pendingOtpTarget });
+    if (r && r.error) { toast(r.error.message || 'Could not resend. Wait a minute and try again.'); return; }
+    toast('A new code was sent to ' + pendingOtpTarget);
+  } catch (e) { toast('Could not resend. Check your connection.'); }
 }
 
 function showAuthMsg(m) {
