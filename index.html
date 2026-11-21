@@ -1053,9 +1053,12 @@ body{padding-bottom:86px}
 .toast-msg.bad{background:#be123c}
 .toast-ic{width:18px;height:18px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex:none;background:rgba(255,255,255,.25)}
 .toast-msg.ok .toast-ic{background:#10b981}
-/* Focus mode: bottom menu and + button are hidden on inner screens and come back on the main screens */
-body.focus-mode{padding-bottom:20px}
-body.focus-mode .bottom-nav,body.focus-mode .fabwrap{display:none!important}
+/* Scroll down: top bar, bottom menu and + button slide away. Scroll up: they come back. */
+.top-header,.bottom-nav{transition:transform .25s ease}
+.fab{transition:transform .25s ease,opacity .25s ease,background .15s}
+body.bars-hidden .top-header{transform:translateY(-110%)}
+body.bars-hidden .bottom-nav{transform:translateY(110%)}
+body.bars-hidden .fab:not(.open){transform:translateY(130px);opacity:0}
 .card{border-radius:20px;border:1px solid var(--line);box-shadow:none}
 .top-header{padding:10px 0 12px}
 .hd-left{display:flex;align-items:center;gap:11px;cursor:pointer;min-width:0;flex:1}
@@ -7621,7 +7624,6 @@ async function renderCore() {
     const onGroupView = (p[0] === 'r' && p[1] && !p[2]) || (p[0] === 'g' && p[1]);
     if (!onGroupView || groupChat.rid !== p[1]) closeGroupChat();
     document.body.classList.toggle('sub-page', p.length > 0);   // the greeting row shows on Home only
-    document.body.classList.toggle('focus-mode', !!user && (p[0] === 'r' || (p[0] === 'contributions' && !!p[1]) || p[0] === 'settings' || p[0] === 'profile'));
     let res;
     if (p[0] === 'p' && p[1]) res = await renderPublicPerson(p[1], p[2]);
     else if (p[0] === 'g' && p[1]) res = await renderPublicGroup(p[1], p[2]);
@@ -7815,6 +7817,24 @@ async function installApp() {
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
+
+(function () {
+  let lastY = window.scrollY || 0, busy = false;
+  const setHidden = h => document.body.classList.toggle('bars-hidden', h);
+  window.addEventListener('scroll', () => {
+    if (busy) return; busy = true;
+    requestAnimationFrame(() => {
+      busy = false;
+      const m = $('modalRoot'); if (m && m.innerHTML.trim()) return;
+      const y = window.scrollY || 0, d = y - lastY;
+      if (y < 60) setHidden(false);
+      else if (d > 8) setHidden(true);
+      else if (d < -8) setHidden(false);
+      if (Math.abs(d) > 8) lastY = y;
+    });
+  }, { passive: true });
+  window.addEventListener('hashchange', () => { setHidden(false); lastY = 0; });
+})();
 
 start();
 </script>
