@@ -2191,6 +2191,7 @@ function animateLanding() {
 async function loadAccountData() {
   if (!user || loadingFor === user.id) return;
   loadingFor = user.id;
+  myGroups = null; myReqs = [];
   try {
     if (Store.data.owner && Store.data.owner !== user.id) {
       Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
@@ -2240,6 +2241,7 @@ async function loadAccountData() {
   startInboxLive();
   loadInbox();
   upsertProfile();
+  loadMemberGroups();
   softRender();
 }
 
@@ -3138,7 +3140,7 @@ async function logout() {
   try { kvSet('snap', { on: false, items: [] }); } catch (e) {}
   Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
-  loadingFor = null; loadedFor = null; dbSyncSig = '';
+  loadingFor = null; loadedFor = null; dbSyncSig = ''; myGroups = null; myReqs = [];
   if (liveChan) { try { sb.removeChannel(liveChan); } catch (e) {} liveChan = null; }
   liveAlerts = []; try { localStorage.removeItem('rc_alerts'); localStorage.removeItem('rc_lastuser'); } catch (e) {}
   closeModal();
@@ -3566,7 +3568,86 @@ function ringHtml(pc, size, stroke) {
     </svg><b>${pc >= 100 ? ico('check', Math.round(size * .4)) : pc + '%'}</b></div>`;
 }
 
+// ===== ROLE VIEWS: group admin home vs member home =====
+let myGroups = null, myReqs = [];
+async function loadMemberGroups() {
+  if (!user) return;
+  try { const { data, error } = await sb.rpc('rc_my_groups'); if (!error && Array.isArray(data)) myGroups = data; } catch (e) {}
+  try { const q = await sb.from('join_requests').select('id,record_id,status,created_at').eq('requester_id', user.id).order('created_at', { ascending: false }).limit(30); if (!q.error && q.data) myReqs = q.data; } catch (e) {}
+  applyRoleNav(); softRender();
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden && user && loadedFor === user.id) loadMemberGroups(); });
+function ownsStuff() { const d = Store.data; return !!((d.records || []).length || (d.customers || []).length || (d.sales || []).length || (d.expenses || []).length || (d.debts || []).length); }
+function isMemberRole() { return !!((myGroups && myGroups.length) || myReqs.some(r => r.status === 'pending')); }
+function viewRole() {
+  const m = isMemberRole(), a = ownsStuff();
+  if (m && !a) return 'member';
+  if (m && a) { try { return localStorage.getItem('rc_role') === 'member' ? 'member' : 'admin'; } catch (e) {} }
+  return 'admin';
+}
+function setRole(r) { try { localStorage.setItem('rc_role', r); } catch (e) {} applyRoleNav(); location.hash = '#/'; render(); }
+function applyRoleNav() {
+  const mem = !!user && viewRole() === 'member';
+  const ICON = { globe: '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>', bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>' };
+  const set = (id, label, go, show, icon) => {
+    const el = $(id); if (!el) return;
+    el.style.display = show ? '' : 'none';
+    const sp = el.querySelector('span'), sv = el.querySelector('svg');
+    if (sv && !sv.dataset.orig) sv.dataset.orig = sv.innerHTML;
+    if (sp) sp.textContent = label;
+    if (sv) sv.innerHTML = icon ? ICON[icon] : sv.dataset.orig;
+    el.onclick = () => { location.hash = go; };
+  };
+  set('nav-contributions', mem ? 'Discover' : 'Groups', mem ? '#/discover' : '#/contributions', true, mem ? 'globe' : null);
+  set('nav-business', mem ? 'Alerts' : 'Business', mem ? '#/notifications' : '#/business', true, mem ? 'bell' : null);
+  set('nav-debts', 'Debts', '#/debts', !mem, null);
+}
+function roleSwitchHtml(cur) {
+  if (!(isMemberRole() && ownsStuff())) return '';
+  const to = cur === 'admin' ? 'member' : 'admin';
+  return `<p class="muted small" style="text-align:center;margin:16px 0;">Viewing as ${cur === 'admin' ? 'Group Admin' : 'Member'} · <a href="#" style="color:var(--primary);" onclick="event.preventDefault();setRole('${to}')">Switch to ${to === 'admin' ? 'Admin' : 'Member'} view</a></p>`;
+}
+function openPastedLink() {
+  const v = ($('pasteLink') ? $('pasteLink').value : '').trim();
+  const m = v.match(/#\/.+$/);
+  if (!m) { toast('Paste the full link your admin sent you.'); return; }
+  location.hash = m[0];
+}
+function renderMemberHome() {
+  updateNavActive('home');
+  const gs = myGroups || [], pend = myReqs.filter(r => r.status === 'pending').length;
+  const total = gs.reduce((a, g) => a + Number(g.paid || 0), 0);
+  const card = g => {
+    const t = Number(g.target || 0), paid = Number(g.paid || 0), pc = t ? Math.min(100, Math.round(paid / t * 100)) : 0;
+    return `<div class="card">
+      <div class="between"><div class="grow"><b>${esc(g.title)}</b><div class="muted small">Run by ${esc(g.owner_name)}</div></div><b>${moneyReal(paid)}</b></div>
+      ${t ? `<div class="progress-track" style="margin-top:8px;"><div class="progress-fill" style="width:${pc}%"></div></div><div class="small muted" style="margin-top:4px;">${pc}% paid · ${moneyReal(Math.max(0, t - paid))} left</div>` : g.hide_balance ? '<div class="small muted" style="margin-top:6px;">🔒 The balance is private.</div>' : ''}
+      <div style="display:flex;gap:8px;margin-top:10px;"><button class="btn-primary btn-sm" onclick="location.hash='#/p/${g.person_id}'">My progress</button>${g.group_link ? `<button class="btn-soft btn-sm" onclick="location.hash='#/g/${g.record_id}'">Group &amp; chat</button>` : ''}</div>
+    </div>`;
+  };
+  $('app').innerHTML = `<div class="home">
+    <div class="card">
+      <div class="pill">MEMBER</div>
+      <h1 style="margin-top:8px;">My contributions</h1>
+      <div style="display:flex;gap:10px;margin-top:10px;">
+        <div class="stat-box green grow"><div class="stat-label">Total paid</div><div class="stat-val">${moneyReal(total)}</div></div>
+        <div class="stat-box grow"><div class="stat-label">Groups</div><div class="stat-val">${gs.length}</div></div>
+      </div>
+      ${pend ? `<div class="banner banner-warning" style="margin-top:10px;"><div>⏳ ${pend === 1 ? '1 request is' : pend + ' requests are'} waiting for admin approval.</div></div>` : ''}
+    </div>
+    ${gs.length ? gs.map(card).join('') : `<div class="card empty-box"><h3>No groups yet</h3><p class="muted">Find a group and ask to join, or paste a link your admin sent you.</p>
+      <button class="btn-primary" onclick="location.hash='#/discover'">🌍 Find a group</button>
+      <div class="field" style="margin-top:12px;"><input id="pasteLink" placeholder="Paste a link here"></div>
+      <button class="btn-outline btn-sm" onclick="openPastedLink()">Open link</button></div>`}
+    ${roleSwitchHtml('member')}
+  </div>`;
+}
 function renderDashboard() {
+  if (viewRole() === 'member') return renderMemberHome();
+  renderAdminHome();
+  const sw = roleSwitchHtml('admin'); if (sw) $('app').insertAdjacentHTML('beforeend', sw);
+}
+function renderAdminHome() {
   updateNavActive('home');
   const recs = Store.data.records || [];
   const prog = recs.map(r => ({ r, ...recProgress(r) }));
@@ -5918,7 +5999,7 @@ async function deleteMyAccount() {
   try { kvSet('snap', { on: false, items: [] }); } catch (e) {}
   Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
   try { Object.keys(localStorage).filter(k => k === STORAGE_KEY || k.startsWith('rc_')).forEach(k => localStorage.removeItem(k)); } catch (e) {}
-  loadingFor = null; loadedFor = null; dbSyncSig = '';
+  loadingFor = null; loadedFor = null; dbSyncSig = ''; myGroups = null; myReqs = [];
   if (liveChan) { try { sb.removeChannel(liveChan); } catch (e) {} liveChan = null; }
   liveAlerts = [];
   closeModal();
@@ -6639,7 +6720,7 @@ async function sendJoinRequest(rid) {
     return;
   }
   toast('Request sent. The admin has been notified.');
-  render();
+  render(); loadMemberGroups();
 }
 
 let discTimer = null;
@@ -6690,9 +6771,11 @@ async function runDiscover() {
 
 async function renderCore() {
   setTop();
+  applyRoleNav();
   scheduleDbSync();
   try {
     const p = hash();
+    if (user && viewRole() === 'member') updateNavActive(p[0] === 'discover' ? 'contributions' : p[0] === 'notifications' ? 'business' : /^(more|profile|settings)$/.test(p[0] || '') ? 'more' : 'home');
     const onGroupView = (p[0] === 'r' && p[1] && !p[2]) || (p[0] === 'g' && p[1]);
     if (!onGroupView || groupChat.rid !== p[1]) closeGroupChat();
     document.body.classList.toggle('sub-page', p.length > 0);   // the greeting row shows on Home only
