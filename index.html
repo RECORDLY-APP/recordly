@@ -1070,6 +1070,10 @@ body.bars-hidden .fab:not(.open){transform:translateY(130px);opacity:0}
 .nbody{color:var(--muted);font-size:14px;line-height:1.5;margin:10px 0 12px}
 .nfoot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid var(--line);padding-top:10px;font-size:12.5px;color:var(--muted)}
 .nview{color:var(--primary);font-weight:700;font-size:14px}
+.ncard:not(.read){border-left:4px solid var(--primary)}
+.ncard.read{opacity:.62}
+.ndot{width:9px;height:9px;border-radius:50%;background:var(--primary);margin-left:auto;flex:none}
+.nmark{background:none;border:0;color:var(--primary);font-weight:700;font-size:13px;padding:4px 2px}
 .card{border-radius:20px;border:1px solid var(--line);box-shadow:none}
 .top-header{padding:10px 0 12px}
 .hd-left{display:flex;align-items:center;gap:11px;cursor:pointer;min-width:0;flex:1}
@@ -2884,8 +2888,14 @@ function updateNavActive(tab) {
   });
 }
 
+// Read = the person opened that notification. Seen = it was on screen the last time the bell was opened.
+let readIds = new Set(), seenIds = new Set();
+try { readIds = new Set(JSON.parse(localStorage.getItem('rc_read') || '[]')); seenIds = new Set(JSON.parse(localStorage.getItem('rc_seen') || '[]')); } catch (e) {}
+function saveNotifState() { try { localStorage.setItem('rc_read', JSON.stringify([...readIds].slice(-400))); localStorage.setItem('rc_seen', JSON.stringify([...seenIds].slice(-400))); } catch (e) {} }
+function notifId(n) { return n.id || (n.type + '|' + n.title + '|' + (n.desc || '')); }
+function isRead(n) { return readIds.has(notifId(n)); }
 function checkReminders() {
-  const notifs = liveAlerts.map(a => ({ type: 'info', title: a.title, desc: a.desc, link: a.link, at: a.at }));
+  const notifs = liveAlerts.map(a => ({ type: 'info', title: a.title, desc: a.desc, link: a.link, at: a.at, id: a.key ? 'k' + a.key : 'a' + a.at }));
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
 
@@ -2920,8 +2930,8 @@ function checkReminders() {
 
   const badge = $('notifCountBadge');
   if (badge) {
-    if (notifs.length > 0 || (inbox.joins || []).some(j => j.status === 'pending')) badge.style.display = 'block';
-    else badge.style.display = 'none';
+    const fresh = notifs.some(n => !seenIds.has(notifId(n))) || (inbox.joins || []).some(j => j.status === 'pending' && !seenIds.has('join:' + j.id));
+    badge.style.display = fresh ? 'block' : 'none';
   }
 
   return notifs;
@@ -3912,7 +3922,7 @@ function renderAdminHome() {
   const waitingOrders = (Store.data.sales || []).filter(x => x.fulfil === 'pending').length;
   if (waitingOrders) items.push({ icon: 'bag', t: waitingOrders === 1 ? '1 order is waiting' : waitingOrders + ' orders are waiting', s: 'Not given to the customer yet', go: '#/business' });
   { const cfgR = remCfg(), dueN = cfgR.on ? dueNudges(cfgR).length : 0; if (dueN) items.unshift({ icon: 'bell', t: dueN === 1 ? '1 person is due a reminder' : dueN + ' people are due a reminder', s: 'Tap to send', go: '#/notifications' }); }
-  const reminders = checkReminders();
+  const reminders = checkReminders().filter(n => !isRead(n));
   if (!items.length && reminders.length) items.push({ icon: 'bell', t: reminders.length === 1 ? '1 new alert' : reminders.length + ' new alerts', s: reminders[0].title, go: '#/notifications' });
   const shown = items.slice(0, 3);
 
@@ -6975,22 +6985,33 @@ function notifTime(ms) {
   return diff === 0 ? 'Today ' + t : diff === 1 ? 'Yesterday ' + t : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + t;
 }
 function setNotifTab(k) { notifTab = k; render(); }
+function openNotif(el) {
+  readIds.add(el.dataset.id); saveNotifState();
+  const link = el.dataset.link || '#/notifications';
+  if (location.hash === link) render(); else location.hash = link;
+}
+function markAllRead() { checkReminders().forEach(n => readIds.add(notifId(n))); saveNotifState(); render(); }
 function renderNotifications() {
   const all = checkReminders();
+  // opening the page switches the bell dot off, however many are still unread
+  all.forEach(n => seenIds.add(notifId(n))); (inbox.joins || []).forEach(j => seenIds.add('join:' + j.id)); saveNotifState();
+  const bell = $('notifCountBadge'); if (bell) bell.style.display = 'none';
   const KIND = { pay: ['Payments', '💰'], rem: ['Reminders', '⏰'], act: ['Activity', '👀'] };
   const groups = { pay: [], rem: [], act: [] };
   all.forEach(n => groups[notifKind(n)].push(n));
-  if (!notifTab) notifTab = ['pay', 'rem', 'act'].find(k => groups[k].length) || 'pay';
+  const unread = k => groups[k].filter(n => !isRead(n)).length;
+  const totalUnread = unread('pay') + unread('rem') + unread('act');
+  if (!notifTab) notifTab = ['pay', 'rem', 'act'].find(k => unread(k)) || ['pay', 'rem', 'act'].find(k => groups[k].length) || 'pay';
   const list = groups[notifTab];
-  const card = n => `<div class="ncard" onclick="location.hash='${n.link}'">
-      <div class="nhead"><span class="nico">${KIND[notifKind(n)][1]}</span><b>${esc(n.title)}</b></div>
+  const card = n => { const rd = isRead(n); return `<div class="ncard${rd ? ' read' : ''}" data-id="${esc(notifId(n))}" data-link="${esc(n.link)}" onclick="openNotif(this)">
+      <div class="nhead"><span class="nico">${KIND[notifKind(n)][1]}</span><b>${esc(n.title)}</b>${rd ? '' : '<i class="ndot"></i>'}</div>
       <div class="nbody">${esc(n.desc)}</div>
-      <div class="nfoot"><span>${n.at ? notifTime(n.at) : (n.type === 'danger' ? 'Overdue' : 'Needs attention')}</span><span class="nview">View ›</span></div>
-    </div>`;
+      <div class="nfoot"><span>${n.at ? notifTime(n.at) : (n.type === 'danger' ? 'Overdue' : 'Needs attention')}${rd ? ' · ✓ Read' : ''}</span><span class="nview">View ›</span></div>
+    </div>`; };
   $('app').innerHTML = `
     <div class="page-head"><button class="btn-outline pback" onclick="location.hash='#/'" aria-label="Back">${ico('back', 20)}</button><h1>Notifications</h1>
-      <button class="btn-outline btn-sm" onclick="openSoundSettings()">${soundEnabled ? '🔊 ' + esc(soundToneLabel()) : '🔇 Muted'}</button></div>
-    <div class="ntabs">${['pay', 'rem', 'act'].map(k => `<button class="ntab ${notifTab === k ? 'on' : ''}" onclick="setNotifTab('${k}')">${KIND[k][0]}${groups[k].length ? `<i class="nbadge">${groups[k].length}</i>` : ''}</button>`).join('')}</div>
+      ${totalUnread ? `<button class="nmark" onclick="markAllRead()">Mark all read</button>` : ''}</div>
+    <div class="ntabs">${['pay', 'rem', 'act'].map(k => `<button class="ntab ${notifTab === k ? 'on' : ''}" onclick="setNotifTab('${k}')">${KIND[k][0]}${unread(k) ? `<i class="nbadge">${unread(k)}</i>` : ''}</button>`).join('')}</div>
     ${remindCardHtml()}
     ${joinInboxHtml()}
     ${list.length ? list.map(card).join('') : `<div class="card empty-box"><h3>🎉 All caught up</h3><p class="muted">Nothing new under ${KIND[notifTab][0]}.</p></div>`}
