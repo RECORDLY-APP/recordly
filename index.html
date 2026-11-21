@@ -2254,6 +2254,13 @@ async function loadAccountData() {
         }
       });
     }
+    try {
+      const ex = await sb.from('records').select('id,freq,start_date,period_amount');
+      if (!ex.error && ex.data) ex.data.forEach(x => {
+        const loc = (Store.data.records || []).find(r => r.id === x.id);
+        if (loc && !loc.freq && x.freq && x.freq !== 'once') { loc.freq = x.freq; loc.start = x.start_date || null; loc.period_amount = Number(x.period_amount) || null; }
+      });
+    } catch (e) {}
     const d = Store.data;
     if (!(d.customers.length || d.sales.length || d.expenses.length || d.debts.length)) {
       let b = null;
@@ -2283,6 +2290,7 @@ async function syncRecordsToDb() {
   if (dbSyncBusy) { dbSyncAgain = true; return; }
   dbSyncBusy = true;
   try {
+    applyRecurringAll();
     const recs = (Store.data.records || []).filter(r => !/^rec_/.test(r.id));
     let changed = false;
     recs.forEach(r => {
@@ -2304,6 +2312,10 @@ async function syncRecordsToDb() {
     if (sig !== dbSyncSig || changed) {
       let res;
       await upsertSafe('records', recRows, ['hide_balance', 'discoverable']);
+      if (recExtOk !== false) {
+        const rr = recs.filter(isRec).map(r => ({ id: r.id, owner_id: user.id, title: r.title || 'Untitled', freq: r.freq, start_date: r.start || null, period_amount: Number(r.period_amount) || null }));
+        if (rr.length) { try { const x = await sb.from('records').upsert(rr); if (x.error) recExtOk = false; } catch (e) { recExtOk = false; } }
+      }
       if (peopleRows.length) { res = await sb.from('people').upsert(peopleRows); if (res.error) throw res.error; }
       await upsertSafe('payments', payRows, ['paid_at', 'method', 'payer_name', 'payer_phone']);
       const sy = Object.assign({ r: [], p: [], x: [] }, Store.data.synced || {});
@@ -2744,7 +2756,7 @@ function checkReminders() {
 
   // 2. Upcoming contribution deadlines
   Store.data.records.forEach(r => {
-    if (r.end_date) {
+    if (r.end_date && !isRec(r)) {
       const diffDays = Math.ceil((new Date(r.end_date) - now) / (1000 * 60 * 60 * 24));
       if (diffDays >= 0 && diffDays <= 7) {
         notifs.push({
@@ -3324,7 +3336,7 @@ function openPaymentReceipt(rid, pid, payId) {
   const x = p?.payments?.find(y => y.id === payId);
   if (!x) return;
   openReceiptModal({
-    title: r.title, receiptNo: x.ref || receiptRef(x.id), date: x.paid_on, at: x.paid_at || x.created_at || null,
+    biz: x.biz, title: r.title, receiptNo: x.ref || receiptRef(x.id), date: x.paid_on, at: x.paid_at || x.created_at || null,
     payer: x.payer_name || p.name, onBehalf: x.payer_name ? p.name : '', phone: x.payer_phone || p.phone || '',
     amount: x.amount, method: x.method || 'Cash', note: x.note || '', purpose: 'Contribution Payment'
   });
@@ -3332,8 +3344,9 @@ function openPaymentReceipt(rid, pid, payId) {
 function openSaleReceipt(id) {
   const s = Store.data.sales.find(x => x.id === id); if (!s) return;
   const last = (s.payments || []).slice(-1)[0];
+  const bz = (last && last.biz) || s.biz || bizName();
   openReceiptModal({
-    title: (Store.data.settings.businessName || 'Business') + ' - Sales Receipt', receiptNo: s.ref || receiptRef(s.id),
+    biz: bz, title: bz + ' - Sales Receipt', receiptNo: s.ref || receiptRef(s.id),
     date: (last && last.paid_on) || s.date, at: (last && last.at) || s.created_at || null,
     payer: s.customer_name, phone: s.customer_phone || '', amount: s.amount_paid, method: s.payment_method || 'Cash', note: s.notes || '',
     items: (s.items || []).length > 1 ? s.items : null, saleTotal: s.total, balance: Math.max(0, Number(s.total || 0) - Number(s.amount_paid || 0)),
@@ -3346,7 +3359,7 @@ function openDebtReceipt(id) {
   const repaid = reps.reduce((a, r) => a + Number(r.amount || 0), 0);
   const last = reps.slice(-1)[0];
   openReceiptModal({
-    title: 'Debt Statement / Receipt', receiptNo: d.ref || receiptRef(d.id),
+    biz: (last && last.biz) || d.biz, title: 'Debt Statement / Receipt', receiptNo: d.ref || receiptRef(d.id),
     date: (last && last.date) || localDate(), at: (last && last.at) || null,
     payer: d.person_name, phone: d.phone || '', amount: repaid, method: 'Repayment', note: d.notes || '',
     purpose: d.type === 'receivable' ? 'Repayment to Me' : 'Repayment to Creditor'
@@ -3363,7 +3376,7 @@ function openReceiptModal(o) {
     else timeRow = ['Entered on', fmtDateTime(o.at)];   // payment date was back-dated
   }
   const dateTxt = o.date || (okTime ? localDate(when) : '');
-  window._rcpt = Object.assign({}, o, { dateTxt, timeRow, biz: Store.data.settings.businessName || 'Recordly Workspace' });
+  window._rcpt = Object.assign({}, o, { dateTxt, timeRow, biz: o.biz || Store.data.settings.businessName || 'Recordly Workspace' });
   $('modalRoot').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal-window" style="max-width:440px;">
@@ -3643,8 +3656,10 @@ function roleToggleHtml(cur) {
     <button class="${cur === 'member' ? 'on' : ''}" onclick="setRole('member')">Member</button></div></div>`;
 }
 function toggleFab() { const w = $('homeDock'); if (!w) return; w.classList.toggle('open'); const f = $('tFab'); if (f) f.classList.toggle('open'); }
-let joinedAll = false;
+let joinedAll = false, recsAll = false;
 function toggleJoinedAll() { joinedAll = !joinedAll; render(); }
+function toggleRecsAll() { recsAll = !recsAll; render(); }
+function goBack() { if (history.length > 1) history.back(); else location.hash = '#/'; }
 function openPastedLink() {
   const v = ($('pasteLink') ? $('pasteLink').value : '').trim();
   const m = v.match(/#\/.+$/);
@@ -3766,10 +3781,10 @@ function renderAdminHome() {
         : `<div class="ok-row">${ico('check', 22)}<span>${recs.length ? 'All caught up' : 'Nothing to do yet'}</span></div>`}
       </div>
 
-      <div class="sec"><span>YOUR RECORDS</span>${recs.length > 4 ? `<a onclick="location.hash='#/contributions'">See all ${recs.length}</a>` : ''}</div>
+      <div class="sec"><span>YOUR RECORDS</span>${recs.length > 3 ? `<a onclick="toggleRecsAll()">${recsAll ? 'Show less' : 'See all ' + recs.length}</a>` : ''}</div>
       ${recs.length ? `
         <div class="card rlist">
-          ${prog.slice(0, 4).map(x => {
+          ${(recsAll ? prog : prog.slice(0, 3)).map(x => {
             const pc = x.total ? Math.round(x.paid / x.total * 100) : 0;
             return `<div class="rrow" onclick="location.hash='#/r/${x.r.id}'">
               ${ringHtml(pc, 48, 5)}
@@ -3817,6 +3832,31 @@ window.addEventListener('resize', () => { if ($('homeDock')) setDockOffset(); })
 /**
  * 2. CONTRIBUTIONS SECTION (WITH DELETE AND ADMIN DESCRIPTION)
  */
+// ===== Recurring contributions (daily / weekly / monthly / yearly) =====
+// For a recurring record, r.period_amount is what each person pays every period and r.target is kept equal to
+// "due per person so far", so progress, balances, reminders and public links all keep working unchanged.
+const FREQ_UNIT = { daily: 'day', weekly: 'week', monthly: 'month', yearly: 'year' };
+const FREQ_NAME = { daily: 'Daily', weekly: 'Weekly', monthly: 'Monthly', yearly: 'Yearly' };
+function isRec(r) { return !!(r && r.freq && r.freq !== 'once' && FREQ_UNIT[r.freq] && Number(r.period_amount) > 0); }
+function recPeriods(r, ymd) {
+  const s0 = r.start || (r.created_at ? localDate(new Date(r.created_at)) : localDate());
+  let end = ymd || localDate();
+  if (r.end_date && r.end_date < end) end = r.end_date;
+  if (end < s0) return 1;
+  const [sy, sm, sd] = s0.split('-').map(Number), [ey, em, ed] = end.split('-').map(Number);
+  const days = Math.round((Date.UTC(ey, em - 1, ed) - Date.UTC(sy, sm - 1, sd)) / 864e5);
+  let n = 1;
+  if (r.freq === 'daily') n = days + 1;
+  else if (r.freq === 'weekly') n = Math.floor(days / 7) + 1;
+  else if (r.freq === 'monthly') { let m = (ey - sy) * 12 + (em - sm); if (ed < sd) m--; n = m + 1; }
+  else if (r.freq === 'yearly') { let y = ey - sy; if (em < sm || (em === sm && ed < sd)) y--; n = y + 1; }
+  return Math.max(1, n);
+}
+function applyRecurring(r) { if (isRec(r)) r.target = Number(r.period_amount) * recPeriods(r); }
+function applyRecurringAll() { (Store.data.records || []).forEach(applyRecurring); }
+function recTag(r) { const n = recPeriods(r), u = FREQ_UNIT[r.freq]; return `${FREQ_NAME[r.freq]} · ${moneyReal(r.period_amount)} each ${u} · ${n} ${u}${n > 1 ? 's' : ''} so far`; }
+let recExtOk = null;
+
 let contribSort = 'date_desc';
 try {
   const savedSort = localStorage.getItem('rc_contrib_sort');
@@ -3950,9 +3990,9 @@ function renderContribListRows(rows, isFiltered) {
             <span class="badge ${pc >= 100 ? 'badge-green' : pc > 0 ? 'badge-blue' : 'badge-gray'}">${pc}%</span>
           </div>
           ${r.description ? `<div class="muted small" style="margin-top:2px;">${esc(r.description.slice(0, 75))}${r.description.length > 75 ? '...' : ''}</div>` : ''}
-          <div class="muted small" style="margin-top:2px;">${(r.people || []).length} members · ${money(paid)} collected ${r.target ? `of ${money(target)}` : ''}</div>
+          <div class="muted small" style="margin-top:2px;">${isRec(r) ? esc(recTag(r)) + ' · ' : ''}${(r.people || []).length} members · ${money(paid)} collected ${r.target ? `of ${money(target)}` : ''}</div>
           ${target ? `<div class="progress-track"><div class="progress-fill" style="width:${pc}%"></div></div>` : ''}
-          ${r.end_date ? `<div class="small muted" style="margin-top:4px;">Deadline: ${esc(r.end_date)}</div>` : ''}
+          ${r.end_date ? `<div class="small muted" style="margin-top:4px;">${isRec(r) ? 'Ends' : 'Deadline'}: ${esc(r.end_date)}</div>` : ''}
         </div>
         <div class="row" onclick="event.stopPropagation()">
           <button class="btn-danger btn-sm" onclick="confirmDeleteRecord('${r.id}')" title="Delete record">
@@ -3975,7 +4015,7 @@ function filterContribList() {
 
 let rf = {};
 function rfCollect() {
-  const m = { recordTitle: 'title', recordDesc: 'desc', recordTarget: 'target', recordDate: 'date' };
+  const m = { recordTitle: 'title', recordDesc: 'desc', recordTarget: 'target', recordDate: 'date', recordStart: 'start' };
   Object.keys(m).forEach(id => { const e = $(id); if (e) rf[m[id]] = id === 'recordTarget' ? e.value.replace(/,/g, '').trim() : e.value.trim(); });
   const rows = document.querySelectorAll('#pplTable .pr:not(.ph)');
   if (rows.length) rf.people = [...rows].map(r => ({ name: r.querySelector('.pn').value.trim(), phone: r.querySelector('.pp').value.trim() }));
@@ -3983,8 +4023,10 @@ function rfCollect() {
 function rfGo(d) {
   rfCollect();
   if (d > 0 && rf.step === 1 && !rf.title) { toast('Please type a name first.'); return; }
+  if (d > 0 && rf.step === 2 && rf.freq && rf.freq !== 'once' && !Number(rf.target)) { toast('Enter how much each person pays every ' + FREQ_UNIT[rf.freq] + '.'); return; }
   newRecordForm(rf.step + d);
 }
+function rfSetFreq(f) { rfCollect(); rf.freq = f; newRecordForm(2); }
 function rfFinish() { rfCollect(); saveNewRecord(); }
 function rfCount() {
   const n = [...document.querySelectorAll('#pplTable .pn')].filter(i => i.value.trim()).length;
@@ -4014,12 +4056,23 @@ function newRecordForm(step) {
         <div class="field"><label for="recordDesc">Bank details or rules (optional)</label>
           <textarea id="recordDesc" rows="3" placeholder="e.g. Pay to GTBank 0123456789. Due every month.">${esc(rf.desc || '')}</textarea>
           <div class="small muted" style="margin-top:4px;">People see this on their link.</div></div>`,
-    2: `<h2>How much should each person pay?</h2>
-        <p class="muted">Leave these empty if there is no fixed amount or date.</p>
-        <div class="field"><label for="recordTarget">Amount per person (₦)</label>
+    2: (() => {
+      const f = rf.freq || 'once', rec = f !== 'once', unit = FREQ_UNIT[f] || '';
+      const opts = [['once', 'One-time'], ['daily', 'Daily'], ['weekly', 'Weekly'], ['monthly', 'Monthly'], ['yearly', 'Yearly']];
+      return `<h2>How do people pay?</h2>
+        <p class="muted">Pick one payment, or a payment that repeats.</p>
+        <div class="row" style="gap:6px;margin-bottom:8px;">${opts.map(o => `<button class="${f === o[0] ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="rfSetFreq('${o[0]}')">${o[1]}</button>`).join('')}</div>
+        <div class="field"><label for="recordTarget">Amount per person${rec ? ' each ' + unit : ''} (₦)</label>
           <input id="recordTarget" type="text" inputmode="decimal" autocomplete="off" data-money value="${esc(rf.target || '')}" placeholder="e.g. 25000"></div>
+        ${rec ? `<div class="field"><label for="recordStart">Starts on</label>
+          <input id="recordStart" type="date" value="${esc(rf.start || localDate())}"></div>
+        <div class="field"><label for="recordDate">Stops on (optional)</label>
+          <input id="recordDate" type="date" value="${esc(rf.date || '')}"></div>
+        <p class="small muted">Recordly counts the ${unit}s that have passed and shows what each person owes so far.</p>`
+        : `<p class="muted">Leave empty if there is no fixed amount or date.</p>
         <div class="field"><label for="recordDate">Last day to pay</label>
-          <input id="recordDate" type="date" value="${esc(rf.date || '')}"></div>`,
+          <input id="recordDate" type="date" value="${esc(rf.date || '')}"></div>`}`;
+    })(),
     3: (() => {
       if (!Array.isArray(rf.people)) rf.people = [{ name: '', phone: '' }, { name: '', phone: '' }, { name: '', phone: '' }];
       const nOk = rf.people.filter(p => p.name).length;
@@ -4056,6 +4109,7 @@ function saveNewRecord() {
   const description = (rf.desc || '').trim() || null;
   const target = Number(rf.target) || null;
   const end_date = (rf.date || '') || null;
+  const freq = (rf.freq && rf.freq !== 'once' && target) ? rf.freq : 'once';
 
   const people = (Array.isArray(rf.people) ? rf.people : []).filter(p => p.name).map(p => ({
     id: uid(),
@@ -4069,6 +4123,9 @@ function saveNewRecord() {
     title,
     description,
     target,
+    freq,
+    period_amount: freq !== 'once' ? target : null,
+    start: freq !== 'once' ? (rf.start || localDate()) : null,
     end_date,
     show_table: true,
     group_link: true,
@@ -4076,6 +4133,7 @@ function saveNewRecord() {
     people
   };
 
+  applyRecurring(newRec);
   Store.data.records.unshift(newRec);
   Store.save();
   try { localStorage.setItem('rc_role', 'admin'); } catch (e) {}   // creating a group makes them an admin
@@ -4107,7 +4165,7 @@ function renderRecordDetail(rid) {
       <div class="row between">
         <div>
           <h1>${esc(r.title)}</h1>
-          <div class="muted">Created ${new Date(r.created_at || Date.now()).toLocaleDateString()} ${r.end_date ? `· Due ${esc(r.end_date)}` : ''}</div>
+          <div class="muted">Created ${new Date(r.created_at || Date.now()).toLocaleDateString()} ${r.end_date ? `· ${isRec(r) ? 'Ends' : 'Due'} ${esc(r.end_date)}` : ''}</div>
         </div>
         <div class="row">
           <button class="btn-outline btn-sm" onclick="openEditRecordDescModal('${r.id}')">✏️ Edit Details</button>
@@ -4138,8 +4196,9 @@ function renderRecordDetail(rid) {
           <div class="stat-val">${people.length}</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">Target Per Person</div>
+          <div class="stat-label">${isRec(r) ? 'Due per person so far' : 'Target Per Person'}</div>
           <div class="stat-val">${r.target ? money(r.target) : 'No fixed target'}</div>
+          ${isRec(r) ? `<div class="small muted" style="margin-top:2px;">${esc(recTag(r))}</div>` : ''}
         </div>
       </div>
 
@@ -4524,22 +4583,32 @@ function renderMemberAdmin(rid, pid) {
   renderCommentsBox(pid);
 }
 
-// Printable / PDF statement for one person: every payment, its date and the running balance, on the business letterhead
+// Printable / PDF / shareable statement for one person: every payment, its date and the running balance
 function openMemberStatement(rid, pid) {
   const r = Store.data.records.find(x => x.id === rid), p = r && (r.people || []).find(x => x.id === pid);
   if (!r || !p) return;
-  const biz = bizName(), target = Number(r.target || 0);
+  const biz = bizName(), target = Number(r.target || 0), rec = isRec(r);
   const pays = (p.payments || []).slice().sort((a, b) => (a.paid_on || '').localeCompare(b.paid_on || '') || (a.paid_at || '').localeCompare(b.paid_at || ''));
   const paid = pays.reduce((a, x) => a + Number(x.amount || 0), 0);
-  const bal = Math.max(0, target - paid);
   let run = 0;
   const rows = pays.map(x => {
     run += Number(x.amount || 0);
-    const det = [x.method, x.note, x.payer_name ? 'Paid by ' + x.payer_name : ''].filter(Boolean).join(' · ');
-    return `<tr><td>${esc(x.paid_on || '')}<div class="sub">${esc(payTimeTxt(x).replace(/^ at /, ''))}</div></td><td>${esc(det)}${x.ref ? `<div class="sub">${esc(x.ref)}</div>` : ''}</td><td class="r"><b>${moneyReal(x.amount)}</b></td>${target ? `<td class="r">${moneyReal(Math.max(0, target - run))}</td>` : ''}</tr>`;
-  }).join('');
-  const status = target ? (paid >= target ? 'Paid in full' : 'Balance outstanding') : '';
-  const ref = 'STM-' + String(pid).replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase();
+    const due = rec ? Number(r.period_amount) * recPeriods(r, x.paid_on || localDate()) : target;
+    return {
+      date: x.paid_on || '', time: payTimeTxt(x).replace(/^ at /, ''),
+      det: [x.method, x.note, x.payer_name ? 'Paid by ' + x.payer_name : ''].filter(Boolean).join(' · '),
+      ref: x.ref || '', amount: Number(x.amount || 0), bal: target ? Math.max(0, due - run) : null
+    };
+  });
+  window._stmt = {
+    biz, ref: 'STM-' + String(pid).replace(/[^a-z0-9]/gi, '').slice(-6).toUpperCase(), issued: localDate(),
+    name: p.name, phone: p.phone || '', title: r.title,
+    due: r.end_date ? (rec ? 'Ends ' : 'Due ') + r.end_date : '',
+    plan: rec ? FREQ_NAME[r.freq] + ' · ' + moneyReal(r.period_amount) + ' each ' + FREQ_UNIT[r.freq] : '',
+    target, paid, bal: Math.max(0, target - paid), rec,
+    status: target ? (paid >= target ? 'Paid in full' : 'Balance outstanding') : '', rows
+  };
+  const o = window._stmt;
   $('modalRoot').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal-window" style="max-width:640px;">
@@ -4549,30 +4618,135 @@ function openMemberStatement(rid, pid) {
         </div>
         <div class="stmt-paper" id="printableStatement">
           <div class="row between" style="align-items:flex-start;flex-wrap:nowrap;gap:10px;">
-            <div><h3>${esc(biz)}</h3><div class="sub">Statement of payments</div></div>
-            <div style="text-align:right;"><div class="sub">Ref: ${esc(ref)}</div><div class="sub">Issued: ${esc(localDate())}</div></div>
+            <div><h3>${esc(o.biz)}</h3><div class="sub">Statement of payments</div></div>
+            <div style="text-align:right;"><div class="sub">Ref: ${esc(o.ref)}</div><div class="sub">Issued: ${esc(o.issued)}</div></div>
           </div>
-          <div style="margin-top:14px;"><b style="font-size:16px;">${esc(p.name)}</b>${p.phone ? `<div class="sub">${esc(p.phone)}</div>` : ''}
-            <div class="sub" style="margin-top:2px;">${esc(r.title)}${r.end_date ? ' · Due ' + esc(r.end_date) : ''}</div></div>
+          <div style="margin-top:14px;"><b style="font-size:16px;">${esc(o.name)}</b>${o.phone ? `<div class="sub">${esc(o.phone)}</div>` : ''}
+            <div class="sub" style="margin-top:2px;">${esc(o.title)}${o.due ? ' · ' + esc(o.due) : ''}</div>
+            ${o.plan ? `<div class="sub">${esc(o.plan)}</div>` : ''}</div>
           <div class="stmt-sum">
-            <div><small>Total paid</small><b>${moneyReal(paid)}</b></div>
-            <div><small>${target ? 'Amount due' : 'Payments'}</small><b>${target ? moneyReal(target) : pays.length}</b></div>
-            <div><small>${target ? 'Balance' : 'Status'}</small><b>${target ? moneyReal(bal) : 'No fixed amount'}</b></div>
+            <div><small>Total paid</small><b>${moneyReal(o.paid)}</b></div>
+            <div><small>${o.target ? (o.rec ? 'Due so far' : 'Amount due') : 'Payments'}</small><b>${o.target ? moneyReal(o.target) : o.rows.length}</b></div>
+            <div><small>${o.target ? 'Balance' : 'Status'}</small><b>${o.target ? moneyReal(o.bal) : 'No fixed amount'}</b></div>
           </div>
-          ${status ? `<div style="margin-top:8px;font-weight:700;color:${paid >= target ? '#0f766e' : '#b45309'};">${status}</div>` : ''}
+          ${o.status ? `<div style="margin-top:8px;font-weight:700;color:${o.paid >= o.target ? '#0f766e' : '#b45309'};">${o.status}</div>` : ''}
           <div class="tw"><table>
-            <thead><tr><th>Date</th><th>Details</th><th class="r">Amount</th>${target ? '<th class="r">Balance</th>' : ''}</tr></thead>
-            <tbody>${rows || `<tr><td colspan="${target ? 4 : 3}" class="sub" style="text-align:center;padding:18px;">No payments recorded yet.</td></tr>`}</tbody>
+            <thead><tr><th>Date</th><th>Details</th><th class="r">Amount</th>${o.target ? '<th class="r">Balance</th>' : ''}</tr></thead>
+            <tbody>${o.rows.map(x => `<tr><td>${esc(x.date)}<div class="sub">${esc(x.time)}</div></td><td>${esc(x.det)}${x.ref ? `<div class="sub">${esc(x.ref)}</div>` : ''}</td><td class="r"><b>${moneyReal(x.amount)}</b></td>${o.target ? `<td class="r">${moneyReal(x.bal)}</td>` : ''}</tr>`).join('') || `<tr><td colspan="${o.target ? 4 : 3}" class="sub" style="text-align:center;padding:18px;">No payments recorded yet.</td></tr>`}</tbody>
           </table></div>
-          <div class="sub" style="margin-top:16px;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px;">Issued by ${esc(biz)} · Recorded with Recordly</div>
+          <div class="sub" style="margin-top:16px;text-align:center;border-top:1px solid #e2e8f0;padding-top:10px;">Issued by ${esc(o.biz)} · Recorded with Recordly</div>
         </div>
         <div class="grid-2 no-print" style="margin-top:14px;">
-          <button class="btn-primary" onclick="printStatement()">Print / Save PDF</button>
-          <button class="btn-outline" onclick="closeModal()">Close</button>
+          <button class="btn-primary" onclick="shareStatement('any')">📤 Share</button>
+          <button class="btn-soft" onclick="shareStatement('wa')">WhatsApp</button>
+          <button class="btn-outline" onclick="copyStatementText()">Copy Text</button>
+          <button class="btn-outline" onclick="printStatement()">Print / Save PDF</button>
         </div>
-        <p class="muted small no-print" style="margin:8px 2px 0;">Tap Print, then choose "Save as PDF" to send it as a file.</p>
       </div>
     </div>`;
+}
+function statementText() {
+  const o = window._stmt; if (!o) return '';
+  const lines = [
+    o.biz + ' - PAYMENT STATEMENT', 'Ref: ' + o.ref, 'Issued: ' + o.issued, '',
+    'Name: ' + o.name + (o.phone ? ' (' + o.phone + ')' : ''),
+    'For: ' + o.title + (o.due ? ' · ' + o.due : ''), o.plan ? 'Plan: ' + o.plan : '', '',
+    'Total paid: ' + moneyReal(o.paid),
+    o.target ? (o.rec ? 'Due so far: ' : 'Amount due: ') + moneyReal(o.target) : '',
+    o.target ? 'Balance: ' + moneyReal(o.bal) : '', o.status, '', 'PAYMENTS'
+  ];
+  o.rows.forEach(x => lines.push(x.date + (x.time ? ' ' + x.time : '') + ' · ' + moneyReal(x.amount) + (x.det ? ' · ' + x.det : '') + (x.bal !== null ? ' · Balance ' + moneyReal(x.bal) : '')));
+  if (!o.rows.length) lines.push('No payments recorded yet.');
+  return lines.filter((l, i) => l !== '' || lines[i - 1] !== '').join('\n');
+}
+function copyStatementText() {
+  const t = statementText(); if (!t) return;
+  navigator.clipboard.writeText(t).then(() => toast('Statement copied. Paste it anywhere.'));
+}
+function statementToPng() {
+  return new Promise((resolve, reject) => {
+    const o = window._stmt; if (!o) return reject(new Error('No statement'));
+    const W = 820, pad = 36, font = 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif';
+    const c = document.createElement('canvas'), ctx = c.getContext('2d');
+    const wrap = (t, maxW, f) => {
+      ctx.font = f; const lines = []; let cur = '';
+      String(t || '').split(/\s+/).forEach(w => {
+        const test = cur ? cur + ' ' + w : w;
+        if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; } else cur = test;
+      });
+      if (cur) lines.push(cur); return lines.length ? lines : [''];
+    };
+    const amtRight = o.target ? W - pad - 190 : W - pad, detX = pad + 140, detW = amtRight - 175 - detX;
+    const rowData = o.rows.map(x => {
+      const lines = wrap(x.det + (x.ref ? ' · ' + x.ref : ''), detW, '500 16px ' + font);
+      return { x, lines, h: Math.max(2, lines.length) * 22 + 16 };
+    });
+    const head = 360 + (o.plan ? 24 : 0) + (o.status ? 30 : 0);
+    let H = head + 40 + (rowData.reduce((a, r) => a + r.h, 0) || 60) + 70;
+    const scale = H > 6000 ? 1 : 2;
+    c.width = W * scale; c.height = H * scale; ctx.scale(scale, scale);
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0f766e'; ctx.fillRect(0, 0, W, 12);
+    ctx.textAlign = 'left'; ctx.font = '800 30px ' + font; ctx.fillText(wrap(o.biz, W - pad * 2 - 220, '800 30px ' + font)[0], pad, 70);
+    ctx.fillStyle = '#64748b'; ctx.font = '500 18px ' + font; ctx.fillText('Statement of payments', pad, 98);
+    ctx.textAlign = 'right'; ctx.font = '500 16px monospace'; ctx.fillText('Ref: ' + o.ref, W - pad, 62); ctx.fillText('Issued: ' + o.issued, W - pad, 86);
+    ctx.textAlign = 'left'; let y = 150;
+    ctx.fillStyle = '#0f172a'; ctx.font = '700 24px ' + font; ctx.fillText(o.name + (o.phone ? '  (' + o.phone + ')' : ''), pad, y);
+    ctx.fillStyle = '#64748b'; ctx.font = '500 17px ' + font; y += 28; ctx.fillText(wrap(o.title + (o.due ? ' · ' + o.due : ''), W - pad * 2, '500 17px ' + font)[0], pad, y);
+    if (o.plan) { y += 24; ctx.fillText(o.plan, pad, y); }
+    y += 26;
+    const bw = (W - pad * 2 - 20) / 3;
+    const boxes = [['TOTAL PAID', moneyReal(o.paid)], [o.target ? (o.rec ? 'DUE SO FAR' : 'AMOUNT DUE') : 'PAYMENTS', o.target ? moneyReal(o.target) : String(o.rows.length)], [o.target ? 'BALANCE' : 'STATUS', o.target ? moneyReal(o.bal) : 'No fixed amount']];
+    boxes.forEach((b, i) => {
+      const bx = pad + i * (bw + 10);
+      ctx.fillStyle = '#f1f5f9'; ctx.fillRect(bx, y, bw, 74);
+      ctx.fillStyle = '#64748b'; ctx.font = '600 13px ' + font; ctx.fillText(b[0], bx + 12, y + 24);
+      let sz = 24; do { ctx.font = '800 ' + sz + 'px ' + font; sz -= 1; } while (ctx.measureText(b[1]).width > bw - 24 && sz > 11);
+      ctx.fillStyle = '#0f172a'; ctx.fillText(b[1], bx + 12, y + 56);
+    });
+    y += 74;
+    if (o.status) { y += 30; ctx.fillStyle = o.paid >= o.target ? '#0f766e' : '#b45309'; ctx.font = '700 18px ' + font; ctx.fillText(o.status, pad, y); }
+    y += 36;
+    ctx.fillStyle = '#64748b'; ctx.font = '700 13px ' + font;
+    ctx.fillText('DATE', pad, y); ctx.fillText('DETAILS', detX, y);
+    ctx.textAlign = 'right'; ctx.fillText('AMOUNT', amtRight, y); if (o.target) ctx.fillText('BALANCE', W - pad, y);
+    ctx.textAlign = 'left'; y += 10;
+    ctx.strokeStyle = '#cbd5e1'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke(); ctx.lineWidth = 1;
+    if (!rowData.length) {
+      ctx.textAlign = 'center'; ctx.fillStyle = '#64748b'; ctx.font = '500 17px ' + font; ctx.fillText('No payments recorded yet.', W / 2, y + 36); ctx.textAlign = 'left'; y += 60;
+    }
+    rowData.forEach(r => {
+      const ty = y + 24;
+      ctx.fillStyle = '#0f172a'; ctx.font = '600 16px ' + font; ctx.fillText(r.x.date, pad, ty);
+      if (r.x.time) { ctx.fillStyle = '#64748b'; ctx.font = '500 14px ' + font; ctx.fillText(r.x.time, pad, ty + 22); }
+      ctx.fillStyle = '#0f172a'; ctx.font = '500 16px ' + font; r.lines.forEach((l, i) => ctx.fillText(l, detX, ty + i * 22));
+      ctx.textAlign = 'right'; ctx.font = '700 16px ' + font; ctx.fillText(moneyReal(r.x.amount), amtRight, ty);
+      if (o.target) { ctx.font = '500 16px ' + font; ctx.fillText(moneyReal(r.x.bal), W - pad, ty); }
+      ctx.textAlign = 'left'; y += r.h;
+      ctx.strokeStyle = '#e2e8f0'; ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(W - pad, y); ctx.stroke();
+    });
+    ctx.textAlign = 'center'; ctx.fillStyle = '#94a3b8'; ctx.font = '500 15px ' + font;
+    ctx.fillText('Issued by ' + o.biz + ' · Recorded with Recordly', W / 2, H - 28);
+    c.toBlob(b => b ? resolve(b) : reject(new Error('Could not draw statement')), 'image/png');
+  });
+}
+async function shareStatement(mode) {
+  const o = window._stmt; if (!o) return;
+  const invite = appInviteLink();
+  let blob = null;
+  try {
+    blob = await statementToPng();
+    const file = new File([blob], 'statement-' + o.ref + '.png', { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], text: invite }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const save = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'statement-' + o.ref + '.png'; document.body.appendChild(a); a.click(); a.remove(); };
+  if (mode === 'wa') {
+    if (blob) { save(); toast('Statement image saved. Attach it in WhatsApp.'); }
+    window.open('https://wa.me/' + remPhone(o.phone) + '?text=' + encodeURIComponent(invite), '_blank');
+    return;
+  }
+  if (navigator.share) { try { await navigator.share({ text: invite }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  if (blob) { save(); toast('Statement image saved to your phone.'); } else copyText(invite);
 }
 function printStatement() {
   document.body.classList.add('print-stmt');
@@ -4605,6 +4779,7 @@ function saveMemberPayment(rid, pid) {
   p.payments.push({
     id: 'rec_pay_' + uid(),
     ref: 'RCP-' + uid().replace(/-/g, '').slice(0, 8).toUpperCase(),
+    biz: bizName(),
     amount: amt,
     paid_on,
     paid_at,
@@ -5028,6 +5203,7 @@ function saveNewSale() {
 
   const newSale = {
     id: uid(),
+    biz: bizName(),
     customer_id: linkedId,
     customer_name: custName,
     customer_phone: custPhone,
@@ -5042,7 +5218,7 @@ function saveNewSale() {
     date,
     notes,
     created_at: new Date().toISOString(),
-    payments: paid > 0 ? [{ id: uid(), amount: paid, paid_on: date, at: new Date().toISOString(), method, note: 'Initial payment' }] : []
+    payments: paid > 0 ? [{ id: uid(), amount: paid, paid_on: date, at: new Date().toISOString(), method, note: 'Initial payment', biz: bizName() }] : []
   };
 
   Store.data.sales.unshift(newSale);
@@ -5123,7 +5299,8 @@ function saveCollectedSaleBalance(saleId) {
     paid_on: val('collectDate') || localDate(),
     at: new Date().toISOString(),
     method: val('collectMethod') || 'Cash',
-    note: 'Balance installment'
+    note: 'Balance installment',
+    biz: bizName()
   });
 
   Store.save();
@@ -5708,6 +5885,7 @@ function saveNewDebt() {
   Store.data.debts.unshift({
     id: uid(),
     type,
+    biz: bizName(),
     person_name: person,
     phone: val('debtPhone') || null,
     original_amount: amt,
@@ -5778,7 +5956,8 @@ function saveDebtRepayment(debtId) {
     amount: amt,
     date: val('repDate') || localDate(),
     at: new Date().toISOString(),
-    note: val('repNote') || 'Repayment'
+    note: val('repNote') || 'Repayment',
+    biz: bizName()
   });
 
   Store.save();
@@ -6324,6 +6503,7 @@ async function renderPublicPerson(pid, src) {
   const pc = target ? Math.min(100, Math.round(paid / target * 100)) : 0;
 
   $('app').innerHTML = `
+    <button class="btn-outline btn-sm" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
     <div class="card">
       <div class="pill">PERSONAL CONTRIBUTION PROGRESS</div>
       <h1 style="margin-top:8px;">${esc(p.name)}</h1>
@@ -6398,6 +6578,7 @@ async function renderPublicGroup(rid, src) {
   }
 
   $('app').innerHTML = `
+    <button class="btn-outline btn-sm" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
     <div class="card">
       <div class="pill">GROUP PROGRESS VIEW</div>
       <h1 style="margin-top:8px;">${esc(r.title)}</h1>
@@ -6459,7 +6640,7 @@ function dueNudges(cfg, onlyRid, all) {
   (Store.data.records || []).forEach(r => {
     if (onlyRid && r.id !== onlyRid) return;
     const target = Number(r.target || 0); if (!target) return;
-    const dl = r.end_date ? daysUntil(r.end_date) : null;
+    const dl = (r.end_date && !isRec(r)) ? daysUntil(r.end_date) : null;
     (r.people || []).forEach(p => {
       const paid = paidOf(p), bal = target - paid; if (bal <= 0) return;
       const last = p.last_reminded ? Date.parse(p.last_reminded) : 0;
@@ -6556,7 +6737,7 @@ function buildNotifItems(cfg) {
   const push = (tag, when, title, body, url) => { if (when > now - 36 * 3600e3 && when < now + 15 * REM_DAY) items.push({ tag, when, title, body, url }); };
   const inDays = n => n === 1 ? 'tomorrow' : 'in ' + n + ' days';
   (Store.data.records || []).forEach(r => {
-    if (!r.end_date || !Number(r.target)) return;
+    if (!r.end_date || !Number(r.target) || isRec(r)) return;
     const unpaid = (r.people || []).filter(p => paidOf(p) < Number(r.target)).length; if (!unpaid) return;
     const body = `${unpaid} ${unpaid === 1 ? "person hasn't" : "people haven't"} paid yet. Tap to remind them.`;
     push(`dl|${r.id}|pre|${r.end_date}|${cfg.daysBefore}`, at(addDays(r.end_date, -cfg.daysBefore)), `${r.title} closes ${inDays(cfg.daysBefore)}`, body, `#/r/${r.id}`);
@@ -6833,6 +7014,7 @@ async function renderJoinPage(rid, src) {
       <button class="btn-primary" id="jrBtn" onclick="sendJoinRequest('${rid}')">Ask to join</button>
       <p class="muted small" style="margin-top:8px;">The admin must approve you before you become a member.</p>`;
   $('app').innerHTML = `
+    <button class="btn-outline btn-sm" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
     <div class="card">
       <div class="pill">${src === 'invite' ? 'YOU ARE INVITED' : 'GROUP'}</div>
       <h1 style="margin-top:8px;">${esc(g.title)}</h1>
@@ -6869,7 +7051,6 @@ function renderDiscover() {
       </div>
     </div>
     <div id="discOut"><div class="empty-box">Type at least 2 letters to search.</div></div>`;
-  setTimeout(() => $('discQ') && $('discQ').focus(), 60);
 }
 function discSoon() { clearTimeout(discTimer); discTimer = setTimeout(runDiscover, 350); }
 async function runDiscover() {
@@ -6903,6 +7084,7 @@ async function runDiscover() {
 }
 
 async function renderCore() {
+  try { applyRecurringAll(); } catch (e) {}
   setTop();
   applyRoleNav();
   scheduleDbSync();
