@@ -68,6 +68,38 @@
   --shadow-lg: 0 18px 40px rgba(0,0,0,0.5);
 }
 
+
+/* Pure black theme (true black background, good for OLED screens) */
+[data-theme="black"] {
+  --bg: #000000;
+  --card: #0a0a0a;
+  --text: #f5f5f5;
+  --muted: #a3a3a3;
+  --line: #262626;
+  --primary: #14b8a6;
+  --primary-dark: #0d9488;
+  --primary-light: #0b2422;
+  --accent-blue: #3b82f6;
+  --accent-blue-light: #0f1a2e;
+  --accent-amber: #f59e0b;
+  --accent-amber-light: #231a08;
+  --accent-red: #f43f5e;
+  --accent-red-light: #2a0d15;
+  --accent-purple: #a855f7;
+  --accent-purple-light: #1e1233;
+  --box-bg: #0a0a0a;
+  --header-bg: rgba(0, 0, 0, 0.95);
+  --modal-bg: #0d0d0d;
+  --input-bg: #0a0a0a;
+  --input-border: #333333;
+  --shadow-sm: 0 1px 3px rgba(0,0,0,0.6);
+  --shadow: 0 8px 24px rgba(0,0,0,0.7);
+  --shadow-lg: 0 18px 40px rgba(0,0,0,0.8);
+}
+[data-theme="dark"], [data-theme="black"] { color-scheme: dark; }
+[data-theme="light"] { color-scheme: light; }
+[data-theme="black"] { --onp: #04211f; }
+
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 body {
   margin: 0;
@@ -1231,10 +1263,15 @@ body.sub-page:not(.loggedout) #app{padding-top:8px}
   .stmt-paper{border:none!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
 
-/* Back buttons follow the screen while you scroll */
-html,body{overflow-x:clip}
-.backbtn{position:sticky;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:30;display:flex;width:max-content;background:var(--modal-bg);box-shadow:var(--shadow)}
-.page-head{position:sticky;top:0;z-index:30;background:var(--bg);margin:-8px 0 8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 0 8px}
+/* Fixed page bar: back button + where you are. Always on screen, never hides on scroll. */
+#pageBar{display:none}
+body.has-pagebar #pageBar{display:block;position:fixed;top:0;left:0;right:0;z-index:40;background:var(--header-bg);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line);padding-top:env(safe-area-inset-top,0px)}
+#pageBar .pb-in{max-width:1020px;margin:0 auto;height:52px;display:flex;align-items:center;gap:10px;padding:0 12px}
+#pageBar .pb-back{width:38px;height:38px;border-radius:50%;padding:0;flex:none;display:grid;place-items:center}
+#pageBar .pb-title{margin:0;font-size:18px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+body.has-pagebar{padding-top:calc(52px + env(safe-area-inset-top,0px))}
+body.has-pagebar .top-header{display:none!important}
+body.has-pagebar .backbtn,body.has-pagebar .page-head .pback{display:none}
 </style>
 </head>
 <body>
@@ -1285,6 +1322,7 @@ html,body{overflow-x:clip}
   </nav>
 
   <!-- Main View Area -->
+  <div id="pageBar"><div class="pb-in"><button class="btn-outline pb-back" onclick="pageBack()" aria-label="Back"></button><h1 class="pb-title" id="pbTitle"></h1></div></div>
   <main id="app">
     <div class="card" style="text-align:center;padding:40px;">
       <div class="avatar-circle" style="margin:0 auto 12px;width:52px;height:52px;font-size:24px;">R</div>
@@ -2484,35 +2522,65 @@ async function syncRecordsToDb() {
   if (dbSyncAgain) { dbSyncAgain = false; scheduleDbSync(); }
 }
 
-// THEME ENGINE (Dark / Light)
-let currentTheme = 'light';
+// THEME ENGINE (Phone theme / Light / Dark / Pure black)
+let currentTheme = 'light';      // what is actually shown: light | dark | black
+let themePref = 'system';        // what the person chose: system | light | dark | black
+const THEME_META = { light: '#0f766e', dark: '#0b0f19', black: '#000000' };
+const THEME_OPTS = [
+  ['system', 'Phone theme', 'Match your phone: light or dark automatically'],
+  ['light', 'Light', 'Bright and clean'],
+  ['dark', 'Dark', 'Dark blue-grey'],
+  ['black', 'Pure black', 'True black. Saves battery on OLED screens']
+];
+const themeMQ = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+function resolveTheme(pref) {
+  if (pref === 'system') return themeMQ && themeMQ.matches ? 'dark' : 'light';
+  return THEME_META[pref] ? pref : 'light';
+}
 function initTheme() {
-  const saved = localStorage.getItem('recordly_theme');
-  if (saved) {
-    currentTheme = saved;
-  } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-    currentTheme = 'dark';
+  let saved = null;
+  try { saved = localStorage.getItem('recordly_theme'); } catch (e) {}
+  themePref = (saved === 'system' || THEME_META[saved]) ? saved : 'system';
+  applyTheme(themePref);
+  if (themeMQ) {
+    const f = () => { if (themePref === 'system') applyTheme('system'); };
+    if (themeMQ.addEventListener) themeMQ.addEventListener('change', f); else if (themeMQ.addListener) themeMQ.addListener(f);
   }
-  applyTheme(currentTheme);
 }
 
-function applyTheme(theme) {
-  currentTheme = theme;
-  document.documentElement.setAttribute('data-theme', theme);
-  localStorage.setItem('recordly_theme', theme);
+function applyTheme(pref) {
+  themePref = (pref === 'system' || THEME_META[pref]) ? pref : 'system';
+  currentTheme = resolveTheme(themePref);
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  try { localStorage.setItem('recordly_theme', themePref); } catch (e) {}
   const iconEl = $('themeIcon');
-  if (iconEl) {
-    iconEl.textContent = theme === 'dark' ? '☀️' : '🌙';
-  }
+  if (iconEl) iconEl.textContent = currentTheme === 'light' ? '🌙' : '☀️';
   const metaTheme = document.querySelector('meta[name="theme-color"]');
-  if (metaTheme) {
-    metaTheme.setAttribute('content', theme === 'dark' ? '#0b0f19' : '#0f766e');
-  }
+  if (metaTheme) metaTheme.setAttribute('content', THEME_META[currentTheme]);
 }
 
 function toggleTheme() {
-  applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+  applyTheme(currentTheme === 'light' ? 'dark' : 'light');
   toast(`Switched to ${currentTheme} mode`);
+}
+function themeLabel() {
+  const o = THEME_OPTS.find(x => x[0] === themePref);
+  return o ? o[1] : 'Phone theme';
+}
+function setThemePref(k) { applyTheme(k); openThemeSettings(); if (hash()[0] === 'settings') renderSettings(); }
+function openThemeSettings() {
+  $('modalRoot').innerHTML = miniModal('Theme', `
+    <p class="muted" style="margin-top:0;">Choose how Recordly looks. "Phone theme" follows your phone's light or dark setting.</p>
+    <div class="list">
+      ${THEME_OPTS.map(o => {
+        const on = themePref === o[0];
+        return `<button class="${on ? 'btn-soft' : 'btn-outline'}" style="justify-content:space-between;padding:12px 14px;" onclick="setThemePref('${o[0]}')">
+          <span style="text-align:left;"><b style="display:block;">${esc(o[1])}</b><span class="small muted">${esc(o[2])}</span></span>
+          <span>${on ? '✓' : ''}</span>
+        </button>`;
+      }).join('')}
+    </div>
+  `);
 }
 
 // STORAGE & DATA STORE
@@ -6760,7 +6828,7 @@ function renderSettings() {
 
     <div class="sh-title">PREFERENCES</div>
     <div class="sgroup">
-      ${srow('sun', 'Dark mode', swt(currentTheme === 'dark'), 'toggleTheme();renderSettings()', { noChev: true })}
+      ${srow('sun', 'Theme', `<span class="sval">${esc(themeLabel())}</span>`, 'openThemeSettings()', { sub: 'Phone theme, light, dark or pure black' })}
       ${srow('volume', 'Notification sound', `<span class="sval">${esc(soundToneLabel())}</span>`, 'openSoundSettings()', { sub: 'Chime & tone for incoming alerts' })}
       ${srow('bell', 'Reminders', `<span class="sval">${remCfg().on ? 'On' : 'Off'}</span>`, 'openReminderSettings()', { sub: 'Automatic nudges & phone notifications' })}
       ${srow('bell', 'Alerts', '', "location.hash='#/notifications'")}
@@ -7643,6 +7711,36 @@ async function runDiscover() {
     ${!groups.length && !people.length ? '<div class="empty-box">Nothing found. Groups only appear here when their admin turns on "Show in Recordly search".</div>' : ''}`;
 }
 
+
+// ---- Fixed page bar (back button + current page name) ----
+const PB_TITLES = { contributions: 'Contributions', business: 'Business', debts: 'Debts', reports: 'Reports', more: 'Me', settings: 'Settings', profile: 'My Profile', notifications: 'Notifications', discover: 'Find people & groups', r: 'Record', p: 'Payment progress', g: 'Group', j: 'Join group' };
+const PB_PARENT = { settings: '#/more', profile: '#/more', r: '#/contributions' };
+let navStack = [location.hash];
+window.addEventListener('hashchange', () => {
+  const h = location.hash;
+  if (navStack.length > 1 && navStack[navStack.length - 2] === h) navStack.pop(); else navStack.push(h);
+});
+function pageBack() {
+  const p = hash();
+  if (navStack.length > 1) { history.back(); return; }
+  let to = '#/';
+  if (p[0] === 'contributions' && p[1] === 'new') to = '#/contributions';
+  else if (p[0] === 'r' && p[2]) to = '#/r/' + p[1];
+  else if (PB_PARENT[p[0]]) to = PB_PARENT[p[0]];
+  location.hash = to;
+}
+function updatePageBar(p) {
+  const pub = ['p', 'g', 'j'].includes(p[0]);
+  const show = p.length > 0 && !appLocked && (user || pub);
+  document.body.classList.toggle('has-pagebar', !!show);
+  if (!show) return;
+  let title = PB_TITLES[p[0]] || '';
+  if (p[0] === 'contributions' && p[1] === 'new') title = 'New record';
+  if (p[0] === 'r' && p[2]) title = 'Member';
+  const b = document.querySelector('#pageBar .pb-back'); if (b && !b.firstChild) b.innerHTML = ico('back', 20);
+  const el = $('pbTitle'); if (el) el.textContent = title;
+}
+
 let _lastRouteKey = null;
 
 async function renderCore() {
@@ -7658,7 +7756,8 @@ async function renderCore() {
     if (user && viewRole() === 'member') updateNavActive(p[0] === 'discover' ? 'contributions' : p[0] === 'notifications' ? 'business' : /^(more|profile|settings)$/.test(p[0] || '') ? 'more' : 'home');
     const onGroupView = (p[0] === 'r' && p[1] && !p[2]) || (p[0] === 'g' && p[1]);
     if (!onGroupView || groupChat.rid !== p[1]) closeGroupChat();
-    document.body.classList.toggle('sub-page', p.length > 0);   // the greeting row shows on Home only
+    document.body.classList.toggle('sub-page', p.length > 0);
+    updatePageBar(p);   // the greeting row shows on Home only
     let res;
     if (p[0] === 'p' && p[1]) res = await renderPublicPerson(p[1], p[2]);
     else if (p[0] === 'g' && p[1]) res = await renderPublicGroup(p[1], p[2]);
