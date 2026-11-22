@@ -7632,7 +7632,7 @@ async function renderJoinPage(rid, src) {
   let req = null;
   if (user && !mine) {
     try {
-      const { data } = await sb.from('join_requests').select('id,status,person_id').eq('record_id', rid).eq('requester_id', user.id).order('created_at', { ascending: false }).limit(1);
+      const { data } = await sb.from('join_requests').select('id,status,person_id,retry_after').eq('record_id', rid).eq('requester_id', user.id).order('created_at', { ascending: false }).limit(1);
       req = data && data[0] || null;
     } catch (e) {}
   }
@@ -7642,8 +7642,8 @@ async function renderJoinPage(rid, src) {
   else if (!user) action = `<p class="muted">Sign in to ask the admin to add you.</p><button class="btn-primary" onclick="authModal('login')">Sign in to continue</button>`;
   else if (req && req.status === 'pending') action = `<div class="banner banner-warning"><div>⏳ Request sent. Waiting for the admin to approve you.</div></div>`;
   else if (req && req.status === 'approved') action = `<div class="banner banner-success"><div>✅ You were approved.</div></div>${req.person_id ? `<button class="btn-primary" onclick="location.hash='#/p/${req.person_id}'">Open my progress page</button>` : ''}`;
-  else if (req && req.status === 'rejected') action = `<div class="banner banner-info"><div>The admin did not accept this request.</div></div>`;
-  else action = `
+  else if (req && req.status === 'rejected' && req.retry_after && new Date(req.retry_after) > new Date()) action = `<div class="banner banner-info"><div>The admin did not accept your last request. You can ask again on ${new Date(req.retry_after).toLocaleString([], { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.</div></div>`;
+  else action = `${req && req.status === 'rejected' ? '<p class="muted small" style="margin-bottom:8px;">Your earlier request was not accepted. You can ask again.</p>' : ''}
       <div class="field"><label for="jrName">Your name (the admin will see this) *</label><input id="jrName" value="${esc(defName)}" placeholder="Full name"></div>
       <div class="field"><label for="jrPhone">Phone number (optional)</label><input id="jrPhone" type="tel" inputmode="tel" placeholder="e.g. 0803 000 0000"></div>
       <button class="btn-primary" id="jrBtn" onclick="sendJoinRequest('${rid}')">Ask to join</button>
