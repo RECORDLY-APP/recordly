@@ -4338,7 +4338,7 @@ function newRecordForm(step) {
     })()
   }[step];
   $('app').innerHTML = `
-    <button class="btn-outline btn-sm" onclick="location.hash='#/contributions'" style="margin-bottom:12px;">← Cancel</button>
+    <button class="btn-outline btn-sm backbtn" onclick="pageBack()" style="margin-bottom:12px;">← Cancel</button>
     <div class="card">
       <div class="wiz-dots">${[1, 2, 3].map(n => `<i class="${n <= step ? 'on' : ''}"></i>`).join('')}</div>
       <div class="small muted" style="margin-bottom:6px;">Step ${step} of 3</div>
@@ -4407,7 +4407,6 @@ function renderRecordDetail(rid) {
   const pc = totalTarget ? Math.min(100, Math.round(total / totalTarget * 100)) : 0;
 
   $('app').innerHTML = `
-    <button class="btn-outline btn-sm" onclick="location.hash='#/contributions'" style="margin-bottom:12px;">← All Contributions</button>
     <div class="card">
       <div class="row between">
         <div>
@@ -5077,7 +5076,7 @@ function renderMemberAdmin(rid, pid) {
   const balance = Math.max(0, target - paid);
 
   $('app').innerHTML = `
-    <button class="btn-outline btn-sm" onclick="location.hash='#/r/${rid}'" style="margin-bottom:12px;">← ${esc(r.title)}</button>
+    <button class="btn-outline btn-sm backbtn" onclick="pageBack()" style="margin-bottom:12px;">← ${esc(r.title)}</button>
 
     <div class="card">
       <div class="row between">
@@ -7210,7 +7209,7 @@ async function renderPublicGroup(rid, src) {
     <div class="card">
       <div class="pill">GROUP PROGRESS VIEW</div>
       <h1 style="margin-top:8px;">${esc(r.title)}</h1>
-      <p class="muted">Select your name to inspect your individual payment status</p>
+      <p class="muted">${(r.people || []).length ? 'Select your name to inspect your individual payment status' : 'Already added by the admin? Open your personal link below. New here? Ask to join and the admin will confirm you.'}</p>
       ${r.description ? `
         <div class="banner banner-info" style="margin-top:8px;">
           <div>
@@ -7221,7 +7220,7 @@ async function renderPublicGroup(rid, src) {
       ` : ''}
     </div>
 
-    <div class="list">
+    ${(r.people || []).length ? `<div class="list">
       ${(r.people || []).map(p => `
         <div class="item-card between" style="cursor:pointer;" onclick="location.hash='#/p/${p.id}'">
           <div class="row">
@@ -7231,11 +7230,19 @@ async function renderPublicGroup(rid, src) {
           <span class="btn-soft btn-sm">Check Progress ›</span>
         </div>
       `).join('')}
-    </div>
+    </div>` : `
+    <div class="card" style="margin-top:12px;">
+      <b>I have my personal link</b>
+      <p class="muted small" style="margin:4px 0 8px;">Paste the link your admin sent you to see your own payments.</p>
+      <div class="row" style="gap:8px;">
+        <input id="pasteLink" class="grow" placeholder="Paste your personal link" style="min-width:0;">
+        <button class="btn-primary btn-sm" onclick="openPastedLink()">Open</button>
+      </div>
+    </div>`}
     <div id="groupChatBox" style="margin-top:14px;"></div>
 
     <div style="text-align:center;margin-top:16px;">
-      <button class="btn-outline" onclick="location.hash='#/j/${rid}/link'">Not on the list? Ask to join</button>
+      <button class="${(r.people || []).length ? 'btn-outline' : 'btn-primary'}" onclick="location.hash='#/j/${rid}/link'">${(r.people || []).length ? 'Not on the list? Ask to join' : 'Ask to join this group'}</button>
     </div>
   `;
   initGroupChat(rid, { isOwner: false, title: r.title });
@@ -7715,14 +7722,19 @@ async function runDiscover() {
 // ---- Fixed page bar (back button + current page name) ----
 const PB_TITLES = { contributions: 'Contributions', business: 'Business', debts: 'Debts', reports: 'Reports', more: 'Me', settings: 'Settings', profile: 'My Profile', notifications: 'Notifications', discover: 'Find people & groups', r: 'Record', p: 'Payment progress', g: 'Group', j: 'Join group' };
 const PB_PARENT = { settings: '#/more', profile: '#/more', r: '#/contributions' };
-let navStack = [location.hash];
+let navIdx = 0;
+try {
+  if (history.state && typeof history.state.idx === 'number') navIdx = history.state.idx;
+  else history.replaceState(Object.assign({}, history.state || {}, { idx: 0 }), '');
+} catch (e) {}
 window.addEventListener('hashchange', () => {
-  const h = location.hash;
-  if (navStack.length > 1 && navStack[navStack.length - 2] === h) navStack.pop(); else navStack.push(h);
+  const st = history.state;
+  if (st && typeof st.idx === 'number') navIdx = st.idx;          // back / forward: entry already numbered
+  else { navIdx += 1; try { history.replaceState({ idx: navIdx }, ''); } catch (e) {} }  // new page opened
 });
 function pageBack() {
-  const p = hash();
-  if (navStack.length > 1) { history.back(); return; }
+  if (navIdx > 0) { history.back(); return; }                     // go to the page you came from
+  const p = hash();                                               // opened directly (shared link etc.)
   let to = '#/';
   if (p[0] === 'contributions' && p[1] === 'new') to = '#/contributions';
   else if (p[0] === 'r' && p[2]) to = '#/r/' + p[1];
