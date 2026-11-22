@@ -8,6 +8,8 @@
 <meta name="description" content="Simple records, clear progress. Track contributions, business sales, expenses, and debts with private progress links and instant receipts.">
 <meta property="og:title" content="Recordly — Simple records, clear progress">
 <meta property="og:description" content="Simple records, clear progress. Track contributions, business sales, expenses, and debts with private progress links and instant receipts.">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://ptcdywucfpbnocxlxoog.supabase.co" crossorigin>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -3588,6 +3590,12 @@ async function loadAccountData() {
     Store.data.owner = user.id;
     const SEL_BASE = 'id,title,description,target,end_date,show_table,group_link,created_at,people(id,name,phone,payments(id,amount,paid_on,note))';
     const SEL_EXT = 'id,title,description,target,end_date,show_table,group_link,hide_balance,discoverable,created_at,people(id,name,phone,email,due_date,installment_plan,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note,logged_by,edited_at,edit_reason,voided,voided_at,void_reason,proof_path,change_log))';
+    // Start the independent queries together with the records query instead of one after another.
+    const safe = q => q.then(r => r, e => ({ error: e }));
+    const exP = safe(sb.from('records').select('id,freq,start_date,period_amount').eq('owner_id', user.id));
+    const prP = safe(sb.from('rc_profiles').select('searchable,tos_accepted_at').eq('id', user.id).maybeSingle());
+    const rpP = safe(sb.from('payment_reports').select('*').order('created_at', { ascending: false }).limit(60));
+    const blP = safe(sb.from('user_blocks').select('*').eq('blocker_id', user.id).order('created_at', { ascending: false }));
     let qres = await sb.from('records').select(SEL_EXT).eq('owner_id', user.id).order('created_at');
     if (qres.error) { qres = await sb.from('records').select(SEL_BASE).eq('owner_id', user.id).order('created_at'); extOk = false; } else { extOk = true; }
     const { data, error } = qres;
@@ -3648,32 +3656,32 @@ async function loadAccountData() {
       });
     }
     try {
-      const ex = await sb.from('records').select('id,freq,start_date,period_amount').eq('owner_id', user.id);
+      const ex = await exP;
       if (!ex.error && ex.data) ex.data.forEach(x => {
         const loc = (Store.data.records || []).find(r => r.id === x.id);
         if (loc && !loc.freq && x.freq && x.freq !== 'once') { loc.freq = x.freq; loc.start = x.start_date || null; loc.period_amount = Number(x.period_amount) || null; }
       });
     } catch (e) {}
     try {
-      const pr = await sb.from('rc_profiles').select('searchable,tos_accepted_at').eq('id', user.id).maybeSingle();
+      const pr = await prP;
       if (!pr.error && pr.data) {
         if (!Store.data.settings) Store.data.settings = {};
         if (pr.data.searchable === false) Store.data.settings.hideFromSearch = true;
       }
     } catch (e) {}
     try {
-      const rp = await sb.from('payment_reports').select('*').order('created_at', { ascending: false }).limit(60);
+      const rp = await rpP;
       if (!rp.error && Array.isArray(rp.data)) { paymentReports = rp.data; saveLocalReports(); }
     } catch (e) {}
     try {
-      const bl = await sb.from('user_blocks').select('*').eq('blocker_id', user.id).order('created_at', { ascending: false });
+      const bl = await blP;
       if (!bl.error && Array.isArray(bl.data)) { myBlocks = bl.data; saveLocalBlocks(); }
     } catch (e) {}
     const d = Store.data;
     if (!(d.customers.length || d.sales.length || d.expenses.length || d.debts.length)) {
       let b = null;
-      try { const u = await sb.auth.getUser(); b = u.data?.user?.user_metadata?.recordly_backup || null; } catch (e) {}
-      if (!b) { try { const t = await sb.from('user_backups').select('backup').eq('user_id', user.id).maybeSingle(); if (t.data?.backup) b = t.data.backup; } catch (e) {} }
+      try { const t = await sb.from('user_backups').select('backup').eq('user_id', user.id).maybeSingle(); if (t.data?.backup) b = t.data.backup; } catch (e) {}
+      if (!b) b = (user.user_metadata && user.user_metadata.recordly_backup) || null;
       if (b) {
         ['customers', 'sales', 'expenses', 'debts'].forEach(k => { if (Array.isArray(b[k])) d[k] = b[k]; });
         if (b.settings) d.settings = Object.assign({}, d.settings, b.settings);
@@ -4060,26 +4068,33 @@ async function syncLocalDataToSupabase(options = { silent: true }) {
     const bsig = JSON.stringify([backupPayload.records, backupPayload.customers, backupPayload.sales, backupPayload.expenses, backupPayload.debts, backupPayload.settings]);
     if (bsig === lastBackupSig) { cloudSyncStatus = 'synced'; updateSyncStatusBadge(); return; }
 
-    // 1. Primary Cloud Backup into Supabase Auth User Metadata
-    const { error: updateError } = await sb.auth.updateUser({
-      data: {
-        recordly_backup: backupPayload,
-        recordly_last_synced: syncTimestamp
-      }
-    });
-
-    if (updateError) {
-      console.warn('Supabase auth metadata backup notice:', updateError);
-    }
-
-    // 2. Also try upserting to user_backups table if provisioned
+    // Backup goes to the user_backups table. Auth user metadata is copied into the login token
+    // sent with every request, so a big backup there makes the whole app slow.
+    let tableOk = false;
     try {
-      await sb.from('user_backups').upsert({
+      const up = await sb.from('user_backups').upsert({
         user_id: user.id,
         backup: backupPayload,
         updated_at: syncTimestamp
       }, { onConflict: 'user_id' });
+      tableOk = !up.error;
     } catch (tblErr) {}
+
+    if (tableOk) {
+      // Table backup works: remove any old big backup from the login metadata (once).
+      if (user.user_metadata && user.user_metadata.recordly_backup) {
+        try {
+          const r = await sb.auth.updateUser({ data: { recordly_backup: null } });
+          if (r && r.data && r.data.user) user = r.data.user;
+        } catch (e) {}
+      }
+    } else {
+      // No backup table yet: keep the old metadata backup so nothing is lost.
+      const { error: updateError } = await sb.auth.updateUser({
+        data: { recordly_backup: backupPayload, recordly_last_synced: syncTimestamp }
+      });
+      if (updateError) console.warn('Supabase auth metadata backup notice:', updateError);
+    }
 
     lastBackupSig = bsig;
     cloudSyncStatus = 'synced';
@@ -9698,10 +9713,17 @@ async function start() {
     syncLocalDataToSupabase({ silent: true });
   });
 
-  if (user) await loadAccountData();
+  // Show the app straight away from the data saved on this phone, then refresh from the server in the background.
+  // Only wait for the server when the saved data belongs to a different account (or there is none).
+  let bgLoad = null;
+  if (user) {
+    if (Store.data.owner === user.id) { bgLoad = loadAccountData(); }
+    else await loadAccountData();
+  }
   window.addEventListener('hashchange', render);
   await render();
-  hideSplash(Math.max(0, 1400 - (Date.now() - splashAt)));
+  hideSplash(Math.max(0, 500 - (Date.now() - splashAt)));
+  if (bgLoad) bgLoad.then(() => syncLocalDataToSupabase({ silent: true }));
   setTimeout(maybeOfferLock, 2600);
 
   if (user) {
