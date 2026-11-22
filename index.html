@@ -1272,6 +1272,43 @@ body.has-pagebar #pageBar{display:block;position:fixed;top:0;left:0;right:0;z-in
 body.has-pagebar{padding-top:calc(52px + env(safe-area-inset-top,0px))}
 body.has-pagebar .top-header{display:none!important}
 body.has-pagebar .backbtn,body.has-pagebar .page-head .pback{display:none}
+
+/* Trust, Audit, Proofs, Schedules, Legal, Plans & Staff */
+.stat-val,.fit-amt,.amt-num{font-variant-numeric:tabular-nums}
+.pay-card{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:16px;border:1px solid var(--line);background:var(--card)}
+.pay-card.voided{background:var(--box-bg);opacity:.78}
+.pay-card.voided .pay-amt{text-decoration:line-through;color:var(--muted)}
+.pay-top{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.pay-amt{font-size:17px;font-weight:800;font-variant-numeric:tabular-nums}
+.pay-audit{background:var(--box-bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:12px;color:var(--muted);display:grid;gap:4px}
+.pay-audit b{color:var(--text)}
+.report-flag{background:var(--accent-red-light);border:1px solid var(--line);color:var(--accent-red);border-radius:10px;padding:8px 10px;font-size:12.5px;display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.report-flag.resolved{background:var(--primary-light);color:var(--primary)}
+.proof-drop{border:1.5px dashed var(--input-border);border-radius:12px;padding:12px;background:var(--box-bg);display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.proof-thumb{width:48px;height:48px;border-radius:8px;object-fit:cover;border:1px solid var(--line);cursor:pointer;flex-shrink:0}
+.proof-modal-img{max-width:100%;max-height:70vh;border-radius:12px;border:1px solid var(--line);display:block;margin:0 auto;background:var(--box-bg)}
+.sched-box{border:1px solid var(--line);border-radius:14px;padding:12px;background:var(--box-bg);margin-top:10px}
+.sched-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.sched-row:last-child{border-bottom:0;padding-bottom:0}
+.tag-inline{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:6px;white-space:nowrap}
+.tag-overdue{background:var(--accent-red-light);color:var(--accent-red)}
+.tag-due{background:var(--accent-amber-light);color:var(--accent-amber)}
+.tag-ok{background:var(--primary-light);color:var(--primary)}
+.tag-void{background:var(--box-bg);color:var(--muted);border:1px solid var(--line)}
+.tos-check{display:flex!important;align-items:flex-start!important;gap:10px;margin:10px 0 6px!important;font-size:12.5px!important;line-height:1.45;color:var(--muted)!important;cursor:pointer}
+.tos-check input{width:20px!important;height:20px!important;min-width:20px;margin:2px 0 0!important;padding:0!important;accent-color:var(--primary)}
+.tos-check a{color:var(--primary);font-weight:700;text-decoration:underline}
+.staff-banner{background:var(--accent-amber-light);border:1px solid var(--line);color:var(--text);border-radius:14px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px}
+.plan-grid{display:grid;gap:10px;margin-top:10px}
+.plan-card{border:1px solid var(--line);border-radius:16px;padding:14px;background:var(--card)}
+.plan-card.active{border:2px solid var(--primary);background:var(--box-bg)}
+.usage-bar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:6px}
+.usage-fill{height:100%;background:var(--primary);border-radius:99px;transition:width .25s ease}
+.usage-fill.warn{background:var(--accent-amber)}
+.usage-fill.full{background:var(--accent-red)}
+.legal-body{font-size:13.5px;line-height:1.65;color:var(--muted);max-height:62vh;overflow-y:auto;padding-right:4px}
+.legal-body h3{margin:16px 0 6px;font-size:15px;color:var(--text)}
+.legal-body ul{padding-left:18px;margin:6px 0}
 </style>
 </head>
 <body>
@@ -1413,7 +1450,7 @@ const b64u = {
   enc: b => btoa(String.fromCharCode(...new Uint8Array(b))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''),
   dec: t => Uint8Array.from(atob(t.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
 };
-const isPublicHash = () => /^#\/(p|g|j)\//.test(location.hash);
+const isPublicHash = () => /^#\/(p|g|j|staff-invite)\/|^#\/(terms|privacy)$/.test(location.hash);
 function lockCfg() { try { return JSON.parse(localStorage.getItem('rc_lock') || 'null'); } catch (e) { return null; } }
 function saveLock(c) { try { c ? localStorage.setItem('rc_lock', JSON.stringify(c)) : localStorage.removeItem('rc_lock'); } catch (e) {} }
 const lockActive = () => { const c = lockCfg(); return !!(user && c && c.uid === user.id); };
@@ -1779,6 +1816,19 @@ function startLiveAlerts() {
       const c = m.new;
       if (c.author_id === user.id) return;
       pushAlert('New comment from ' + (c.author_name || 'someone'), String(c.body || '').slice(0, 80), '#/p/' + c.person_id);
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'payment_reports', filter: 'owner_id=eq.' + user.id }, m => {
+      const rep = m.new;
+      if (!rep) return;
+      if (!paymentReports.some(x => x.id === rep.id)) paymentReports.unshift(rep);
+      saveLocalReports();
+      pushAlert('Problem reported by ' + (rep.reporter_name || 'a member'), rep.reason + (rep.details ? ' · ' + String(rep.details).slice(0, 60) : ''), '#/r/' + rep.record_id + '/' + rep.person_id, 'rep:' + rep.id);
+      softRender();
+    })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: 'user_id=eq.' + user.id }, m => {
+      const n = m.new;
+      if (!n) return;
+      pushAlert(n.title || 'New update', n.body || '', n.link || '#/notifications', 'n:' + n.id);
     })
     .subscribe();
 }
@@ -2164,8 +2214,8 @@ function needRecordModal(title) {
 let qpList = [];
 function quickLogPayment() {
   qpList = [];
-  (Store.data.records || []).forEach(r => (r.people || []).forEach(p => qpList.push({ rid: r.id, pid: p.id, name: p.name || 'Member', title: r.title })));
-  if (!qpList.length) return needRecordModal('Log a payment');
+  activeRecords().forEach(r => (r.people || []).forEach(p => qpList.push({ rid: r.id, pid: p.id, name: p.name || 'Member', title: r.title })));
+  if (!qpList.length) return isStaffMode() ? toast('The group owner has not added any members yet.') : needRecordModal('Log a payment');
   $('modalRoot').innerHTML = miniModal('Who paid you?', `<input id="qpSearch" placeholder="Search a name" oninput="qpRender()" style="margin-bottom:10px;"><div class="list" id="qpList"></div>`);
   qpRender();
 }
@@ -2178,8 +2228,8 @@ function shareWA(path) {
   window.open('https://wa.me/?text=' + encodeURIComponent((path.indexOf('j/') === 0 ? 'You are invited to join my group on Recordly. Tap to ask to join: ' : 'Check your payment progress here: ') + link(path)), '_blank');
 }
 function quickShareLink() {
-  const recs = Store.data.records || [];
-  if (!recs.length) return needRecordModal('Share a link');
+  const recs = activeRecords();
+  if (!recs.length) return isStaffMode() ? toast('No groups available in this workspace yet.') : needRecordModal('Share a link');
   const row = (label, path) => `<div class="row between" style="padding:8px 0;border-top:1px solid var(--line);"><span>${esc(label)}</span><span class="row"><button class="btn-soft btn-sm" onclick="copyText('${link(path)}')">Copy</button><button class="btn-primary btn-sm" onclick="shareWA('${path}')">WhatsApp</button></span></div>`;
   const inner = recs.map(r => `<div class="card" style="padding:12px;margin-bottom:10px;"><b>${esc(r.title)}</b>${row('Invite link (they ask to join)', 'j/' + r.id + '/invite')}${r.group_link ? row('Group link (everyone)', 'g/' + r.id) : '<div class="muted small" style="margin-top:4px;">Group link is off for this record.</div>'}${(r.people || []).map(p => row(p.name || 'Member', 'p/' + p.id)).join('')}</div>`).join('');
   $('modalRoot').innerHTML = miniModal('Send a progress link', `<p class="muted small" style="margin-top:0;">Each person gets their own link. Tap WhatsApp to send it.</p>${inner}`);
@@ -2406,6 +2456,1127 @@ function animateLanding() {
   requestAnimationFrame(step);
 }
 
+// ===== TRUST, SAFETY, SCHEDULES, LIVE PUSH, BREVO EMAIL, STAFF RBAC & PLANS =====
+const TOS_VERSION = '2026-11';
+const PLAN_META = {
+  free: {
+    name: 'Free',
+    price: '₦0 / mo',
+    groups: 3,
+    members: 25,
+    staff: 0,
+    features: ['Up to 3 contribution groups', 'Up to 25 members per group', 'Receipts, statements & public progress links']
+  },
+  pro: {
+    name: 'Pro',
+    price: '₦4,500 / mo',
+    groups: 25,
+    members: 200,
+    staff: 3,
+    features: ['Up to 25 contribution groups', 'Up to 200 members per group', 'Up to 3 staff / helper accounts', 'Email receipts & live payment push alerts']
+  },
+  business: {
+    name: 'Business',
+    price: '₦12,000 / mo',
+    groups: Infinity,
+    members: Infinity,
+    staff: 15,
+    features: ['Unlimited contribution groups', 'Unlimited members per group', 'Up to 15 staff / helper accounts', 'Full payment change log & CSV exports']
+  }
+};
+
+let staffWorkspaces = [];
+let activeStaffOwnerId = null;
+try { activeStaffOwnerId = localStorage.getItem('rc_staff_owner') || null; } catch (e) {}
+let staffRecords = [];
+let myPlanInfo = { plan: 'free', record_limit: 3, member_limit: 25, staff_limit: 0, records_used: 0, max_members_used: 0, staff_used: 0 };
+let paymentReports = [];
+try { paymentReports = JSON.parse(localStorage.getItem('rc_reports') || '[]'); } catch (e) {}
+let myBlocks = [];
+try { myBlocks = JSON.parse(localStorage.getItem('rc_blocks') || '[]'); } catch (e) {}
+let teamMembersList = [];
+
+function saveLocalReports() {
+  try { localStorage.setItem('rc_reports', JSON.stringify((paymentReports || []).slice(0, 200))); } catch (e) {}
+}
+function saveLocalBlocks() {
+  try { localStorage.setItem('rc_blocks', JSON.stringify((myBlocks || []).slice(0, 200))); } catch (e) {}
+}
+
+// Active payments (voided entries remain in history for transparency but never count in totals)
+function activePays(p) {
+  return ((p && p.payments) || []).filter(x => !x.voided);
+}
+function paySum(p) {
+  return activePays(p).reduce((a, x) => a + Number(x.amount || 0), 0);
+}
+
+// Workspace helpers (Owner vs Staff/Helper)
+function currentStaffWorkspace() {
+  if (!activeStaffOwnerId) return null;
+  return (staffWorkspaces || []).find(w => w.owner_id === activeStaffOwnerId) || null;
+}
+function isStaffMode() {
+  return !!currentStaffWorkspace();
+}
+function activeRecords() {
+  return isStaffMode() ? (staffRecords || []) : (Store.data.records || []);
+}
+function findRec(rid) {
+  return activeRecords().find(x => x.id === rid) || (Store.data.records || []).find(x => x.id === rid) || (staffRecords || []).find(x => x.id === rid) || null;
+}
+function isRecOwner(r) {
+  if (!r) return false;
+  if (isStaffMode() && (staffRecords || []).some(x => x.id === r.id)) return false;
+  if (user && r.owner_id && r.owner_id !== user.id) return false;
+  return true;
+}
+
+async function loadStaffWorkspacesAndRecords() {
+  if (!user) return;
+  try {
+    const { data, error } = await sb.rpc('rc_get_staff_workspaces');
+    if (!error && Array.isArray(data)) staffWorkspaces = data;
+  } catch (e) {}
+  if (activeStaffOwnerId && !currentStaffWorkspace()) {
+    activeStaffOwnerId = null;
+    try { localStorage.removeItem('rc_staff_owner'); } catch (e) {}
+  }
+  if (activeStaffOwnerId) {
+    await fetchStaffOwnerRecords(activeStaffOwnerId);
+  } else {
+    staffRecords = [];
+  }
+}
+
+async function fetchStaffOwnerRecords(ownerId) {
+  if (!user || !ownerId) { staffRecords = []; return; }
+  try {
+    const SEL_STAFF = 'id,owner_id,title,description,target,end_date,show_table,group_link,hide_balance,discoverable,freq,start_date,period_amount,created_at,people(id,name,phone,email,due_date,installment_plan,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note,logged_by,edited_at,edit_reason,voided,voided_at,void_reason,proof_path,change_log))';
+    let q = await sb.from('records').select(SEL_STAFF).eq('owner_id', ownerId).order('created_at');
+    if (q.error) {
+      q = await sb.from('records').select('id,owner_id,title,description,target,end_date,show_table,group_link,created_at,people(id,name,phone,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note))').eq('owner_id', ownerId).order('created_at');
+    }
+    if (!q.error && Array.isArray(q.data)) {
+      staffRecords = q.data.map(r => ({
+        ...r,
+        people: (r.people || []).map(p => ({
+          ...p,
+          phone: p.phone || '',
+          email: p.email || '',
+          due_date: p.due_date || null,
+          installment_plan: Array.isArray(p.installment_plan) ? p.installment_plan : [],
+          payments: (p.payments || []).map(x => ({ ...x, amount: Number(x.amount) }))
+        }))
+      }));
+    }
+  } catch (e) {}
+}
+
+async function switchWorkspace(ownerId) {
+  activeStaffOwnerId = ownerId || null;
+  try {
+    if (activeStaffOwnerId) localStorage.setItem('rc_staff_owner', activeStaffOwnerId);
+    else localStorage.removeItem('rc_staff_owner');
+  } catch (e) {}
+  if (activeStaffOwnerId) {
+    toast('Switching to staff workspace…');
+    await fetchStaffOwnerRecords(activeStaffOwnerId);
+  } else {
+    staffRecords = [];
+    toast('Switched to your personal workspace.');
+  }
+  render();
+}
+
+// Plan usage & enforcement
+async function loadMyPlanUsage() {
+  if (!user) return;
+  try {
+    const { data, error } = await sb.rpc('rc_get_my_plan_usage');
+    if (!error && data && data.plan) {
+      myPlanInfo = {
+        plan: data.plan,
+        record_limit: data.limits?.max_records ?? -1,
+        member_limit: data.limits?.max_members_per_record ?? -1,
+        staff_limit: data.limits?.max_staff ?? 0,
+        records_used: data.usage?.records ?? 0,
+        max_members_used: data.usage?.max_group_members ?? 0,
+        staff_used: data.usage?.staff ?? 0
+      };
+      return;
+    }
+  } catch (e) {}
+  const recs = Store.data.records || [];
+  const maxM = recs.reduce((m, r) => Math.max(m, (r.people || []).length), 0);
+  const p = PLAN_META[myPlanInfo.plan] || PLAN_META.free;
+  myPlanInfo = {
+    plan: myPlanInfo.plan || 'free',
+    record_limit: p.groups === Infinity ? -1 : p.groups,
+    member_limit: p.members === Infinity ? -1 : p.members,
+    staff_limit: p.staff,
+    records_used: recs.length,
+    max_members_used: maxM,
+    staff_used: (teamMembersList || []).filter(t => t.status === 'active' || t.status === 'pending').length
+  };
+}
+
+function checkPlanQuota(kind, extraCount = 1, rec = null) {
+  if (isStaffMode()) return true; // Staff operates under owner's DB-enforced triggers
+  const curPlan = (myPlanInfo && myPlanInfo.plan) || 'free';
+  const spec = PLAN_META[curPlan] || PLAN_META.free;
+  if (kind === 'records') {
+    const used = (Store.data.records || []).filter(r => !/^rec_/.test(r.id)).length;
+    if (spec.groups !== Infinity && used + extraCount > spec.groups) {
+      toast(`${spec.name} plan allows up to ${spec.groups} groups. Upgrade to add more.`, 'bad');
+      openPlansModal();
+      return false;
+    }
+  } else if (kind === 'members') {
+    const current = rec ? (rec.people || []).length : 0;
+    if (spec.members !== Infinity && current + extraCount > spec.members) {
+      toast(`${spec.name} plan allows up to ${spec.members} members per group. Upgrade to add more.`, 'bad');
+      openPlansModal();
+      return false;
+    }
+  } else if (kind === 'staff') {
+    const used = (teamMembersList || []).filter(t => t.status === 'active' || t.status === 'pending').length;
+    if (used + extraCount > spec.staff) {
+      toast(`${spec.name} plan allows ${spec.staff} staff accounts. Upgrade to invite staff.`, 'bad');
+      openPlansModal();
+      return false;
+    }
+  }
+  return true;
+}
+
+function handleDbPlanError(err) {
+  const msg = String((err && (err.message || err.details || err)) || '');
+  if (/PLAN_LIMIT_RECORDS/i.test(msg)) {
+    toast('Group limit reached for your current plan. Upgrade to create more groups.', 'bad');
+    openPlansModal();
+    return true;
+  }
+  if (/PLAN_LIMIT_MEMBERS/i.test(msg)) {
+    toast('Member limit per group reached for your current plan. Upgrade to add more.', 'bad');
+    openPlansModal();
+    return true;
+  }
+  if (/PLAN_LIMIT_STAFF/i.test(msg)) {
+    toast('Staff limit reached for your current plan. Upgrade to invite more helpers.', 'bad');
+    openPlansModal();
+    return true;
+  }
+  return false;
+}
+
+function openPlansModal() {
+  loadMyPlanUsage();
+  const cur = (myPlanInfo && myPlanInfo.plan) || 'free';
+  const recsUsed = (Store.data.records || []).length;
+  const maxMem = (Store.data.records || []).reduce((m, r) => Math.max(m, (r.people || []).length), 0);
+  const staffUsed = myPlanInfo.staff_used || 0;
+  const meter = (label, used, lim) => {
+    const inf = lim === -1 || lim === Infinity;
+    const pct = inf ? 15 : lim > 0 ? Math.min(100, Math.round((used / lim) * 100)) : 100;
+    const cls = !inf && used >= lim ? 'full' : !inf && pct >= 80 ? 'warn' : '';
+    return `<div style="margin-bottom:10px;">
+      <div class="row between small"><span>${esc(label)}</span><b>${used} / ${inf ? 'Unlimited' : lim}</b></div>
+      <div class="usage-bar"><div class="usage-fill ${cls}" style="width:${pct}%"></div></div>
+    </div>`;
+  };
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:480px;max-height:90vh;overflow:auto;">
+    <div class="row between" style="margin-bottom:10px;"><h2>Plans &amp; Usage</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="card" style="background:var(--box-bg);margin-bottom:12px;">
+      <div class="small muted" style="font-weight:700;margin-bottom:8px;">YOUR CURRENT USAGE (${esc((PLAN_META[cur] || PLAN_META.free).name.toUpperCase())} PLAN)</div>
+      ${meter('Contribution Groups', recsUsed, (PLAN_META[cur] || PLAN_META.free).groups)}
+      ${meter('Largest Group Size', maxMem, (PLAN_META[cur] || PLAN_META.free).members)}
+      ${meter('Staff / Helper Accounts', staffUsed, (PLAN_META[cur] || PLAN_META.free).staff)}
+    </div>
+    <div class="plan-grid">
+      ${Object.keys(PLAN_META).map(k => {
+        const p = PLAN_META[k], active = cur === k;
+        return `<div class="plan-card ${active ? 'active' : ''}">
+          <div class="row between">
+            <div><b style="font-size:16px;">${esc(p.name)}</b><div class="muted small">${esc(p.price)}</div></div>
+            ${active ? '<span class="badge badge-green">Current plan</span>' : `<span class="badge">Coming soon</span>`}
+          </div>
+          <ul class="small muted" style="margin:8px 0 0;padding-left:18px;">
+            ${p.features.map(f => `<li>${esc(f)}</li>`).join('')}
+          </ul>
+        </div>`;
+      }).join('')}
+    </div>
+    <p class="small muted" style="margin-top:10px;">Limits are enforced at the database level to keep every account fair and reliable.</p>
+  </div></div>`;
+}
+
+async function selectUserPlan(planName) {
+  // Plans are set by the server after a real payment, never from the app.
+  toast('Paid plans are coming soon.');
+}
+
+// Staff / Helper team management
+async function loadTeamMembers() {
+  if (!user) return;
+  try {
+    const { data, error } = await sb.from('team_members').select('*').eq('owner_id', user.id).order('created_at', { ascending: false });
+    if (!error && Array.isArray(data)) teamMembersList = data;
+  } catch (e) {}
+}
+
+async function openTeamManagerModal() {
+  if (!user) { authModal('login'); return; }
+  await loadTeamMembers();
+  await loadMyPlanUsage();
+  const curPlan = (myPlanInfo && myPlanInfo.plan) || 'free';
+  const staffLimit = (PLAN_META[curPlan] || PLAN_META.free).staff;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:480px;max-height:90vh;overflow:auto;">
+    <div class="row between" style="margin-bottom:8px;"><h2>Team &amp; Staff Accounts</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted small">Helpers can view your groups, add members, and log payments. Database rules stop helpers from deleting groups, removing members, voiding payments, or changing account settings.</p>
+    ${staffLimit === 0 ? `<div class="banner banner-warning"><div>Your <b>Free plan</b> includes 0 staff seats. Upgrade to Pro (3 staff) or Business (15 staff) to invite helpers.</div></div><button class="btn-primary full" onclick="openPlansModal()">View Plans &amp; Upgrade</button>` : `
+      <div class="card" style="background:var(--box-bg);margin:10px 0;">
+        <div class="field"><label for="staffName">Helper Name</label><input id="staffName" placeholder="e.g. Musa Cashier"></div>
+        <div class="field"><label for="staffEmail">Helper Email *</label><input id="staffEmail" type="email" placeholder="helper@gmail.com"></div>
+        <button class="btn-primary full" id="invStaffBtn" onclick="inviteStaffMember()">Create Staff Invite Link</button>
+      </div>
+    `}
+    <div class="sh-title" style="margin-top:12px;">ACTIVE &amp; INVITED STAFF (${teamMembersList.filter(t => t.status !== 'revoked').length} / ${staffLimit})</div>
+    <div class="list">
+      ${teamMembersList.length ? teamMembersList.map(t => {
+        const invUrl = link('staff-invite/' + t.invite_code);
+        return `<div class="item-card" style="flex-direction:column;align-items:stretch;gap:8px;">
+          <div class="row between">
+            <div>
+              <b>${esc(t.staff_name || t.staff_email)}</b>
+              <div class="small muted">${esc(t.staff_email)} · <span class="badge ${t.status === 'active' ? 'badge-green' : t.status === 'revoked' ? 'badge-red' : 'badge-amber'}">${esc(t.status)}</span></div>
+            </div>
+            ${t.status !== 'revoked' ? `<button class="btn-danger btn-sm" onclick="revokeStaffMember('${t.id}')">Revoke</button>` : ''}
+          </div>
+          ${t.status === 'pending' && t.invite_code ? `<div class="row" style="gap:6px;">
+            <input readonly value="${esc(invUrl)}" style="font-size:12px;padding:7px 9px;" onclick="this.select()">
+            <button class="btn-soft btn-sm" onclick="copyText('${esc(invUrl)}')">Copy Invite</button>
+          </div>` : ''}
+        </div>`;
+      }).join('') : '<div class="empty-box" style="padding:16px;">No staff helpers invited yet.</div>'}
+    </div>
+  </div></div>`;
+}
+
+async function inviteStaffMember() {
+  if (!checkPlanQuota('staff', 1)) return;
+  const email = val('staffEmail');
+  const name = val('staffName');
+  if (!email || !email.includes('@')) { toast('Enter a valid helper email address.'); return; }
+  const btn = $('invStaffBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Creating invite…'; }
+  try {
+    const { data, error } = await sb.rpc('rc_invite_staff', { email_in: email, name_in: name || null });
+    if (error) {
+      if (!handleDbPlanError(error)) toast(error.message || 'Could not create invite.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Create Staff Invite Link'; }
+      return;
+    }
+    toast('Staff invite created! Share the invite link with your helper.');
+    await openTeamManagerModal();
+  } catch (e) {
+    toast('Could not invite staff. Make sure schema.sql is applied.');
+    if (btn) { btn.disabled = false; btn.textContent = 'Create Staff Invite Link'; }
+  }
+}
+
+async function revokeStaffMember(id) {
+  if (!confirm('Revoke this helper’s access to your workspace?')) return;
+  try {
+    const { error } = await sb.rpc('rc_revoke_staff', { tm_id: id });
+    if (error) throw error;
+    toast('Staff access revoked.');
+    await openTeamManagerModal();
+  } catch (e) {
+    toast(e.message || 'Could not revoke staff.');
+  }
+}
+
+async function renderStaffInviteRoute(code) {
+  $('app').innerHTML = '<div class="card"><p class="muted">Checking staff invite…</p></div>';
+  if (!user) {
+    $('app').innerHTML = `<div class="card">
+      <div class="pill">STAFF INVITATION</div>
+      <h1 style="margin-top:8px;">You are invited to help manage a Recordly workspace</h1>
+      <p class="muted">Sign in or create a free Recordly account with the invited email address to accept this helper role.</p>
+      <div class="row" style="margin-top:12px;">
+        <button class="btn-primary" onclick="authModal('login')">Log in</button>
+        <button class="btn-outline" onclick="authModal('signup')">Create account</button>
+      </div>
+    </div>`;
+    return;
+  }
+  $('app').innerHTML = `<div class="card">
+    <div class="pill">STAFF INVITATION</div>
+    <h1 style="margin-top:8px;">Join Workspace as Helper</h1>
+    <p class="muted">As a staff helper, you can view the owner's contribution groups, add members, and log payments with receipts. You cannot delete groups, remove members, void payments, or delete the account.</p>
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-primary" id="accStaffBtn" onclick="acceptStaffInviteCode('${esc(code)}')">Accept Staff Role</button>
+      <button class="btn-outline" onclick="location.hash='#/'">Cancel</button>
+    </div>
+  </div>`;
+}
+
+async function acceptStaffInviteCode(code) {
+  const b = $('accStaffBtn'); if (b) { b.disabled = true; b.textContent = 'Joining…'; }
+  try {
+    const { data, error } = await sb.rpc('rc_accept_staff_invite', { code_or_id: code });
+    if (error) throw error;
+    await loadStaffWorkspacesAndRecords();
+    if (data && data.owner_id) {
+      activeStaffOwnerId = data.owner_id;
+      try { localStorage.setItem('rc_staff_owner', activeStaffOwnerId); } catch (e) {}
+      await fetchStaffOwnerRecords(activeStaffOwnerId);
+    }
+    toast('You are now active as a staff helper!');
+    location.hash = '#/';
+    render();
+  } catch (e) {
+    toast(e.message || 'Could not accept staff invite.');
+    if (b) { b.disabled = false; b.textContent = 'Accept Staff Role'; }
+  }
+}
+
+// ===== PAYMENT TRUST: CHANGE LOG (EDIT / VOID), PROOF UPLOAD & PROBLEM REPORTS =====
+function openProofModal(proofPath, localPreview) {
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:460px;">
+    <div class="row between" style="margin-bottom:10px;"><h2>Payment Proof</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <div id="proofViewerBody"><p class="muted">Loading transfer proof…</p></div>
+  </div></div>`;
+  (async () => {
+    const body = $('proofViewerBody');
+    if (!body) return;
+    let url = localPreview || null;
+    if (proofPath && sb) {
+      try {
+        const { data, error } = await sb.storage.from('payment-proofs').createSignedUrl(proofPath, 300);
+        if (!error && data && data.signedUrl) url = data.signedUrl;
+      } catch (e) {}
+    }
+    if (!url) {
+      body.innerHTML = '<div class="empty-box">Proof file is not accessible on this device yet. Connect online to load it.</div>';
+      return;
+    }
+    const isPdf = /\.pdf(\?|$)/i.test(proofPath || '') || /^data:application\/pdf/i.test(url);
+    body.innerHTML = isPdf
+      ? `<p class="muted small">PDF payment receipt / transfer slip attached.</p><a class="btn-primary full" href="${esc(url)}" target="_blank" rel="noopener">Open Proof PDF</a>`
+      : `<img class="proof-modal-img" src="${esc(url)}" alt="Payment transfer proof"><div class="row between" style="margin-top:10px;"><span class="small muted">Verified attachment</span><a class="btn-soft btn-sm" href="${esc(url)}" target="_blank" rel="noopener">Open Full Size</a></div>`;
+  })();
+}
+
+async function uploadPaymentProof(rid, pid, payId, file) {
+  if (!file) return { path: null, preview: null };
+  if (file.size > 5 * 1024 * 1024) {
+    toast('Proof file must be 5MB or smaller.', 'bad');
+    return { path: null, preview: null };
+  }
+  const preview = await new Promise(res => {
+    if (!file.type.startsWith('image/') && file.type !== 'application/pdf') return res(null);
+    if (file.size > 1.5 * 1024 * 1024 && file.type.startsWith('image/')) return res(null);
+    const rd = new FileReader();
+    rd.onload = () => res(String(rd.result || ''));
+    rd.onerror = () => res(null);
+    rd.readAsDataURL(file);
+  });
+  let path = null;
+  if (user && sb) {
+    try {
+      const ext = ((file.name || '').split('.').pop() || 'png').toLowerCase().replace(/[^a-z0-9]/g, '') || 'png';
+      const storagePath = `${rid}/${pid}/${payId}.${ext}`;
+      const { error } = await sb.storage.from('payment-proofs').upload(storagePath, file, { upsert: true, contentType: file.type || 'image/png' });
+      if (!error) path = storagePath;
+    } catch (e) { console.warn('Proof storage upload notice:', e); }
+  }
+  return { path, preview };
+}
+
+function previewProofInput(input, prevId) {
+  const f = input && input.files && input.files[0];
+  const box = $(prevId);
+  if (!box) return;
+  if (!f) { box.innerHTML = ''; return; }
+  if (f.size > 5 * 1024 * 1024) { toast('File must be 5MB or less.', 'bad'); input.value = ''; box.innerHTML = ''; return; }
+  if (f.type.startsWith('image/')) {
+    const url = URL.createObjectURL(f);
+    box.innerHTML = `<div class="row" style="margin-top:8px;"><img class="proof-thumb" src="${url}" alt="Selected proof"><span class="small muted">${esc(f.name)}</span></div>`;
+  } else {
+    box.innerHTML = `<div class="small muted" style="margin-top:6px;">📎 ${esc(f.name)} (${Math.round(f.size / 1024)} KB)</div>`;
+  }
+}
+
+function openEditPaymentModal(rid, pid, payId) {
+  if (isStaffMode()) { toast('Only the group owner can edit recorded payments.', 'bad'); return; }
+  const r = findRec(rid), p = r && (r.people || []).find(x => x.id === pid), x = p && (p.payments || []).find(y => y.id === payId);
+  if (!x) return;
+  if (x.voided) { toast('Voided payments cannot be edited.'); return; }
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:440px;">
+    <div class="row between" style="margin-bottom:8px;"><h2>Edit Payment</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted small">Every change is saved to the payment change log and shown to the buyer so records stay trustworthy.</p>
+    <div class="grid-2">
+      <div class="field"><label for="edPayAmt">Amount (₦) *</label><input id="edPayAmt" type="text" inputmode="decimal" data-money value="${esc(String(x.amount))}"></div>
+      <div class="field"><label for="edPayDate">Date Paid *</label><input id="edPayDate" type="date" value="${esc(x.paid_on || localDate())}"></div>
+    </div>
+    <div class="grid-2">
+      <div class="field"><label for="edPayMethod">Method</label><select id="edPayMethod">
+        ${['Cash', 'Bank Transfer', 'Card / POS', 'Cheque', 'Other'].map(m => `<option value="${m}" ${(x.method || 'Cash') === m ? 'selected' : ''}>${m}</option>`).join('')}
+      </select></div>
+      <div class="field"><label for="edPayNote">Note / Reference</label><input id="edPayNote" value="${esc(x.note || '')}" placeholder="Reference"></div>
+    </div>
+    <div class="field"><label for="edPayReason">Reason for Edit * (shown to buyer)</label><input id="edPayReason" placeholder="e.g. Typo: transfer slip confirmed ₦15,000"></div>
+    <div class="field"><label for="edPayProof">Attach / replace transfer proof (optional)</label><input id="edPayProof" type="file" accept="image/*,.pdf" onchange="previewProofInput(this,'edProofPrev')"><div id="edProofPrev"></div></div>
+    <div class="row between" style="margin-top:14px;">
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="submitEditPayment('${rid}','${pid}','${payId}')">Save Audit Change</button>
+    </div>
+  </div></div>`;
+}
+
+async function submitEditPayment(rid, pid, payId) {
+  const amt = Number(val('edPayAmt'));
+  const paidOn = val('edPayDate') || localDate();
+  const method = val('edPayMethod') || 'Cash';
+  const note = val('edPayNote') || null;
+  const reason = val('edPayReason');
+  if (!amt || amt <= 0) { toast('Enter a valid amount.'); return; }
+  if (!reason || reason.length < 3) { toast('Please provide a clear reason for editing this payment.'); return; }
+
+  const r = findRec(rid), p = r && (r.people || []).find(x => x.id === pid), x = p && (p.payments || []).find(y => y.id === payId);
+  if (!x) return;
+
+  const proofFile = ($('edPayProof') && $('edPayProof').files && $('edPayProof').files[0]) || null;
+  let proofPath = x.proof_path || null;
+  if (proofFile) {
+    const up = await uploadPaymentProof(rid, pid, payId, proofFile);
+    if (up.path) proofPath = up.path;
+    if (up.preview) x.proof_preview = up.preview;
+  }
+
+  const nowIso = new Date().toISOString();
+  const entry = {
+    action: 'edited',
+    at: nowIso,
+    by: myName(),
+    reason,
+    prev: { amount: Number(x.amount), paid_on: x.paid_on, method: x.method || 'Cash', note: x.note || null },
+    next: { amount: amt, paid_on: paidOn, method, note }
+  };
+  x.change_log = Array.isArray(x.change_log) ? x.change_log.concat([entry]) : [entry];
+  x.amount = amt;
+  x.paid_on = paidOn;
+  x.method = method;
+  x.note = note;
+  x.edited_at = nowIso;
+  x.edit_reason = reason;
+  if (proofPath) x.proof_path = proofPath;
+
+  Store.save();
+  try {
+    await sb.rpc('rc_edit_payment', { pay_id: payId, new_amount: amt, new_paid_on: paidOn, new_method: method, new_note: note, reason_txt: reason });
+    if (proofPath) await sb.from('payments').update({ proof_path: proofPath }).eq('id', payId);
+  } catch (e) {}
+
+  dispatchPushAlert({
+    recipient_user_id: p.claimed_by || null,
+    person_id: pid,
+    record_id: rid,
+    type: 'payment_edited',
+    title: `Payment updated in ${r.title}`,
+    body: `Updated to ${moneyReal(amt)} · Reason: ${reason}`,
+    link: `#/p/${pid}`
+  });
+
+  closeModal();
+  toast('Payment edited and logged to audit trail.');
+  renderMemberAdmin(rid, pid);
+}
+
+function openVoidPaymentModal(rid, pid, payId) {
+  if (isStaffMode()) { toast('Only the group owner can void payments.', 'bad'); return; }
+  const r = findRec(rid), p = r && (r.people || []).find(x => x.id === pid), x = p && (p.payments || []).find(y => y.id === payId);
+  if (!x) return;
+  if (x.voided) { toast('This payment is already voided.'); return; }
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;">
+    <div class="row between" style="margin-bottom:8px;"><h2>Void Payment</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="banner banner-warning" style="margin-bottom:10px;"><div>Voiding <b>${moneyReal(x.amount)}</b> removes it from the buyer's balance while keeping a permanent audit record.</div></div>
+    <div class="field"><label for="voidReason">Reason for voiding * (shown to buyer)</label><input id="voidReason" placeholder="e.g. Duplicate entry / Reversed transfer"></div>
+    <div class="row between" style="margin-top:14px;">
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn-danger" onclick="submitVoidPayment('${rid}','${pid}','${payId}')">Void Payment</button>
+    </div>
+  </div></div>`;
+  setTimeout(() => $('voidReason')?.focus(), 40);
+}
+
+async function submitVoidPayment(rid, pid, payId) {
+  const reason = val('voidReason');
+  if (!reason || reason.length < 3) { toast('Please provide a reason for voiding this payment.'); return; }
+  const r = findRec(rid), p = r && (r.people || []).find(x => x.id === pid), x = p && (p.payments || []).find(y => y.id === payId);
+  if (!x) return;
+  const nowIso = new Date().toISOString();
+  const entry = { action: 'voided', at: nowIso, by: myName(), reason, prev: { amount: Number(x.amount), paid_on: x.paid_on } };
+  x.change_log = Array.isArray(x.change_log) ? x.change_log.concat([entry]) : [entry];
+  x.voided = true;
+  x.voided_at = nowIso;
+  x.void_reason = reason;
+  Store.save();
+  try { await sb.rpc('rc_void_payment', { pay_id: payId, reason_txt: reason }); } catch (e) {}
+
+  dispatchPushAlert({
+    recipient_user_id: p.claimed_by || null,
+    person_id: pid,
+    record_id: rid,
+    type: 'payment_voided',
+    title: `Payment voided in ${r.title}`,
+    body: `${moneyReal(x.amount)} was voided · Reason: ${reason}`,
+    link: `#/p/${pid}`
+  });
+
+  closeModal();
+  toast('Payment voided and balance updated.');
+  renderMemberAdmin(rid, pid);
+}
+
+function openReportPaymentModal(pid, payId, amt, paidOn) {
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;">
+    <div class="row between" style="margin-bottom:8px;"><h2>Report a Problem</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted small">Flag payment of <b>${moneyReal(amt)}</b>${paidOn ? ' (' + esc(paidOn) + ')' : ''}. The group admin will be notified right away.</p>
+    <div class="field"><label for="repReason">What is wrong?</label><select id="repReason">
+      <option value="Wrong amount recorded">Wrong amount recorded</option>
+      <option value="Duplicate payment">Duplicate payment</option>
+      <option value="Wrong date or method">Wrong date or method</option>
+      <option value="Not my payment">This is not my payment</option>
+      <option value="Other issue">Other issue</option>
+    </select></div>
+    <div class="field"><label for="repExpected">Expected amount (optional, ₦)</label><input id="repExpected" type="text" inputmode="decimal" data-money placeholder="e.g. 15000"></div>
+    <div class="field"><label for="repDetails">Extra details *</label><textarea id="repDetails" rows="3" placeholder="Tell the admin what should be corrected..."></textarea></div>
+    <div class="row between" style="margin-top:14px;">
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" id="repSubBtn" onclick="submitPaymentReport('${pid}','${payId}')">Send Report to Admin</button>
+    </div>
+  </div></div>`;
+}
+
+async function submitPaymentReport(pid, payId) {
+  const reason = val('repReason') || 'Wrong amount recorded';
+  const expected = Number(val('repExpected')) || null;
+  const details = val('repDetails');
+  if (!details) { toast('Please explain what needs to be fixed.'); return; }
+  const btn = $('repSubBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  const repObj = {
+    id: uid(),
+    payment_id: payId,
+    person_id: pid,
+    reason,
+    expected_amount: expected,
+    details,
+    reporter_name: user ? myName() : 'Member',
+    status: 'open',
+    created_at: new Date().toISOString()
+  };
+  let savedOnline = false;
+  try {
+    const { data, error } = await sb.rpc('rc_report_payment', {
+      pid,
+      pay_id: payId,
+      reason_txt: reason,
+      expected_amt: expected,
+      details_txt: details,
+      reporter_nm: repObj.reporter_name
+    });
+    if (!error && data && data.id) { repObj.id = data.id; savedOnline = true; }
+  } catch (e) {}
+  paymentReports.unshift(repObj);
+  saveLocalReports();
+  dispatchPushAlert({
+    person_id: pid,
+    type: 'payment_reported',
+    title: 'Problem reported on a payment',
+    body: `${reason}${expected ? ' (Expected ' + moneyReal(expected) + ')' : ''} · ${details.slice(0, 80)}`,
+    link: `#/p/${pid}`
+  });
+  closeModal();
+  toast(savedOnline ? 'Problem reported! The admin has been alerted.' : 'Report saved on this device.');
+  render();
+}
+
+async function resolvePaymentReport(repId, rid, pid) {
+  const rep = (paymentReports || []).find(x => x.id === repId);
+  if (rep) rep.status = 'resolved';
+  saveLocalReports();
+  try { await sb.rpc('rc_resolve_payment_report', { report_id: repId, note_txt: 'Resolved by admin' }); } catch (e) {}
+  toast('Report marked resolved.');
+  if (rid && pid) renderMemberAdmin(rid, pid);
+  else render();
+}
+
+// ===== BUYER DUE DATES & INSTALMENT SCHEDULES =====
+function memberScheduleSummary(r, p) {
+  const paid = paySum(p);
+  const target = Number((r && r.target) || 0);
+  const today = localDate();
+  const plan = Array.isArray(p && p.installment_plan) ? p.installment_plan.slice().sort((a, b) => (a.due_date || '').localeCompare(b.due_date || '')) : [];
+  let remainingPaid = paid;
+  const rows = plan.map((item, idx) => {
+    const amt = Number(item.amount || 0);
+    const covered = Math.min(amt, Math.max(0, remainingPaid));
+    remainingPaid = Math.max(0, remainingPaid - covered);
+    const left = Math.max(0, amt - covered);
+    const due = item.due_date || '';
+    const isOver = left > 0 && !!due && due < today;
+    const status = left <= 0 ? 'paid' : isOver ? 'overdue' : covered > 0 ? 'partial' : 'upcoming';
+    return {
+      id: item.id || ('inst_' + idx),
+      label: item.label || ('Instalment ' + (idx + 1)),
+      due_date: due,
+      amount: amt,
+      covered,
+      remaining: left,
+      status,
+      overdue: isOver
+    };
+  });
+  const nextRow = rows.find(x => x.remaining > 0) || null;
+  let nextDue = null;
+  if (nextRow) {
+    const dl = nextRow.due_date ? daysUntil(nextRow.due_date) : null;
+    nextDue = {
+      label: nextRow.label,
+      due_date: nextRow.due_date,
+      amount: nextRow.remaining,
+      totalAmount: nextRow.amount,
+      overdue: dl !== null && dl < 0,
+      daysOverdue: dl !== null && dl < 0 ? Math.abs(dl) : 0,
+      daysLeft: dl
+    };
+  } else if (p && p.due_date && (target === 0 || paid < target)) {
+    const bal = target > 0 ? Math.max(0, target - paid) : 0;
+    const dl = daysUntil(p.due_date);
+    nextDue = {
+      label: 'Balance due',
+      due_date: p.due_date,
+      amount: bal,
+      totalAmount: target,
+      overdue: dl !== null && dl < 0,
+      daysOverdue: dl !== null && dl < 0 ? Math.abs(dl) : 0,
+      daysLeft: dl
+    };
+  } else if (r && r.end_date && !isRec(r) && target > 0 && paid < target) {
+    const dl = daysUntil(r.end_date);
+    if (dl !== null && dl < 0) {
+      nextDue = {
+        label: 'Group deadline',
+        due_date: r.end_date,
+        amount: Math.max(0, target - paid),
+        totalAmount: target,
+        overdue: true,
+        daysOverdue: Math.abs(dl),
+        daysLeft: dl
+      };
+    }
+  }
+  const overdue = !!(nextDue && nextDue.overdue);
+  return { paid, target, balance: target ? Math.max(0, target - paid) : 0, rows, nextDue, overdue };
+}
+
+let _schedDraft = [];
+function openMemberScheduleModal(rid, pid) {
+  if (isStaffMode()) { toast('Only the group owner can edit payment schedules.', 'bad'); return; }
+  const r = findRec(rid), p = r && (r.people || []).find(x => x.id === pid);
+  if (!r || !p) return;
+  _schedDraft = Array.isArray(p.installment_plan) ? p.installment_plan.map(x => ({ ...x })) : [];
+  const bal = Math.max(0, Number(r.target || 0) - paySum(p)) || Number(r.target || 0) || '';
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:480px;max-height:90vh;overflow:auto;">
+    <div class="row between" style="margin-bottom:8px;"><h2>Due Date &amp; Instalments</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted small">Set a single due date or split <b>${esc(p.name)}</b>'s payments into scheduled instalments.</p>
+    <div class="grid-2">
+      <div class="field"><label for="schSingleDue">Single due date (if no instalments)</label><input id="schSingleDue" type="date" value="${esc(p.due_date || '')}"></div>
+      <div class="field"><label for="schEmail">Buyer email (for receipts &amp; reminders)</label><input id="schEmail" type="email" value="${esc(p.email || '')}" placeholder="buyer@email.com"></div>
+    </div>
+    <div class="sched-box">
+      <div class="small muted" style="font-weight:700;margin-bottom:6px;">AUTO-BUILD INSTALMENTS</div>
+      <div class="grid-3">
+        <div class="field"><label for="schCount">Parts</label><input id="schCount" type="number" min="2" max="24" value="${_schedDraft.length || 3}"></div>
+        <div class="field"><label for="schEvery">Frequency</label><select id="schEvery"><option value="7">Weekly</option><option value="14">Every 2 wks</option><option value="30" selected>Monthly</option></select></div>
+        <div class="field"><label for="schTotal">Amount (₦)</label><input id="schTotal" type="text" inputmode="decimal" data-money value="${esc(String(bal))}"></div>
+      </div>
+      <div class="row" style="gap:8px;">
+        <button class="btn-soft btn-sm" onclick="generateInstallmentsPreview()">Generate Schedule</button>
+        <button class="btn-outline btn-sm" onclick="_schedDraft.push({id:uid(),label:'Instalment '+(_schedDraft.length+1),due_date:localDate(),amount:''});renderSchedDraftRows()">＋ Add Row</button>
+      </div>
+    </div>
+    <div id="schedDraftRows" style="margin-top:10px;"></div>
+    <div class="row between" style="margin-top:16px;">
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveMemberSchedule('${rid}','${pid}')">Save Schedule</button>
+    </div>
+  </div></div>`;
+  renderSchedDraftRows();
+}
+
+function generateInstallmentsPreview() {
+  const n = Math.max(2, Math.min(24, Number(val('schCount')) || 3));
+  const stepDays = Number(val('schEvery')) || 30;
+  const total = Number(val('schTotal')) || 0;
+  const baseAmt = total ? Math.floor((total / n) * 100) / 100 : 0;
+  const rem = total ? Math.round((total - baseAmt * n) * 100) / 100 : 0;
+  const startStr = val('schSingleDue') || localDate();
+  const baseDate = new Date(startStr + 'T12:00:00');
+  _schedDraft = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(baseDate.getTime());
+    if (stepDays === 30) d.setMonth(d.getMonth() + i);
+    else d.setDate(d.getDate() + stepDays * i);
+    _schedDraft.push({
+      id: uid(),
+      label: `Instalment ${i + 1} of ${n}`,
+      due_date: localDate(d),
+      amount: i === n - 1 ? Math.round((baseAmt + rem) * 100) / 100 : baseAmt
+    });
+  }
+  renderSchedDraftRows();
+}
+
+function collectSchedDraftInputs() {
+  const rows = document.querySelectorAll('#schedDraftRows .sched-edit-row');
+  if (!rows.length) return;
+  _schedDraft = [...rows].map((row, idx) => ({
+    id: row.dataset.id || uid(),
+    label: (row.querySelector('.slbl')?.value || '').trim() || `Instalment ${idx + 1}`,
+    due_date: (row.querySelector('.sdue')?.value || '').trim(),
+    amount: Number((row.querySelector('.samt')?.value || '').replace(/,/g, '').trim()) || 0
+  }));
+}
+
+function renderSchedDraftRows() {
+  const box = $('schedDraftRows'); if (!box) return;
+  if (!_schedDraft.length) {
+    box.innerHTML = '<div class="muted small" style="padding:6px 2px;">No instalments configured. Leave empty to use only the single due date above.</div>';
+    return;
+  }
+  box.innerHTML = _schedDraft.map((item, idx) => `
+    <div class="sched-edit-row" data-id="${esc(item.id)}" style="display:grid;grid-template-columns:1.2fr 1fr .9fr auto;gap:6px;margin-bottom:6px;align-items:center;">
+      <input class="slbl" value="${esc(item.label || '')}" placeholder="Label">
+      <input class="sdue" type="date" value="${esc(item.due_date || '')}">
+      <input class="samt" type="text" inputmode="decimal" data-money value="${esc(String(item.amount || ''))}" placeholder="₦">
+      <button class="btn-outline btn-sm" onclick="collectSchedDraftInputs();_schedDraft.splice(${idx},1);renderSchedDraftRows()">✕</button>
+    </div>
+  `).join('');
+}
+
+function saveMemberSchedule(rid, pid) {
+  collectSchedDraftInputs();
+  const r = findRec(rid), p = r && (r.people || []).find(x => x.id === pid);
+  if (!r || !p) return;
+  p.due_date = val('schSingleDue') || null;
+  p.email = val('schEmail') || null;
+  p.installment_plan = (_schedDraft || []).filter(x => x.due_date && Number(x.amount) > 0);
+  if (!p.due_date && p.installment_plan.length) {
+    p.due_date = p.installment_plan[0].due_date;
+  }
+  Store.save();
+  closeModal();
+  toast('Buyer schedule & due date saved.');
+  renderMemberAdmin(rid, pid);
+}
+
+// ===== LEGAL DOCS, TOS GATE, SEARCHABILITY & BLOCK/REPORT =====
+function openLegalDoc(kind) {
+  const isTerms = kind === 'terms';
+  const title = isTerms ? 'Terms of Service' : 'Privacy Policy';
+  const url = isTerms ? 'terms.html' : 'privacy.html';
+  const html = isTerms ? `
+    <p>Effective: November 2026. Recordly helps businesses, clubs, and groups keep clear ledgers of contributions, sales, expenses, and debts.</p>
+    <h3>1. Accounts &amp; Honest Records</h3>
+    <p>You are responsible for accurate amounts, member names, phone numbers, email addresses, and proofs uploaded into your workspace. Payment edits and voids are permanently logged to protect buyers.</p>
+    <h3>2. Staff &amp; Helper Permissions</h3>
+    <p>Account owners control who joins as staff. Staff can log payments and upload receipts but cannot delete records, void payments, or close your account.</p>
+    <h3>3. Prohibited Use &amp; Safety</h3>
+    <p>Do not impersonate organisations, publish fraudulent groups in Discover, or upload illegal files. Users can block or report suspicious groups at any time.</p>
+    <h3>4. Plans &amp; Limits</h3>
+    <p>Free, Pro, and Business limits on groups, members per group, and staff seats are enforced at the database layer.</p>
+  ` : `
+    <p>Effective: November 2026. Recordly keeps your records under your control.</p>
+    <h3>1. Data Stored</h3>
+    <p>We store account info, ledger records, buyer schedules, transfer proofs in private Storage buckets, and notification preferences.</p>
+    <h3>2. Search Visibility</h3>
+    <p>You can turn on <b>Hide me from search</b> in Settings or Profile at any time to stay unlisted from Recordly search.</p>
+    <h3>3. Account Deletion</h3>
+    <p>Deleting your account permanently removes your profile, groups, members, payments, and backups from our database.</p>
+  `;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:480px;">
+    <div class="row between" style="margin-bottom:8px;"><h2>${title}</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <div class="legal-body">${html}</div>
+    <div class="row between" style="margin-top:14px;">
+      <a class="btn-outline btn-sm" href="${url}" target="_blank" rel="noopener">Open Full Page</a>
+      <button class="btn-primary" onclick="closeModal()">Close</button>
+    </div>
+  </div></div>`;
+}
+
+async function maybeRequireTos() {
+  if (!user || offlineSession) return;
+  const md = user.user_metadata || {};
+  if (md.tos_accepted_at) return;
+  try {
+    if (localStorage.getItem('rc_tos_' + user.id)) return;
+  } catch (e) {}
+  try {
+    const { data } = await sb.from('rc_profiles').select('tos_accepted_at').eq('id', user.id).maybeSingle();
+    if (data && data.tos_accepted_at) {
+      try { localStorage.setItem('rc_tos_' + user.id, data.tos_accepted_at); } catch (e) {}
+      return;
+    }
+  } catch (e) {}
+  if ($('modalRoot') && $('modalRoot').innerHTML.trim()) return;
+  $('modalRoot').innerHTML = `<div class="modal-overlay"><div class="modal-window" style="max-width:420px;">
+    <h2>Terms &amp; Privacy Update</h2>
+    <p class="muted small">Before using Recordly to store member names, phone numbers, and money records, please review and accept our Terms of Service and Privacy Policy.</p>
+    <div class="tos-check"><input type="checkbox" id="tosGateChk" checked><label for="tosGateChk">I agree to Recordly's <a href="terms.html" target="_blank" onclick="event.preventDefault();openLegalDoc('terms')">Terms of Service</a> and <a href="privacy.html" target="_blank" onclick="event.preventDefault();openLegalDoc('privacy')">Privacy Policy</a>.</label></div>
+    <button class="btn-primary full" onclick="acceptTosNow()">Agree &amp; Continue</button>
+  </div></div>`;
+}
+
+async function acceptTosNow() {
+  if (!$('tosGateChk')?.checked) { toast('Please tick the box to accept Terms & Privacy.'); return; }
+  const now = new Date().toISOString();
+  try { localStorage.setItem('rc_tos_' + user.id, now); } catch (e) {}
+  try { await sb.auth.updateUser({ data: { tos_accepted_at: now, tos_version: TOS_VERSION } }); } catch (e) {}
+  try { await sb.from('rc_profiles').upsert({ id: user.id, display_name: myName(), searchable: !Store.data.settings.hideFromSearch, tos_accepted_at: now, tos_version: TOS_VERSION, updated_at: now }); } catch (e) {}
+  closeModal();
+  toast('Terms accepted. Welcome to Recordly!');
+}
+
+async function toggleHideFromSearch() {
+  if (!Store.data.settings) Store.data.settings = {};
+  Store.data.settings.hideFromSearch = !Store.data.settings.hideFromSearch;
+  Store.save();
+  await upsertProfile();
+  toast(Store.data.settings.hideFromSearch ? 'You are now hidden from Recordly search.' : 'Your profile name can now appear in Recordly search.');
+  if (hash()[0] === 'settings') renderSettings();
+  else if (hash()[0] === 'profile') renderProfile();
+}
+
+function isBlockedTarget(rid, ownerId) {
+  return (myBlocks || []).some(b => (rid && b.blocked_record_id === rid) || (ownerId && b.blocked_user_id === ownerId));
+}
+
+async function blockEntity(opts) {
+  if (!opts) return;
+  if (!confirm(`Block "${opts.label || 'this group'}"? You will no longer see it in Discover search.`)) return;
+  const blk = {
+    id: uid(),
+    blocked_record_id: opts.record_id || null,
+    blocked_user_id: opts.user_id || null,
+    label: opts.label || 'Blocked group',
+    created_at: new Date().toISOString()
+  };
+  try {
+    const { data, error } = await sb.rpc('rc_block_entity', { target_uid: opts.user_id || null, target_rid: opts.record_id || null, lbl: opts.label || 'Blocked group' });
+    if (!error && data && data.id) blk.id = data.id;
+  } catch (e) {}
+  if (!isBlockedTarget(blk.blocked_record_id, blk.blocked_user_id)) {
+    myBlocks.unshift(blk);
+    saveLocalBlocks();
+  }
+  toast('Blocked. Hidden from your search results.');
+  if (hash()[0] === 'discover') runDiscover();
+  else if (/^[gj]$/.test(hash()[0] || '')) location.hash = '#/discover';
+  else render();
+}
+
+async function unblockEntity(blkId) {
+  myBlocks = (myBlocks || []).filter(b => b.id !== blkId);
+  saveLocalBlocks();
+  try { await sb.rpc('rc_unblock_entity', { blk_id: blkId }); } catch (e) {}
+  toast('Unblocked.');
+  openBlockedListModal();
+}
+
+function openBlockedListModal() {
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;">
+    <div class="row between" style="margin-bottom:8px;"><h2>Blocked Groups &amp; Users</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted small">Blocked groups and admins are hidden from your Discover search results.</p>
+    <div class="list" style="margin-top:10px;">
+      ${(myBlocks || []).length ? myBlocks.map(b => `<div class="item-card between">
+        <div><b>${esc(b.label || (b.blocked_record_id ? 'Blocked group' : 'Blocked user'))}</b><div class="small muted">${esc(fmtDateTime(b.created_at) || 'Blocked')}</div></div>
+        <button class="btn-outline btn-sm" onclick="unblockEntity('${b.id}')">Unblock</button>
+      </div>`).join('') : '<div class="empty-box" style="padding:18px;">You have not blocked any groups or users.</div>'}
+    </div>
+  </div></div>`;
+}
+
+function openReportGroupModal(rid, title, ownerId) {
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;">
+    <div class="row between" style="margin-bottom:8px;"><h2>Report Group or Admin</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted small">Report <b>${esc(title || 'this group')}</b> for fraud, impersonation, spam, or abusive content.</p>
+    <div class="field"><label for="abuseReason">Reason *</label><select id="abuseReason">
+      <option value="Suspected scam / fraud">Suspected scam / fraud</option>
+      <option value="Impersonating an organisation">Impersonating an organisation</option>
+      <option value="Spam or misleading description">Spam or misleading description</option>
+      <option value="Harassment or inappropriate content">Harassment or inappropriate content</option>
+    </select></div>
+    <div class="field"><label for="abuseDetails">Details (optional)</label><textarea id="abuseDetails" rows="3" placeholder="Tell us what happened..."></textarea></div>
+    <div class="field" style="display:flex;align-items:center;gap:8px;"><input type="checkbox" id="abuseAlsoBlock" checked style="width:18px;height:18px;"><label for="abuseAlsoBlock" style="margin:0;">Also block this group from search</label></div>
+    <div class="row between" style="margin-top:14px;">
+      <button class="btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn-danger" onclick="submitAbuseReport('${esc(rid || '')}','${esc(title || '')}','${esc(ownerId || '')}')">Submit Report</button>
+    </div>
+  </div></div>`;
+}
+
+async function submitAbuseReport(rid, title, ownerId) {
+  const reason = val('abuseReason') || 'Abuse report';
+  const details = val('abuseDetails') || null;
+  const alsoBlock = !!$('abuseAlsoBlock')?.checked;
+  try {
+    await sb.rpc('rc_submit_abuse_report', { rid: rid || null, target_uid: ownerId || null, reason_txt: reason, details_txt: details });
+  } catch (e) {}
+  closeModal();
+  if (alsoBlock && (rid || ownerId)) {
+    const blk = { id: uid(), blocked_record_id: rid || null, blocked_user_id: ownerId || null, label: title || 'Reported group', created_at: new Date().toISOString() };
+    try { await sb.rpc('rc_block_entity', { target_uid: ownerId || null, target_rid: rid || null, lbl: title || 'Reported group' }); } catch (e) {}
+    if (!isBlockedTarget(blk.blocked_record_id, blk.blocked_user_id)) { myBlocks.unshift(blk); saveLocalBlocks(); }
+  }
+  toast('Report submitted. Thank you for helping keep Recordly safe.');
+  if (hash()[0] === 'discover') runDiscover();
+  else render();
+}
+
+// ===== LIVE WEB PUSH & BREVO TRANSACTIONAL EMAIL =====
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const out = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; ++i) out[i] = raw.charCodeAt(i);
+  return out;
+}
+
+function getConfiguredVapidKey() {
+  const meta = document.querySelector('meta[name="recordly-vapid-public-key"]');
+  if (meta && meta.content) return meta.content.trim();
+  if (window.RECORDLY_VAPID_PUBLIC_KEY) return String(window.RECORDLY_VAPID_PUBLIC_KEY).trim();
+  try { return localStorage.getItem('rc_vapid_pub') || ''; } catch (e) { return ''; }
+}
+
+async function fetchVapidKeyFromSupabase() {
+  if (!user || !sb || !navigator.onLine) return '';
+  try {
+    const { data, error } = await sb.functions.invoke('send-push-notification', { body: { action: 'vapid_key' } });
+    const k = (!error && data && data.vapidPublicKey) ? String(data.vapidPublicKey).trim() : '';
+    if (k) { try { localStorage.setItem('rc_vapid_pub', k); } catch (e) {} }
+    return k;
+  } catch (e) { return ''; }
+}
+
+async function subscribeWebPush(silent = false) {
+  if (!user || !('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return false;
+  if (Notification.permission !== 'granted') return false;
+  let vapidKey = getConfiguredVapidKey();
+  if (!vapidKey) vapidKey = await fetchVapidKeyFromSupabase();
+  if (!vapidKey) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(vapidKey) });
+    }
+    const json = sub.toJSON();
+    await sb.from('push_subscriptions').upsert({
+      user_id: user.id,
+      endpoint: sub.endpoint,
+      p256dh: (json.keys && json.keys.p256dh) || '',
+      auth: (json.keys && json.keys.auth) || '',
+      user_agent: navigator.userAgent.slice(0, 180)
+    }, { onConflict: 'user_id,endpoint' });
+    if (!silent) toast('Live Web Push notifications enabled on this device.');
+    return true;
+  } catch (e) {
+    if (!silent) console.warn('Push subscription notice:', e);
+    return false;
+  }
+}
+
+async function dispatchPushAlert(payload) {
+  if (!user || !navigator.onLine) return;
+  try {
+    await sb.functions.invoke('send-push-notification', { body: payload });
+  } catch (e) {
+    // Graceful fallback: Edge Function may not be deployed yet
+  }
+}
+
+async function readFnError(err) {
+  if (!err) return 'Unknown error';
+  try {
+    const ctx = err.context;
+    if (ctx && typeof ctx.clone === 'function') {
+      const txt = await ctx.clone().text();
+      try {
+        const j = JSON.parse(txt);
+        if (j && (j.error || j.message || j.msg)) return String(j.error || j.message || j.msg);
+      } catch (_) {}
+      if (txt) return txt.slice(0, 180);
+    }
+  } catch (_) {}
+  return err.message || 'Check Edge Function setup';
+}
+
+async function sendBrevoEmail(payload) {
+  if (!payload || !payload.toEmail) { toast('Buyer has no email address saved.'); return { ok: false }; }
+  if (!user) { toast('Please sign in first to send emails.'); return { ok: false }; }
+  if (!navigator.onLine) { toast('You are offline. Connect to the internet to send emails.'); return { ok: false }; }
+  try {
+    const { data, error } = await sb.functions.invoke('send-brevo-email', { body: payload });
+    if (error) {
+      const detail = await readFnError(error);
+      throw new Error(detail);
+    }
+    if (data && data.error) throw new Error(data.error);
+    return { ok: true, data };
+  } catch (e) {
+    const msg = (e && e.message) ? String(e.message) : 'Check Edge Function setup';
+    const hint = /invalid jwt|jwt/i.test(msg)
+      ? 'Invalid JWT at Supabase gateway — turn OFF "Verify JWT with legacy secret" on send-brevo-email.'
+      : msg;
+    toast('Could not send email via Brevo: ' + hint);
+    return { ok: false, error: e, message: hint };
+  }
+}
+
+async function emailReceiptFromModal() {
+  const o = window._rcpt;
+  if (!o) return;
+  let toEmail = o.email || '';
+  if (!toEmail) {
+    toEmail = prompt('Enter the buyer’s email address to send this receipt:');
+    if (!toEmail) return;
+    toEmail = toEmail.trim();
+  }
+  if (!toEmail.includes('@')) { toast('Please enter a valid email address.'); return; }
+  toast('Sending receipt email…');
+  const res = await sendBrevoEmail({
+    type: 'receipt',
+    recordId: o.record_id || '',
+    toEmail,
+    toName: o.payer || 'Member',
+    businessName: o.biz || bizName(),
+    recordTitle: o.title || 'Contribution Payment',
+    amount: moneyReal(o.amount),
+    paidOn: o.dateTxt || localDate(),
+    method: o.method || 'Cash',
+    receiptRef: o.receiptNo || '',
+    balance: o.balance > 0 ? moneyReal(o.balance) : '₦0.00',
+    note: o.note || '',
+    link: o.person_id ? link('p/' + o.person_id) : appInviteLink()
+  });
+  if (res.ok) toast(`Receipt emailed to ${toEmail}!`);
+}
+
 async function loadAccountData() {
   if (!user || loadingFor === user.id) return;
   loadingFor = user.id;
@@ -2416,14 +3587,39 @@ async function loadAccountData() {
     }
     Store.data.owner = user.id;
     const SEL_BASE = 'id,title,description,target,end_date,show_table,group_link,created_at,people(id,name,phone,payments(id,amount,paid_on,note))';
-    const SEL_EXT = 'id,title,description,target,end_date,show_table,group_link,hide_balance,discoverable,created_at,people(id,name,phone,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note))';
-    let qres = await sb.from('records').select(SEL_EXT).order('created_at');
-    if (qres.error) { qres = await sb.from('records').select(SEL_BASE).order('created_at'); extOk = false; } else { extOk = true; }
+    const SEL_EXT = 'id,title,description,target,end_date,show_table,group_link,hide_balance,discoverable,created_at,people(id,name,phone,email,due_date,installment_plan,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note,logged_by,edited_at,edit_reason,voided,voided_at,void_reason,proof_path,change_log))';
+    let qres = await sb.from('records').select(SEL_EXT).eq('owner_id', user.id).order('created_at');
+    if (qres.error) { qres = await sb.from('records').select(SEL_BASE).eq('owner_id', user.id).order('created_at'); extOk = false; } else { extOk = true; }
     const { data, error } = qres;
     if (!error && data) {
       data.forEach(r => {
         let loc = (Store.data.records || []).find(x => x.id === r.id);
-        const dbPeople = (r.people || []).map(p => ({ id: p.id, name: p.name, phone: p.phone || '', payments: (p.payments || []).map(x => ({ id: x.id, amount: Number(x.amount), paid_on: x.paid_on, paid_at: x.paid_at || null, method: x.method || null, payer_name: x.payer_name || null, payer_phone: x.payer_phone || null, note: x.note || '' })) }));
+        const dbPeople = (r.people || []).map(p => ({
+          id: p.id,
+          name: p.name,
+          phone: p.phone || '',
+          email: p.email || '',
+          due_date: p.due_date || null,
+          installment_plan: Array.isArray(p.installment_plan) ? p.installment_plan : [],
+          payments: (p.payments || []).map(x => ({
+            id: x.id,
+            amount: Number(x.amount),
+            paid_on: x.paid_on,
+            paid_at: x.paid_at || null,
+            method: x.method || null,
+            payer_name: x.payer_name || null,
+            payer_phone: x.payer_phone || null,
+            note: x.note || '',
+            logged_by: x.logged_by || null,
+            edited_at: x.edited_at || null,
+            edit_reason: x.edit_reason || null,
+            voided: !!x.voided,
+            voided_at: x.voided_at || null,
+            void_reason: x.void_reason || null,
+            proof_path: x.proof_path || null,
+            change_log: Array.isArray(x.change_log) ? x.change_log : []
+          }))
+        }));
         if (!loc) {
           Store.data.records.push({ id: r.id, title: r.title, description: r.description || '', target: r.target, end_date: r.end_date, show_table: r.show_table, group_link: r.group_link, hide_balance: !!r.hide_balance, discoverable: !!r.discoverable, created_at: r.created_at, people: dbPeople });
         } else {
@@ -2433,18 +3629,45 @@ async function loadAccountData() {
             const lp = loc.people.find(x => x.id === dp.id);
             if (!lp) { loc.people.push(dp); return; }
             lp.name = dp.name; lp.phone = dp.phone || lp.phone;
+            if (dp.email) lp.email = dp.email;
+            if (dp.due_date) lp.due_date = dp.due_date;
+            if (dp.installment_plan && dp.installment_plan.length) lp.installment_plan = dp.installment_plan;
             lp.payments = lp.payments || [];
-            dp.payments.forEach(dx => { if (!lp.payments.find(x => x.id === dx.id)) lp.payments.push(dx); });
+            dp.payments.forEach(dx => {
+              const lx = lp.payments.find(x => x.id === dx.id);
+              if (!lx) lp.payments.push(dx);
+              else Object.assign(lx, {
+                amount: dx.amount, paid_on: dx.paid_on, method: dx.method, note: dx.note,
+                edited_at: dx.edited_at, edit_reason: dx.edit_reason, voided: dx.voided,
+                voided_at: dx.voided_at, void_reason: dx.void_reason, proof_path: dx.proof_path || lx.proof_path,
+                change_log: (dx.change_log && dx.change_log.length) ? dx.change_log : (lx.change_log || [])
+              });
+            });
           });
         }
       });
     }
     try {
-      const ex = await sb.from('records').select('id,freq,start_date,period_amount');
+      const ex = await sb.from('records').select('id,freq,start_date,period_amount').eq('owner_id', user.id);
       if (!ex.error && ex.data) ex.data.forEach(x => {
         const loc = (Store.data.records || []).find(r => r.id === x.id);
         if (loc && !loc.freq && x.freq && x.freq !== 'once') { loc.freq = x.freq; loc.start = x.start_date || null; loc.period_amount = Number(x.period_amount) || null; }
       });
+    } catch (e) {}
+    try {
+      const pr = await sb.from('rc_profiles').select('searchable,tos_accepted_at').eq('id', user.id).maybeSingle();
+      if (!pr.error && pr.data) {
+        if (!Store.data.settings) Store.data.settings = {};
+        if (pr.data.searchable === false) Store.data.settings.hideFromSearch = true;
+      }
+    } catch (e) {}
+    try {
+      const rp = await sb.from('payment_reports').select('*').order('created_at', { ascending: false }).limit(60);
+      if (!rp.error && Array.isArray(rp.data)) { paymentReports = rp.data; saveLocalReports(); }
+    } catch (e) {}
+    try {
+      const bl = await sb.from('user_blocks').select('*').eq('blocker_id', user.id).order('created_at', { ascending: false });
+      if (!bl.error && Array.isArray(bl.data)) { myBlocks = bl.data; saveLocalBlocks(); }
     } catch (e) {}
     const d = Store.data;
     if (!(d.customers.length || d.sales.length || d.expenses.length || d.debts.length)) {
@@ -2467,6 +3690,11 @@ async function loadAccountData() {
   loadInbox();
   upsertProfile();
   loadMemberGroups();
+  loadMyPlanUsage();
+  loadTeamMembers();
+  loadStaffWorkspacesAndRecords();
+  setTimeout(maybeRequireTos, 450);
+  if (remCfg().notify) subscribeWebPush(true);
   softRender();
 }
 
@@ -2490,23 +3718,37 @@ async function syncRecordsToDb() {
     const recRows = recs.map(r => ({ id: r.id, owner_id: user.id, title: r.title || 'Untitled', description: r.description || null, target: r.target ? Number(r.target) : null, end_date: r.end_date || null, show_table: !!r.show_table, group_link: !!r.group_link, hide_balance: !!r.hide_balance, discoverable: !!r.discoverable }));
     const peopleRows = [], payRows = [];
     recs.forEach(r => (r.people || []).forEach(p => {
-      peopleRows.push({ id: p.id, record_id: r.id, name: p.name || 'Member', phone: p.phone || null });
-      (p.payments || []).forEach(x => { if (Number(x.amount) > 0) payRows.push({ id: x.id, person_id: p.id, amount: Number(x.amount), paid_on: x.paid_on || today, note: x.note || null, paid_at: x.paid_at || null, method: x.method || null, payer_name: x.payer_name || null, payer_phone: x.payer_phone || null }); });
+      peopleRows.push({
+        id: p.id, record_id: r.id, name: p.name || 'Member', phone: p.phone || null,
+        email: p.email || null, due_date: p.due_date || null,
+        installment_plan: Array.isArray(p.installment_plan) ? p.installment_plan : []
+      });
+      (p.payments || []).forEach(x => {
+        if (Number(x.amount) > 0) {
+          payRows.push({
+            id: x.id, person_id: p.id, amount: Number(x.amount), paid_on: x.paid_on || today,
+            note: x.note || null, paid_at: x.paid_at || null, method: x.method || null,
+            payer_name: x.payer_name || null, payer_phone: x.payer_phone || null,
+            logged_by: x.logged_by || user.id, edited_at: x.edited_at || null, edit_reason: x.edit_reason || null,
+            voided: !!x.voided, voided_at: x.voided_at || null, void_reason: x.void_reason || null,
+            proof_path: x.proof_path || null, change_log: Array.isArray(x.change_log) ? x.change_log : []
+          });
+        }
+      });
     }));
     const sig = JSON.stringify([user.id, recRows, peopleRows, payRows]);
     if (sig !== dbSyncSig || changed) {
-      let res;
       await upsertSafe('records', recRows, ['hide_balance', 'discoverable']);
       if (recExtOk !== false) {
         const rr = recs.filter(isRec).map(r => ({ id: r.id, owner_id: user.id, title: r.title || 'Untitled', freq: r.freq, start_date: r.start || null, period_amount: Number(r.period_amount) || null }));
         if (rr.length) { try { const x = await sb.from('records').upsert(rr); if (x.error) recExtOk = false; } catch (e) { recExtOk = false; } }
       }
-      if (peopleRows.length) { res = await sb.from('people').upsert(peopleRows); if (res.error) throw res.error; }
-      await upsertSafe('payments', payRows, ['paid_at', 'method', 'payer_name', 'payer_phone']);
+      await upsertSafe('people', peopleRows, ['email', 'due_date', 'installment_plan']);
+      await upsertSafe('payments', payRows, ['paid_at', 'method', 'payer_name', 'payer_phone', 'logged_by', 'edited_at', 'edit_reason', 'voided', 'voided_at', 'void_reason', 'proof_path', 'change_log']);
       const sy = Object.assign({ r: [], p: [], x: [] }, Store.data.synced || {});
       const L = { r: new Set(recRows.map(a => a.id)), p: new Set(peopleRows.map(a => a.id)), x: new Set(payRows.map(a => a.id)) };
       const gone = k => sy[k].filter(id => !L[k].has(id));
-      const gx = gone('x'); if (gx.length) await sb.from('payments').delete().in('id', gx);
+      // Payments are never deleted from the app: use rc_void_payment (keeps the audit trail).
       const gp = gone('p'); if (gp.length) await sb.from('people').delete().in('id', gp);
       const gr = gone('r'); if (gr.length) await sb.from('records').delete().in('id', gr);
       Store.data.synced = { r: [...L.r], p: [...L.p], x: [...L.x] };
@@ -2515,8 +3757,10 @@ async function syncRecordsToDb() {
     }
     if (changed) softRender();
   } catch (e) {
-    console.warn('Database sync problem', e);
-    if (!dbSyncWarned) { dbSyncWarned = true; toast('Could not save online: ' + (e.message || e)); }
+    if (!handleDbPlanError(e)) {
+      console.warn('Database sync problem', e);
+      if (!dbSyncWarned) { dbSyncWarned = true; toast('Could not save online: ' + (e.message || e)); }
+    }
   }
   dbSyncBusy = false;
   if (dbSyncAgain) { dbSyncAgain = false; scheduleDbSync(); }
@@ -2972,7 +4216,23 @@ function checkReminders() {
   const now = new Date();
   const todayStr = now.toISOString().slice(0, 10);
 
-  // 1. Overdue debts
+  // 1. Open payment problem reports
+  (paymentReports || []).filter(rp => rp.status === 'open').forEach(rp => {
+    let link = '#/notifications', who = rp.reporter_name || 'Buyer';
+    activeRecords().forEach(r => {
+      const p = (r.people || []).find(x => x.id === rp.person_id);
+      if (p) { link = `#/r/${r.id}/${p.id}`; who = p.name; }
+    });
+    notifs.push({
+      id: 'pr_' + rp.id,
+      type: 'danger',
+      title: `Payment flagged by ${who}`,
+      desc: `${rp.reason}${rp.expected_amount ? ' · Expected ' + moneyReal(rp.expected_amount) : ''}${rp.details ? ' · ' + rp.details : ''}`,
+      link
+    });
+  });
+
+  // 2. Overdue debts
   Store.data.debts.forEach(d => {
     const repaid = (d.repayments || []).reduce((a, r) => a + Number(r.amount || 0), 0);
     const balance = Number(d.original_amount || 0) - repaid;
@@ -2986,8 +4246,20 @@ function checkReminders() {
     }
   });
 
-  // 2. Upcoming contribution deadlines
-  Store.data.records.forEach(r => {
+  // 3. Overdue & upcoming buyer due dates / instalments + group deadlines
+  activeRecords().forEach(r => {
+    (r.people || []).forEach(p => {
+      const sched = memberScheduleSummary(r, p);
+      if (sched.nextDue && sched.nextDue.overdue) {
+        notifs.push({
+          id: 'ov_' + p.id + '_' + sched.nextDue.due_date,
+          type: 'danger',
+          title: `Overdue instalment: ${p.name}`,
+          desc: `${r.title} · ${sched.nextDue.label} was due ${sched.nextDue.due_date}${sched.nextDue.amount ? ' (' + moneyReal(sched.nextDue.amount) + ')' : ''}.`,
+          link: `#/r/${r.id}/${p.id}`
+        });
+      }
+    });
     if (r.end_date && !isRec(r)) {
       const diffDays = Math.ceil((new Date(r.end_date) - now) / (1000 * 60 * 60 * 24));
       if (diffDays >= 0 && diffDays <= 7) {
@@ -3123,6 +4395,10 @@ function authModal(mode = 'login') {
         <label for="authPass">Password</label>
         <div class="pwwrap"><input id="authPass" type="password" autocomplete="new-password" placeholder="At least 6 characters"><button type="button" class="eye" onclick="togglePw('authPass')" aria-label="Show password">👁</button></div>
       </div>
+      <div class="tos-check">
+        <input type="checkbox" id="authTos">
+        <label for="authTos">I agree to Recordly's <a href="terms.html" target="_blank" onclick="event.preventDefault();openLegalDoc('terms')">Terms of Service</a> and <a href="privacy.html" target="_blank" onclick="event.preventDefault();openLegalDoc('privacy')">Privacy Policy</a>.</label>
+      </div>
       <button class="btn-glow" id="authSubmit">Create Account</button>
       <div class="sheet-or">OR CONTINUE WITH</div>
       <div class="alt3">
@@ -3237,13 +4513,18 @@ function authModal(mode = 'login') {
         showAuthMsg('Please enter both your email and password.');
         return;
       }
+      if (mode === 'signup' && !$('authTos')?.checked) {
+        showAuthMsg('Please agree to the Terms of Service and Privacy Policy to create your account.');
+        return;
+      }
       const b = $('authSubmit');
       b.disabled = true;
       b.textContent = 'Please wait…';
       try {
         let result;
         if (mode === 'signup') {
-          result = await sb.auth.signUp({ email, password, options: { data: { name: val('authName') }, emailRedirectTo: location.origin + location.pathname } });
+          const tosAt = new Date().toISOString();
+          result = await sb.auth.signUp({ email, password, options: { data: { name: val('authName'), tos_accepted_at: tosAt, tos_version: TOS_VERSION }, emailRedirectTo: location.origin + location.pathname } });
           try { localStorage.setItem('rc_newuser', email); } catch (e) {}
           if (!result.error && result.data && result.data.user && Array.isArray(result.data.user.identities) && result.data.user.identities.length === 0) {
             showAuthMsg('This email already has an account. Please log in instead.');
@@ -3418,6 +4699,8 @@ async function logout() {
   Store.data = { records: [], customers: [], sales: [], expenses: [], debts: [], settings: { businessName: 'My Enterprise', onboarded: false } };
   try { localStorage.removeItem(STORAGE_KEY); } catch (e) {}
   loadingFor = null; loadedFor = null; dbSyncSig = ''; myGroups = null; myReqs = [];
+  activeStaffOwnerId = null; staffWorkspaces = []; staffRecords = []; paymentReports = []; myBlocks = []; teamMembersList = [];
+  try { localStorage.removeItem('rc_staff_owner'); } catch (e) {}
   if (liveChan) { try { sb.removeChannel(liveChan); } catch (e) {} liveChan = null; }
   liveAlerts = []; try { localStorage.removeItem('rc_alerts'); localStorage.removeItem('rc_lastuser'); } catch (e) {}
   closeModal();
@@ -3463,7 +4746,7 @@ function executeGlobalSearch() {
   const results = [];
 
   // 1. Contribution records
-  Store.data.records.forEach(r => {
+  activeRecords().forEach(r => {
     if ((r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q)) {
       results.push({
         type: 'Contribution Group',
@@ -3475,12 +4758,12 @@ function executeGlobalSearch() {
     }
     // Search members inside
     (r.people || []).forEach(p => {
-      if ((p.name || '').toLowerCase().includes(q) || (p.phone || '').includes(q)) {
+      if ((p.name || '').toLowerCase().includes(q) || (p.phone || '').includes(q) || (p.email || '').toLowerCase().includes(q)) {
         results.push({
           type: 'Member',
           icon: '👤',
           title: p.name,
-          desc: `In group: ${r.title} · ${p.phone || 'No phone'}`,
+          desc: `In group: ${r.title} · ${p.phone || p.email || 'No contact'}`,
           link: `#/r/${r.id}/${p.id}`
         });
       }
@@ -3563,14 +4846,21 @@ function payTimeTxt(x) {
   return d && !isNaN(d) ? ' at ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
 }
 function openPaymentReceipt(rid, pid, payId) {
-  const r = Store.data.records.find(x => x.id === rid);
+  const r = findRec(rid);
   const p = r?.people?.find(x => x.id === pid);
   const x = p?.payments?.find(y => y.id === payId);
   if (!x) return;
+  const tgt = Number(r.target || 0);
+  const bal = tgt > 0 ? Math.max(0, tgt - paySum(p)) : 0;
   openReceiptModal({
     biz: x.biz, title: r.title, receiptNo: x.ref || receiptRef(x.id), date: x.paid_on, at: x.paid_at || x.created_at || null,
     payer: x.payer_name || p.name, onBehalf: x.payer_name ? p.name : '', phone: x.payer_phone || p.phone || '',
-    amount: x.amount, method: x.method || 'Cash', note: x.note || '', purpose: 'Contribution Payment'
+    email: p.email || '', record_id: rid, person_id: pid,
+    amount: x.amount, method: x.method || 'Cash', note: x.note || '', purpose: 'Contribution Payment',
+    balance: bal,
+    voided: !!x.voided, void_reason: x.void_reason || '',
+    edited_at: x.edited_at || '', edit_reason: x.edit_reason || '',
+    proof_path: x.proof_path || '', proof_preview: x.proof_preview || ''
   });
 }
 function openSaleReceipt(id) {
@@ -3626,8 +4916,8 @@ function openReceiptModal(o) {
           </div>
 
           <div style="background:#f8fafc;padding:12px;border-radius:10px;text-align:center;margin:12px 0;">
-            <div class="small muted">Amount Paid</div>
-            <div class="fit-amt" style="font-size:26px;font-weight:900;color:#0f766e;margin-top:2px;">${moneyReal(o.amount)}</div>
+            <div class="small muted">${o.voided ? 'VOIDED PAYMENT' : 'Amount Paid'}</div>
+            <div class="fit-amt" style="font-size:26px;font-weight:900;color:${o.voided ? '#b91c1c' : '#0f766e'};${o.voided ? 'text-decoration:line-through;' : ''}margin-top:2px;">${moneyReal(o.amount)}</div>
           </div>
 
           <table style="margin:14px 0;">
@@ -3636,12 +4926,14 @@ function openReceiptModal(o) {
             <tr><td class="muted">Received From:</td><td><b>${esc(o.payer)}</b> ${o.phone ? `<span class="small muted">(${esc(o.phone)})</span>` : ''}</td></tr>
             ${o.onBehalf ? `<tr><td class="muted">On behalf of:</td><td><b>${esc(o.onBehalf)}</b></td></tr>` : ''}
             <tr><td class="muted">Purpose:</td><td>${esc(o.purpose || 'Payment')}</td></tr>
-            <tr><td class="muted">Payment Method:</td><td><span class="badge badge-green">${esc(o.method || 'Cash')}</span></td></tr>
+            <tr><td class="muted">Payment Method:</td><td><span class="badge ${o.voided ? 'badge-red' : 'badge-green'}">${esc(o.voided ? 'Voided' : (o.method || 'Cash'))}</span></td></tr>
             ${(o.items || []).map(i => `<tr><td class="muted">${esc(i.name)} ×${i.qty}</td><td><b>${moneyReal(i.qty * i.price)}</b></td></tr>`).join('')}
             ${o.saleTotal ? `<tr><td class="muted">Sale total:</td><td><b>${moneyReal(o.saleTotal)}</b></td></tr>` : ''}
             ${o.balance > 0 ? `<tr><td class="muted">Balance left:</td><td><b>${moneyReal(o.balance)}</b></td></tr>` : ''}
             ${o.note ? `<tr><td class="muted">Note / Ref:</td><td>${esc(o.note)}</td></tr>` : ''}
           </table>
+
+          ${o.voided ? `<div class="pay-audit" style="margin-bottom:8px;">Voided: ${esc(o.void_reason || 'Entry reversed')}</div>` : o.edited_at ? `<div class="pay-audit" style="margin-bottom:8px;">Edited on ${esc(fmtDateTime(o.edited_at))}${o.edit_reason ? ' · Reason: ' + esc(o.edit_reason) : ''}</div>` : ''}
 
           <div style="border-top:1px solid var(--line);padding-top:12px;margin-top:12px;font-size:11px;color:var(--muted);text-align:center;">
             Recorded with Recordly · Keep every transaction clear.
@@ -3651,8 +4943,10 @@ function openReceiptModal(o) {
         <div class="grid-2 no-print" style="margin-top:16px;">
           <button class="btn-primary" onclick="shareReceipt('any')">📤 Share</button>
           <button class="btn-soft" onclick="shareReceipt('wa')">WhatsApp</button>
-          <button class="btn-outline" onclick="copyReceiptText()">Copy Text</button>
+          <button class="btn-outline" onclick="emailReceiptFromModal()">✉️ Email Receipt</button>
           <button class="btn-outline" onclick="window.print()">Print / Save PDF</button>
+          <button class="btn-outline" onclick="copyReceiptText()">Copy Text</button>
+          ${(o.proof_path || o.proof_preview) ? `<button class="btn-soft" onclick="openProofModal('${esc(o.proof_path || '')}', ${o.proof_preview ? 'window._rcpt.proof_preview' : 'null'})">📎 View Proof</button>` : '<span></span>'}
         </div>
       </div>
     </div>
@@ -3842,7 +5136,7 @@ const tile = (id, icon, label, fn) => `<button class="tile"${id ? ` id="${id}"` 
 function recProgress(r) {
   const people = r.people || [], tgt = Number(r.target || 0), unpaid = []; let paid = 0;
   people.forEach(p => {
-    const sum = (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+    const sum = paySum(p);
     if (tgt > 0 ? sum >= tgt : sum > 0) paid++; else unpaid.push(p);
   });
   return { total: people.length, paid, unpaid };
@@ -3914,9 +5208,16 @@ function renderMemberHome() {
   const total = gs.reduce((a, g) => a + Number(g.paid || 0), 0);
   const card = g => {
     const t = Number(g.target || 0), paid = Number(g.paid || 0), pc = t ? Math.min(100, Math.round(paid / t * 100)) : 0;
+    const sched = memberScheduleSummary({ target: t }, { due_date: g.due_date, installment_plan: g.installment_plan, payments: [{ amount: paid }] });
+    const dueTxt = sched.nextDue
+      ? (sched.nextDue.overdue
+          ? `<div style="margin-top:6px;"><span class="badge badge-red">Overdue</span> <span class="small muted">${esc(sched.nextDue.label)} was due ${esc(sched.nextDue.due_date)}</span></div>`
+          : `<div class="small muted" style="margin-top:6px;">Next due: <b>${esc(sched.nextDue.due_date)}</b>${sched.nextDue.amount ? ' · ' + moneyReal(sched.nextDue.amount) : ''}</div>`)
+      : '';
     return `<div class="card">
       <div class="between"><div class="grow"><b>${esc(g.title)}</b><div class="muted small">Run by ${esc(g.owner_name)}</div></div><b>${moneyReal(paid)}</b></div>
       ${t ? `<div class="progress-track" style="margin-top:8px;"><div class="progress-fill" style="width:${pc}%"></div></div><div class="small muted" style="margin-top:4px;">${pc}% paid · ${moneyReal(Math.max(0, t - paid))} left</div>` : g.hide_balance ? '<div class="small muted" style="margin-top:6px;">🔒 The balance is private.</div>' : ''}
+      ${dueTxt}
       <div style="display:flex;gap:8px;margin-top:10px;"><button class="btn-primary btn-sm" onclick="location.hash='#/p/${g.person_id}'">My progress</button>${g.group_link ? `<button class="btn-soft btn-sm" onclick="location.hash='#/g/${g.record_id}'">Group &amp; chat</button>` : ''}</div>
     </div>`;
   };
@@ -3972,36 +5273,87 @@ function renderDashboard() {
   renderAdminHome();
   const sw = roleSwitchHtml('admin'); if (sw) $('app').insertAdjacentHTML('beforeend', sw);
 }
+function startNewRecordFlow() {
+  if (isStaffMode()) { toast('Switch to your personal workspace to create a new group.', 'bad'); return; }
+  if (!checkPlanQuota('records', 1)) return;
+  location.hash = '#/contributions/new';
+}
 function renderAdminHome() {
   updateNavActive('home');
-  const recs = Store.data.records || [];
+  const staffWs = currentStaffWorkspace();
+  const recs = activeRecords();
   const prog = recs.map(r => ({ r, ...recProgress(r) }));
   const totPeople = prog.reduce((a, x) => a + x.total, 0), totPaid = prog.reduce((a, x) => a + x.paid, 0);
   const overallPc = totPeople ? Math.round(totPaid / totPeople * 100) : 0;
 
-  // Needs attention: who hasn't paid, late debts, people waiting to join
+  // Needs attention: open payment problem reports, overdue buyer instalments, unpaid, late debts, join requests
   const items = [];
+  if (!staffWs) {
+    const openReps = (paymentReports || []).filter(rp => rp.status === 'open');
+    if (openReps.length) {
+      const rp0 = openReps[0];
+      items.push({
+        icon: 'bell',
+        t: openReps.length === 1 ? '1 payment problem reported' : openReps.length + ' payment problems reported',
+        s: (rp0.reporter_name ? rp0.reporter_name + ': ' : '') + (rp0.reason || 'Check flagged payment'),
+        go: rp0.record_id && rp0.person_id ? `#/r/${rp0.record_id}/${rp0.person_id}` : '#/notifications'
+      });
+    }
+  }
+  const overBuyers = [];
+  recs.forEach(r => (r.people || []).forEach(p => {
+    const sch = memberScheduleSummary(r, p);
+    if (sch.overdue) overBuyers.push({ r, p, sch });
+  }));
+  if (overBuyers.length) {
+    const ob = overBuyers[0];
+    items.push({
+      icon: 'clock',
+      t: overBuyers.length === 1 ? `${ob.p.name} has an overdue instalment` : `${overBuyers.length} buyers have overdue payments`,
+      s: `${ob.r.title} · Overdue ${ob.sch.nextDue ? ob.sch.nextDue.daysOverdue + 'd' : ''}`,
+      go: `#/r/${ob.r.id}/${ob.p.id}`
+    });
+  }
   prog.filter(x => x.unpaid.length).sort((a, b) => b.unpaid.length - a.unpaid.length).slice(0, 2).forEach(x => {
     const n = x.unpaid.length;
     items.push({ icon: 'users', t: n === 1 ? '1 person has not paid' : n + ' people have not paid', s: x.r.title, go: `#/r/${x.r.id}` });
   });
   const todayStr = localDate();
-  (Store.data.debts || []).filter(d => {
-    const bal = Number(d.original_amount || 0) - (d.repayments || []).reduce((a, r) => a + Number(r.amount || 0), 0);
-    return bal > 0 && d.due_date && d.due_date < todayStr;
-  }).slice(0, 2).forEach(d => items.push({ icon: 'clock', t: d.type === 'receivable' ? `${d.person_name} owes you` : `You owe ${d.person_name}`, s: 'Overdue · due ' + d.due_date, go: '#/debts' }));
-  const waiting = ((typeof inbox !== 'undefined' && inbox.joins) || []).filter(j => j.status === 'pending').length;
-  if (waiting) items.push({ icon: 'user', t: waiting === 1 ? '1 person wants to join' : waiting + ' people want to join', s: 'Tap to answer', go: '#/notifications' });
-  const waitingOrders = (Store.data.sales || []).filter(x => x.fulfil === 'pending').length;
-  if (waitingOrders) items.push({ icon: 'bag', t: waitingOrders === 1 ? '1 order is waiting' : waitingOrders + ' orders are waiting', s: 'Not given to the customer yet', go: '#/business' });
-  { const cfgR = remCfg(), dueN = cfgR.on ? dueNudges(cfgR).length : 0; if (dueN) items.unshift({ icon: 'bell', t: dueN === 1 ? '1 person is due a reminder' : dueN + ' people are due a reminder', s: 'Tap to send', go: '#/notifications' }); }
+  if (!staffWs) {
+    (Store.data.debts || []).filter(d => {
+      const bal = Number(d.original_amount || 0) - (d.repayments || []).reduce((a, r) => a + Number(r.amount || 0), 0);
+      return bal > 0 && d.due_date && d.due_date < todayStr;
+    }).slice(0, 2).forEach(d => items.push({ icon: 'clock', t: d.type === 'receivable' ? `${d.person_name} owes you` : `You owe ${d.person_name}`, s: 'Overdue · due ' + d.due_date, go: '#/debts' }));
+    const waiting = ((typeof inbox !== 'undefined' && inbox.joins) || []).filter(j => j.status === 'pending').length;
+    if (waiting) items.push({ icon: 'user', t: waiting === 1 ? '1 person wants to join' : waiting + ' people want to join', s: 'Tap to answer', go: '#/notifications' });
+    const waitingOrders = (Store.data.sales || []).filter(x => x.fulfil === 'pending').length;
+    if (waitingOrders) items.push({ icon: 'bag', t: waitingOrders === 1 ? '1 order is waiting' : waitingOrders + ' orders are waiting', s: 'Not given to the customer yet', go: '#/business' });
+    { const cfgR = remCfg(), dueN = cfgR.on ? dueNudges(cfgR).length : 0; if (dueN) items.unshift({ icon: 'bell', t: dueN === 1 ? '1 person is due a reminder' : dueN + ' people are due a reminder', s: 'Tap to send', go: '#/notifications' }); }
+  }
   const reminders = checkReminders().filter(n => !isRead(n));
   if (!items.length && reminders.length) items.push({ icon: 'bell', t: reminders.length === 1 ? '1 new alert' : reminders.length + ' new alerts', s: reminders[0].title, go: '#/notifications' });
   const shown = items.slice(0, 3);
 
+  const wsSwitcherHtml = (staffWorkspaces && staffWorkspaces.length) ? `
+    <div class="card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <span class="small muted" style="font-weight:700;">WORKSPACE</span>
+      <select aria-label="Switch workspace" onchange="switchWorkspace(this.value)" style="width:auto;min-width:190px;padding:7px 10px;font-size:13px;">
+        <option value="" ${!staffWs ? 'selected' : ''}>My Workspace (${esc(bizName())})</option>
+        ${staffWorkspaces.map(w => `<option value="${esc(w.owner_id)}" ${staffWs && staffWs.owner_id === w.owner_id ? 'selected' : ''}>Staff for ${esc(w.owner_name)}</option>`).join('')}
+      </select>
+    </div>` : '';
+
+  const staffBannerHtml = staffWs ? `
+    <div class="staff-banner">
+      <div><b>Staff Helper Mode</b> · Viewing <b>${esc(staffWs.owner_name)}</b>’s groups (add members &amp; log payments only)</div>
+      <button class="btn-outline btn-sm" onclick="switchWorkspace('')">Back to Mine</button>
+    </div>` : '';
+
   $('app').innerHTML = `
     <div class="home">
       ${roleToggleHtml('admin')}
+      ${wsSwitcherHtml}
+      ${staffBannerHtml}
       ${recs.length ? `
       <div class="card prog" onclick="location.hash='#/contributions'" style="cursor:pointer;">
         ${ringHtml(overallPc, 76, 8)}
@@ -4023,7 +5375,7 @@ function renderAdminHome() {
         : `<div class="ok-row">${ico('check', 22)}<span>${recs.length ? 'All caught up' : 'Nothing to do yet'}</span></div>`}
       </div>
 
-      <div class="sec"><span>YOUR RECORDS</span>${recs.length > 3 ? `<a onclick="toggleRecsAll()">${recsAll ? 'Show less' : 'See all ' + recs.length}</a>` : ''}</div>
+      <div class="sec"><span>${staffWs ? 'ASSIGNED GROUPS' : 'YOUR RECORDS'}</span>${recs.length > 3 ? `<a onclick="toggleRecsAll()">${recsAll ? 'Show less' : 'See all ' + recs.length}</a>` : ''}</div>
       ${recs.length ? `
         <div class="card rlist">
           ${(recsAll ? prog : prog.slice(0, 3)).map(x => {
@@ -4037,26 +5389,26 @@ function renderAdminHome() {
         </div>`
       : `<div class="card empty-home">
           <span class="tic">${ico('users', 24)}</span>
-          <b>Start your first record</b>
-          <p>Add the people who pay, then tick them off as they do.</p>
+          <b>${staffWs ? 'No groups shared yet' : 'Start your first record'}</b>
+          <p>${staffWs ? 'The workspace owner has not created any groups yet.' : 'Add the people who pay, then tick them off as they do.'}</p>
         </div>`}
 
-      ${joinedGroupsSectionHtml(recs)}
+      ${!staffWs ? joinedGroupsSectionHtml(recs) : ''}
 
-      <div class="sec"><span>BUSINESS</span></div>
+      ${!staffWs ? `<div class="sec"><span>BUSINESS</span></div>
       <div class="card tiles t4" id="tGrid">
         ${tile('', 'bag', 'Sale', 'openSaleModal()')}
         ${tile('', 'receipt', 'Expense', 'openExpenseModal()')}
         ${tile('', 'clock', 'Debt', 'openDebtModal()')}
         ${tile('', 'chart', 'Reports', "location.hash='#/reports'")}
       </div>
-      <div class="linkrow" onclick="location.hash='#/discover'">${ico('globe', 18)} Find people &amp; groups</div>
+      <div class="linkrow" onclick="location.hash='#/discover'">${ico('globe', 18)} Find people &amp; groups</div>` : ''}
     </div>
 
     <div class="fabwrap no-print" id="homeDock">
       <div class="fabscrim" onclick="toggleFab()"></div>
       <div class="fabmenu">
-        <button id="tNew" onclick="toggleFab();location.hash='#/contributions/new'">${ico('plus', 18)} New record</button>
+        ${!staffWs ? `<button id="tNew" onclick="toggleFab();startNewRecordFlow()">${ico('plus', 18)} New record</button>` : ''}
         <button id="tPay" onclick="toggleFab();quickLogPayment()">${ico('cash', 18)} Log payment</button>
         <button id="tShare" onclick="toggleFab();quickShareLink()">${ico('link', 18)} Share link</button>
       </div>
@@ -4108,7 +5460,7 @@ try {
 } catch (e) {}
 
 function contribRecordStats(r) {
-  const paid = (r.people || []).reduce((a, p) => a + (p.payments || []).reduce((b, x) => b + Number(x.amount || 0), 0), 0);
+  const paid = (r.people || []).reduce((a, p) => a + paySum(p), 0);
   const target = Number(r.target || 0) * (r.people || []).length;
   const pc = target ? Math.min(100, Math.round(paid / target * 100)) : 0;
   return { paid, target, pc };
@@ -4144,9 +5496,10 @@ function setContribSort(mode) {
 
 function renderContributions() {
   updateNavActive('contributions');
-  const rows = Store.data.records;
+  const staffWs = currentStaffWorkspace();
+  const rows = activeRecords();
   const sorted = sortContribRows(rows);
-  const total = rows.reduce((a, r) => a + (r.people || []).reduce((b, p) => b + (p.payments || []).reduce((c, x) => c + Number(x.amount || 0), 0), 0), 0);
+  const total = rows.reduce((a, r) => a + (r.people || []).reduce((b, p) => b + paySum(p), 0), 0);
   const peopleCount = rows.reduce((a, r) => a + (r.people || []).length, 0);
   const sortOpts = [
     ['date_desc', 'Creation date (Newest)'],
@@ -4158,6 +5511,7 @@ function renderContributions() {
   ];
 
   $('app').innerHTML = `
+    ${staffWs ? `<div class="staff-banner"><div><b>Staff Helper Mode</b> · ${esc(staffWs.owner_name)}</div><button class="btn-outline btn-sm" onclick="switchWorkspace('')">Back to Mine</button></div>` : ''}
     <div class="card">
       <div class="row between">
         <div>
@@ -4166,7 +5520,7 @@ function renderContributions() {
         </div>
         <div class="row">
           ${rows.length ? `<button class="btn-soft" onclick="openMemberCsvImportModal()">📥 Import CSV</button>` : ''}
-          <button class="btn-primary" onclick="location.hash='#/contributions/new'">＋ New Record</button>
+          ${!staffWs ? `<button class="btn-primary" onclick="startNewRecordFlow()">＋ New Record</button>` : ''}
         </div>
       </div>
 
@@ -4206,8 +5560,9 @@ function renderContributions() {
 }
 
 function renderContribListRows(rows, isFiltered) {
+  const allRows = activeRecords();
   if (!rows.length) {
-    if (isFiltered && Store.data.records.length) {
+    if (isFiltered && allRows.length) {
       return `
         <div class="empty-box">
           <h3>No matching records</h3>
@@ -4219,14 +5574,15 @@ function renderContribListRows(rows, isFiltered) {
     return `
       <div class="empty-box">
         <h3>No contribution records yet</h3>
-        <p class="muted">Create a record to track dues, contributions, or associations.</p>
-        <button class="btn-primary" onclick="location.hash='#/contributions/new'">＋ Create First Record</button>
+        <p class="muted">${isStaffMode() ? 'The workspace owner has not added any groups yet.' : 'Create a record to track dues, contributions, or associations.'}</p>
+        ${!isStaffMode() ? `<button class="btn-primary" onclick="startNewRecordFlow()">＋ Create First Record</button>` : ''}
       </div>
     `;
   }
 
   return rows.map(r => {
     const { paid, target, pc } = contribRecordStats(r);
+    const canDel = isRecOwner(r);
     return `
       <div class="item-card between" onclick="location.hash='#/r/${r.id}'" style="cursor:pointer;">
         <div class="avatar-circle">${esc((r.title || 'R').slice(0, 1).toUpperCase())}</div>
@@ -4240,11 +5596,11 @@ function renderContribListRows(rows, isFiltered) {
           ${target ? `<div class="progress-track"><div class="progress-fill" style="width:${pc}%"></div></div>` : ''}
           ${r.end_date ? `<div class="small muted" style="margin-top:4px;">${isRec(r) ? 'Ends' : 'Deadline'}: ${esc(r.end_date)}</div>` : ''}
         </div>
-        <div class="row" onclick="event.stopPropagation()">
+        ${canDel ? `<div class="row" onclick="event.stopPropagation()">
           <button class="btn-danger btn-sm" onclick="confirmDeleteRecord('${r.id}')" title="Delete record">
             Delete
           </button>
-        </div>
+        </div>` : ''}
       </div>
     `;
   }).join('');
@@ -4252,9 +5608,10 @@ function renderContribListRows(rows, isFiltered) {
 
 function filterContribList() {
   const q = (($('contribSearch') || {}).value || '').trim().toLowerCase();
+  const base = activeRecords();
   const filtered = q
-    ? Store.data.records.filter(r => (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q))
-    : Store.data.records;
+    ? base.filter(r => (r.title || '').toLowerCase().includes(q) || (r.description || '').toLowerCase().includes(q))
+    : base;
   const sorted = sortContribRows(filtered);
   $('contribListContainer').innerHTML = renderContribListRows(sorted, !!q);
 }
@@ -4351,6 +5708,7 @@ function newRecordForm(step) {
 }
 
 function saveNewRecord() {
+  if (!checkPlanQuota('records', 1)) return;
   const title = (rf.title || '').trim();
   if (!title) { toast('Please enter a record title.'); return; }
   const description = (rf.desc || '').trim() || null;
@@ -4362,8 +5720,12 @@ function saveNewRecord() {
     id: uid(),
     name: p.name,
     phone: p.phone || null,
+    email: p.email || null,
+    due_date: p.due_date || null,
+    installment_plan: [],
     payments: []
   }));
+  if (!checkPlanQuota('members', people.length, { people: [] })) return;
 
   const newRec = {
     id: uid(),
@@ -4390,7 +5752,7 @@ function saveNewRecord() {
 }
 
 function renderRecordDetail(rid) {
-  const r = Store.data.records.find(x => x.id === rid);
+  const r = findRec(rid);
   if (!r) {
     $('app').innerHTML = `
       <div class="card empty-box">
@@ -4401,22 +5763,25 @@ function renderRecordDetail(rid) {
     return;
   }
 
+  const owner = isRecOwner(r);
   const people = r.people || [];
-  const total = people.reduce((a, p) => a + (p.payments || []).reduce((b, x) => b + Number(x.amount || 0), 0), 0);
+  const total = people.reduce((a, p) => a + paySum(p), 0);
   const totalTarget = r.target ? Number(r.target) * people.length : 0;
   const pc = totalTarget ? Math.min(100, Math.round(total / totalTarget * 100)) : 0;
+  const overdueCount = people.filter(p => memberScheduleSummary(r, p).overdue).length;
 
   $('app').innerHTML = `
+    ${!owner ? `<div class="staff-banner"><div><b>Staff Helper View</b> · You can add members and log payments for <b>${esc(r.title)}</b>.</div><button class="btn-outline btn-sm" onclick="switchWorkspace('')">Exit Staff Mode</button></div>` : ''}
     <div class="card">
       <div class="row between">
         <div>
           <h1>${esc(r.title)}</h1>
           <div class="muted">Created ${new Date(r.created_at || Date.now()).toLocaleDateString()} ${r.end_date ? `· ${isRec(r) ? 'Ends' : 'Due'} ${esc(r.end_date)}` : ''}</div>
         </div>
-        <div class="row">
+        ${owner ? `<div class="row">
           <button class="btn-outline btn-sm" onclick="openEditRecordDescModal('${r.id}')">✏️ Edit Details</button>
           <button class="btn-danger btn-sm" onclick="confirmDeleteRecord('${r.id}')">Delete Group</button>
-        </div>
+        </div>` : '<span class="badge badge-amber">Staff access</span>'}
       </div>
 
       ${r.description ? `
@@ -4426,11 +5791,11 @@ function renderRecordDetail(rid) {
             <div style="margin-top:3px;white-space:pre-wrap;">${esc(r.description)}</div>
           </div>
         </div>
-      ` : `
+      ` : owner ? `
         <div style="margin-top:10px;">
           <button class="btn-outline btn-sm" onclick="openEditRecordDescModal('${r.id}')">＋ Add Description / Payment Details</button>
         </div>
-      `}
+      ` : ''}
 
       <div class="grid-3" style="margin-top:14px;">
         <div class="stat-box green">
@@ -4474,14 +5839,14 @@ function renderRecordDetail(rid) {
 
       <div class="search-input">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="memberSearch" placeholder="Search members by name or phone..." oninput="filterRecordMembers('${r.id}')">
+        <input id="memberSearch" placeholder="Search members by name, phone or email..." oninput="filterRecordMembers('${r.id}')">
       </div>
 
       ${people.length ? (() => {
         if (memberFilterRid !== r.id) { memberFilterRid = r.id; memberStatusFilter = 'all'; }
         const tgt = Number(r.target || 0);
         const paidCount = people.filter(p => {
-          const paidAmt = (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+          const paidAmt = paySum(p);
           return tgt ? paidAmt >= tgt : paidAmt > 0;
         }).length;
         const unpaidCount = people.length - paidCount;
@@ -4489,6 +5854,7 @@ function renderRecordDetail(rid) {
           <div class="tab-bar" id="memberFilterTabs" style="margin-bottom:12px;">
             <button class="tab-btn ${memberStatusFilter === 'all' ? 'active' : ''}" onclick="setMemberFilter('${r.id}','all')">All (${people.length})</button>
             <button class="tab-btn ${memberStatusFilter === 'unpaid' ? 'active' : ''}" onclick="setMemberFilter('${r.id}','unpaid')">Unpaid (${unpaidCount})</button>
+            ${overdueCount ? `<button class="tab-btn ${memberStatusFilter === 'overdue' ? 'active' : ''}" onclick="setMemberFilter('${r.id}','overdue')">Overdue (${overdueCount})</button>` : ''}
             <button class="tab-btn ${memberStatusFilter === 'paid' ? 'active' : ''}" onclick="setMemberFilter('${r.id}','paid')">${tgt ? 'Completed' : 'Paid'} (${paidCount})</button>
           </div>
         `;
@@ -4499,7 +5865,7 @@ function renderRecordDetail(rid) {
       </div>
     </div>
 
-    <!-- Sharing & Transparency -->
+    ${owner ? `<!-- Sharing & Transparency -->
     <div class="card">
       <div class="card-title" style="margin-bottom:8px;">🔗 Public Sharing & Transparency</div>
       <p class="muted small">Enable public links so members can monitor group progress or check their private balance.</p>
@@ -4560,7 +5926,7 @@ function renderRecordDetail(rid) {
           <button class="btn-primary btn-sm" onclick="copyText('${link('g/' + r.id)}')">Copy Group Link</button>
         </div>
       ` : ''}
-    </div>
+    </div>` : ''}
 
     <div id="groupChatBox"></div>
   `;
@@ -4571,11 +5937,12 @@ function renderRecordDetail(rid) {
       if (firstNew) firstNew.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   }
-  initGroupChat(r.id, { isOwner: true, title: r.title });
+  initGroupChat(r.id, { isOwner: owner, title: r.title });
 }
 
 function openEditRecordDescModal(rid) {
-  const r = Store.data.records.find(x => x.id === rid);
+  if (isStaffMode()) { toast('Only the group owner can edit record details.', 'bad'); return; }
+  const r = findRec(rid);
   if (!r) return;
 
   $('modalRoot').innerHTML = `
@@ -4604,7 +5971,7 @@ function openEditRecordDescModal(rid) {
 }
 
 function saveRecordDetails(rid) {
-  const r = Store.data.records.find(x => x.id === rid);
+  const r = findRec(rid);
   if (!r) return;
   const t = val('editTitle');
   if (!t) { toast('Title cannot be empty.'); return; }
@@ -4624,12 +5991,13 @@ function getFilteredMembers(r) {
   const q = ($('memberSearch')?.value || '').trim().toLowerCase();
   const tgt = Number(r.target || 0);
   return (r.people || []).filter(p => {
-    if (q && !(p.name || '').toLowerCase().includes(q) && !(p.phone || '').includes(q)) return false;
+    if (q && !(p.name || '').toLowerCase().includes(q) && !(p.phone || '').includes(q) && !(p.email || '').toLowerCase().includes(q)) return false;
     if (memberFilterRid === r.id && memberStatusFilter !== 'all') {
-      const paidAmt = (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+      const paidAmt = paySum(p);
       const isDone = tgt ? paidAmt >= tgt : paidAmt > 0;
       if (memberStatusFilter === 'paid' && !isDone) return false;
       if (memberStatusFilter === 'unpaid' && isDone) return false;
+      if (memberStatusFilter === 'overdue' && !memberScheduleSummary(r, p).overdue) return false;
     }
     return true;
   });
@@ -4640,9 +6008,8 @@ function setMemberFilter(rid, mode) {
   memberStatusFilter = mode || 'all';
   const tabs = $('memberFilterTabs');
   if (tabs) {
-    const btns = tabs.querySelectorAll('.tab-btn');
-    const modes = ['all', 'unpaid', 'paid'];
-    btns.forEach((b, i) => b.classList.toggle('active', modes[i] === memberStatusFilter));
+    const btns = [...tabs.querySelectorAll('.tab-btn')];
+    btns.forEach(b => b.classList.toggle('active', (b.getAttribute('onclick') || '').includes(`'${memberStatusFilter}'`)));
   }
   filterRecordMembers(rid);
 }
@@ -4667,12 +6034,15 @@ function renderRecordMembersList(r, people, animate = false) {
       </div>
     `;
   }
+  const owner = isRecOwner(r);
   const hasNewOnly = recentlyAddedMemberIds.size > 0;
   return people.map((p, idx) => {
-    const paid = (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+    const paid = paySum(p);
     const target = Number(r.target || 0);
     const pc = target ? Math.min(100, Math.round(paid / target * 100)) : 0;
     const isCompleted = target > 0 && paid >= target;
+    const sch = memberScheduleSummary(r, p);
+    const openFlag = (paymentReports || []).some(rp => rp.person_id === p.id && rp.status === 'open');
     const isNew = recentlyAddedMemberIds.has(p.id);
     const animClass = animate ? (isNew ? ' member-item-new' : (hasNewOnly ? '' : ' member-item-enter')) : '';
     const animStyle = (animate && !hasNewOnly) ? ` style="--mi:${Math.min(idx, 10)}"` : '';
@@ -4682,17 +6052,21 @@ function renderRecordMembersList(r, people, animate = false) {
         <div class="grow" style="cursor:pointer;" onclick="location.hash='#/r/${r.id}/${p.id}'">
           <div class="row between">
             <b>${esc(p.name)}</b>
-            <span class="badge ${isCompleted ? 'badge-green' : paid > 0 ? 'badge-amber' : 'badge-gray'}">
-              ${isCompleted ? 'Completed' : paid > 0 ? `${pc}%` : 'Unpaid'}
+            <span class="badge ${isCompleted ? 'badge-green' : sch.overdue ? 'badge-red' : paid > 0 ? 'badge-amber' : 'badge-gray'}">
+              ${isCompleted ? 'Completed' : sch.overdue ? 'Overdue' : paid > 0 ? `${pc}%` : 'Unpaid'}
             </span>
           </div>
-          <div class="muted small">${esc(p.phone || 'No phone')} · <b>${money(paid)}</b> paid ${target ? `(remains ${money(Math.max(0, target - paid))})` : ''}${p.last_reminded ? ' · reminded ' + remAgo(p.last_reminded) : ''}</div>
+          <div class="muted small">${esc(p.phone || 'No phone')}${p.email ? ' · ' + esc(p.email) : ''} · <b>${money(paid)}</b> paid ${target ? `(remains ${money(Math.max(0, target - paid))})` : ''}${p.last_reminded ? ' · reminded ' + remAgo(p.last_reminded) : ''}</div>
+          ${(sch.nextDue || openFlag) ? `<div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap;">
+            ${sch.nextDue ? `<span class="tag-inline ${sch.nextDue.overdue ? 'tag-overdue' : 'tag-due'}">${sch.nextDue.overdue ? `Overdue · ${sch.nextDue.daysOverdue}d (${esc(sch.nextDue.due_date)})` : `Next due: ${esc(sch.nextDue.due_date)}${sch.nextDue.amount ? ' (' + money(sch.nextDue.amount) + ')' : ''}`}</span>` : ''}
+            ${openFlag ? '<span class="tag-inline tag-overdue">Problem flagged</span>' : ''}
+          </div>` : ''}
           ${target ? `<div class="progress-track"><div class="progress-fill" style="width:${pc}%"></div></div>` : ''}
           ${target && !isCompleted ? `<button class="btn-soft btn-sm" style="margin-top:6px;" onclick="event.stopPropagation();remindOne('${r.id}','${p.id}')">Remind</button>` : ''}
         </div>
         <div class="row">
           <button class="btn-primary btn-sm" onclick="location.hash='#/r/${r.id}/${p.id}'">Manage</button>
-          <button class="btn-danger btn-sm" onclick="confirmDeleteMember('${r.id}', '${p.id}')" title="Delete member">✕</button>
+          ${owner ? `<button class="btn-danger btn-sm" onclick="confirmDeleteMember('${r.id}', '${p.id}')" title="Delete member">✕</button>` : ''}
         </div>
       </div>
     `;
@@ -4700,14 +6074,15 @@ function renderRecordMembersList(r, people, animate = false) {
 }
 
 function filterRecordMembers(rid) {
-  const r = Store.data.records.find(x => x.id === rid);
+  const r = findRec(rid);
   if (!r) return;
   const filtered = getFilteredMembers(r);
   $('recordMembersList').innerHTML = renderRecordMembersList(r, filtered, false);
 }
 
 function toggleRecordProp(rid, prop) {
-  const r = Store.data.records.find(x => x.id === rid);
+  if (isStaffMode()) { toast('Only the group owner can change sharing settings.', 'bad'); return; }
+  const r = findRec(rid);
   if (!r) return;
   r[prop] = !r[prop];
   Store.save();
@@ -4716,6 +6091,7 @@ function toggleRecordProp(rid, prop) {
 }
 
 function confirmDeleteRecord(rid) {
+  if (isStaffMode()) { toast('Staff helpers cannot delete groups.', 'bad'); return; }
   const r = Store.data.records.find(x => x.id === rid);
   const name = r ? r.title : 'this record';
   if (confirm(`Are you sure you want to permanently delete "${name}" and all its member transactions?`)) {
@@ -4728,6 +6104,8 @@ function confirmDeleteRecord(rid) {
 }
 
 function openAddMemberModal(rid) {
+  const r = findRec(rid);
+  if (r && !checkPlanQuota('members', 1, r)) return;
   $('modalRoot').innerHTML = `
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal-window">
@@ -4739,13 +6117,23 @@ function openAddMemberModal(rid) {
           <label for="newMemName">Member Name *</label>
           <input id="newMemName" placeholder="e.g. Samuel Okon" onkeydown="if(event.key==='Enter')saveNewMember('${rid}')">
         </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="newMemPhone">Phone Number (optional)</label>
+            <input id="newMemPhone" type="tel" placeholder="080...">
+          </div>
+          <div class="field">
+            <label for="newMemEmail">Email (for receipts/reminders)</label>
+            <input id="newMemEmail" type="email" placeholder="name@email.com">
+          </div>
+        </div>
         <div class="field">
-          <label for="newMemPhone">Phone Number (optional)</label>
-          <input id="newMemPhone" type="tel" placeholder="080..." onkeydown="if(event.key==='Enter')saveNewMember('${rid}')">
+          <label for="newMemDue">Next Payment Due Date (optional)</label>
+          <input id="newMemDue" type="date">
         </div>
         <div class="row between" style="margin-top:16px;">
           <button class="btn-outline" onclick="closeModal()">Cancel</button>
-          <button class="btn-primary" onclick="saveNewMember('${rid}')">Add Member</button>
+          <button class="btn-primary" id="saveMemBtn" onclick="saveNewMember('${rid}')">Add Member</button>
         </div>
       </div>
     </div>
@@ -4753,22 +6141,45 @@ function openAddMemberModal(rid) {
   setTimeout(() => $('newMemName')?.focus(), 40);
 }
 
-function saveNewMember(rid) {
+async function saveNewMember(rid) {
   const name = val('newMemName');
   if (!name) { toast('Please enter a name.'); return; }
   const phone = val('newMemPhone') || null;
+  const email = val('newMemEmail') || null;
+  const due_date = val('newMemDue') || null;
 
-  const r = Store.data.records.find(x => x.id === rid);
+  const r = findRec(rid);
   if (!r) return;
+  if (!checkPlanQuota('members', 1, r)) return;
   const newPid = uid();
-  r.people.push({
+  const memObj = {
     id: newPid,
     name,
     phone,
+    email,
+    due_date,
+    installment_plan: [],
     payments: []
-  });
+  };
+  if (isStaffMode()) {
+    const b = $('saveMemBtn'); if (b) { b.disabled = true; b.textContent = 'Saving…'; }
+    try {
+      const { error } = await sb.from('people').insert({ id: newPid, record_id: rid, name, phone, email, due_date });
+      if (error) {
+        if (!handleDbPlanError(error)) toast(error.message || 'Could not add member.');
+        if (b) { b.disabled = false; b.textContent = 'Add Member'; }
+        return;
+      }
+    } catch (e) {
+      if (!handleDbPlanError(e)) toast('Could not save member online.');
+      if (b) { b.disabled = false; b.textContent = 'Add Member'; }
+      return;
+    }
+  }
+  r.people = r.people || [];
+  r.people.push(memObj);
   recentlyAddedMemberIds.add(newPid);
-  Store.save();
+  if (!isStaffMode()) Store.save();
   closeModal();
   toast('Member added!');
   renderRecordDetail(rid);
@@ -4790,8 +6201,8 @@ function openMemberCsvImportModal(targetRid) {
   pendingMemberImportTarget = targetRid || null;
 
   const isWizard = targetRid === '__wizard__';
-  const targetRecord = (!isWizard && targetRid) ? Store.data.records.find(x => x.id === targetRid) : null;
-  const records = Store.data.records || [];
+  const targetRecord = (!isWizard && targetRid) ? findRec(targetRid) : null;
+  const records = activeRecords();
 
   if (!isWizard && !targetRid && !records.length) {
     toast('Create a contribution group first, or import CSV in Step 3 when creating one.');
@@ -4799,10 +6210,10 @@ function openMemberCsvImportModal(targetRid) {
   }
 
   const subtitleHtml = isWizard
-    ? 'Upload a spreadsheet or paste member records to bulk-add <b>Name</b> and <b>Phone</b> to your new group.'
+    ? 'Upload a spreadsheet or paste member records to bulk-add <b>Name</b>, <b>Phone</b>, optional <b>Email</b>, and <b>Due Date</b>.'
     : targetRecord
-      ? `Upload a spreadsheet or paste member records to bulk-add <b>Name</b> and <b>Phone</b> into <b>${esc(targetRecord.title)}</b>.`
-      : 'Choose a contribution group, then upload a CSV file or paste member records with <b>Name</b> and <b>Phone</b>.';
+      ? `Upload a spreadsheet or paste member records to bulk-add into <b>${esc(targetRecord.title)}</b>.`
+      : 'Choose a contribution group, then upload a CSV file or paste member records.';
 
   const groupSelectorHtml = (!isWizard && !targetRecord)
     ? `<div class="field">
@@ -4840,7 +6251,7 @@ function openMemberCsvImportModal(targetRid) {
 
         <div class="field">
           <label for="memberCsvPasteText">Or Paste CSV Text directly</label>
-          <textarea id="memberCsvPasteText" rows="4" placeholder="Name, Phone&#10;Amina Bello, 08012345678&#10;David Adeleke, 08087654321&#10;Chukwuma Eze, 07033445566" oninput="handleMemberCsvTextChange(this.value)"></textarea>
+          <textarea id="memberCsvPasteText" rows="4" placeholder="Name, Phone, Email, Due Date&#10;Amina Bello, 08012345678, amina@example.com, 2026-12-01&#10;David Adeleke, 08087654321, , " oninput="handleMemberCsvTextChange(this.value)"></textarea>
         </div>
 
         <!-- Preview Container -->
@@ -4910,7 +6321,7 @@ function parseMemberCSV(text) {
   if (!rawRows.length) return [];
 
   const first = rawRows[0].map(h => (h || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
-  let nameIdx = -1, firstIdx = -1, lastIdx = -1, phoneIdx = -1;
+  let nameIdx = -1, firstIdx = -1, lastIdx = -1, phoneIdx = -1, emailIdx = -1, dueIdx = -1;
 
   first.forEach((h, idx) => {
     if (h === 'name' || h === 'fullname' || h === 'member' || h === 'membername' || h === 'person' || h === 'participant' || h === 'contact' || (h.includes('name') && !h.includes('first') && !h.includes('last') && !h.includes('user'))) {
@@ -4921,20 +6332,26 @@ function parseMemberCSV(text) {
       if (lastIdx === -1) lastIdx = idx;
     } else if (h.includes('phone') || h.includes('tel') || h.includes('mobile') || h.includes('whatsapp') || h.includes('number')) {
       if (phoneIdx === -1) phoneIdx = idx;
+    } else if (h.includes('email') || h.includes('mail')) {
+      if (emailIdx === -1) emailIdx = idx;
+    } else if (h.includes('due') || h.includes('deadline') || h === 'date') {
+      if (dueIdx === -1) dueIdx = idx;
     }
   });
 
-  const hasHeader = nameIdx !== -1 || firstIdx !== -1 || lastIdx !== -1 || phoneIdx !== -1;
+  const hasHeader = nameIdx !== -1 || firstIdx !== -1 || lastIdx !== -1 || phoneIdx !== -1 || emailIdx !== -1 || dueIdx !== -1;
   let dataRows = rawRows;
   if (hasHeader) {
     dataRows = rawRows.slice(1);
     if (nameIdx === -1 && firstIdx === -1) {
-      nameIdx = first.findIndex((_, idx) => idx !== phoneIdx);
+      nameIdx = first.findIndex((_, idx) => idx !== phoneIdx && idx !== emailIdx && idx !== dueIdx);
       if (nameIdx === -1) nameIdx = 0;
     }
   } else {
     nameIdx = 0;
     phoneIdx = 1;
+    emailIdx = 2;
+    dueIdx = 3;
   }
 
   const parsed = [];
@@ -4947,9 +6364,14 @@ function parseMemberCSV(text) {
     }
     if (!name) return;
     const phone = phoneIdx !== -1 ? (cols[phoneIdx] || '').trim() : '';
+    const email = emailIdx !== -1 ? (cols[emailIdx] || '').trim() : '';
+    const dueRaw = dueIdx !== -1 ? (cols[dueIdx] || '').trim() : '';
+    const due_date = /^\d{4}-\d{2}-\d{2}$/.test(dueRaw) ? dueRaw : null;
     parsed.push({
       name,
-      phone: phone || null
+      phone: phone || null,
+      email: (email && email.includes('@')) ? email : null,
+      due_date
     });
   });
 
@@ -4983,6 +6405,8 @@ function renderMemberCsvPreview(members) {
           <tr>
             <th>Name</th>
             <th>Phone</th>
+            <th>Email</th>
+            <th>Due Date</th>
           </tr>
         </thead>
         <tbody>
@@ -4990,6 +6414,8 @@ function renderMemberCsvPreview(members) {
             <tr>
               <td><b>${esc(m.name)}</b></td>
               <td>${esc(m.phone || '—')}</td>
+              <td>${esc(m.email || '—')}</td>
+              <td>${esc(m.due_date || '—')}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -4999,7 +6425,7 @@ function renderMemberCsvPreview(members) {
   `;
 }
 
-function executeMemberCsvImport() {
+async function executeMemberCsvImport() {
   if (!pendingImportMembers.length) {
     toast('No valid members to import.');
     return;
@@ -5007,7 +6433,8 @@ function executeMemberCsvImport() {
 
   if (pendingMemberImportTarget === '__wizard__') {
     const existing = (Array.isArray(rf.people) ? rf.people : []).filter(p => p.name || p.phone);
-    const added = pendingImportMembers.map(m => ({ name: m.name, phone: m.phone || '' }));
+    if (!checkPlanQuota('members', pendingImportMembers.length, { people: existing })) return;
+    const added = pendingImportMembers.map(m => ({ name: m.name, phone: m.phone || '', email: m.email || null, due_date: m.due_date || null }));
     rf.people = existing.concat(added);
     const count = added.length;
     closeModal();
@@ -5017,27 +6444,41 @@ function executeMemberCsvImport() {
   }
 
   const rid = pendingMemberImportTarget || val('memberCsvTargetSelect');
-  const r = Store.data.records.find(x => x.id === rid);
+  const r = findRec(rid);
   if (!r) {
     toast('Please select a contribution group.');
     return;
   }
   if (!Array.isArray(r.people)) r.people = [];
+  if (!checkPlanQuota('members', pendingImportMembers.length, r)) return;
 
-  let count = 0;
-  pendingImportMembers.forEach(m => {
-    const newPid = uid();
-    r.people.push({
-      id: newPid,
-      name: m.name,
-      phone: m.phone || null,
-      payments: []
-    });
-    recentlyAddedMemberIds.add(newPid);
-    count++;
-  });
+  const newRows = pendingImportMembers.map(m => ({
+    id: uid(),
+    name: m.name,
+    phone: m.phone || null,
+    email: m.email || null,
+    due_date: m.due_date || null,
+    installment_plan: [],
+    payments: []
+  }));
 
-  Store.save();
+  if (isStaffMode()) {
+    try {
+      const { error } = await sb.from('people').insert(newRows.map(m => ({ id: m.id, record_id: r.id, name: m.name, phone: m.phone, email: m.email, due_date: m.due_date })));
+      if (error) {
+        if (!handleDbPlanError(error)) toast(error.message || 'Could not import members.');
+        return;
+      }
+    } catch (e) {
+      if (!handleDbPlanError(e)) toast('Could not import members online.');
+      return;
+    }
+  }
+
+  newRows.forEach(m => { r.people.push(m); recentlyAddedMemberIds.add(m.id); });
+  const count = newRows.length;
+
+  if (!isStaffMode()) Store.save();
   closeModal();
   toast(`Successfully imported ${count} member${count === 1 ? '' : 's'} into "${r.title}"!`);
   if (hash()[0] === 'r' && hash()[1] === r.id) {
@@ -5048,7 +6489,7 @@ function executeMemberCsvImport() {
 }
 
 function downloadMemberCsvTemplate() {
-  const content = 'Name,Phone\nAmina Bello,08012345678\nDavid Adeleke,08087654321\nChukwuma Eze,07033445566\n';
+  const content = 'Name,Phone,Email,Due Date\nAmina Bello,08012345678,amina@example.com,2026-12-01\nDavid Adeleke,08087654321,david@example.com,\nChukwuma Eze,07033445566,,\n';
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -5063,30 +6504,34 @@ function downloadMemberCsvTemplate() {
  * 2B. MEMBER ADMIN & PAYMENT CORRECTION
  */
 function renderMemberAdmin(rid, pid) {
-  const r = Store.data.records.find(x => x.id === rid);
+  const r = findRec(rid);
   const p = r?.people?.find(x => x.id === pid);
   if (!r || !p) {
     location.hash = '#/contributions';
     return;
   }
 
+  const owner = isRecOwner(r);
   const pays = (p.payments || []).slice().sort((a, b) => (b.paid_on || '').localeCompare(a.paid_on || ''));
-  const paid = pays.reduce((a, x) => a + Number(x.amount || 0), 0);
+  const paid = paySum(p);
   const target = Number(r.target || 0);
   const balance = Math.max(0, target - paid);
+  const sch = memberScheduleSummary(r, p);
+  const openReports = (paymentReports || []).filter(rp => rp.person_id === pid && rp.status === 'open');
 
   $('app').innerHTML = `
     <button class="btn-outline btn-sm backbtn" onclick="pageBack()" style="margin-bottom:12px;">← ${esc(r.title)}</button>
+    ${!owner ? `<div class="staff-banner"><div><b>Staff Helper Mode</b> · You can log payments and view receipts for <b>${esc(p.name)}</b>.</div></div>` : ''}
 
     <div class="card">
       <div class="row between">
         <div>
           <h1>${esc(p.name)}</h1>
-          <p class="muted">${esc(p.phone || 'No phone registered')}</p>
+          <p class="muted">${esc(p.phone || 'No phone registered')}${p.email ? ' · ' + esc(p.email) : ''}</p>
         </div>
         <div class="row" style="gap:6px;flex-wrap:nowrap;">
           <button class="btn-soft btn-sm" onclick="openMemberStatement('${rid}', '${pid}')">${ico('file', 15)} Statement</button>
-          <button class="btn-danger btn-sm" onclick="confirmDeleteMember('${rid}', '${pid}')">Remove Member</button>
+          ${owner ? `<button class="btn-danger btn-sm" onclick="confirmDeleteMember('${rid}', '${pid}')">Remove Member</button>` : ''}
         </div>
       </div>
 
@@ -5100,10 +6545,54 @@ function renderMemberAdmin(rid, pid) {
           <div class="stat-val">${target ? money(balance) : 'No target'}</div>
         </div>
         <div class="stat-box">
-          <div class="stat-label">Transactions</div>
-          <div class="stat-val">${pays.length}</div>
+          <div class="stat-label">Active Payments</div>
+          <div class="stat-val">${activePays(p).length}</div>
         </div>
       </div>
+    </div>
+
+    ${openReports.length ? `
+    <div class="card">
+      <div class="card-title">🚩 Buyer Problem Reports (${openReports.length})</div>
+      <div class="list" style="margin-top:8px;">
+        ${openReports.map(rp => `<div class="report-flag">
+          <div class="row between">
+            <b>${esc(rp.reason || 'Problem reported')}</b>
+            <span class="badge badge-red">Open flag</span>
+          </div>
+          ${rp.expected_amount ? `<div class="small" style="margin-top:2px;">Buyer expected: <b>${moneyReal(rp.expected_amount)}</b></div>` : ''}
+          <div class="small muted" style="margin-top:3px;">${esc(rp.details || '')}</div>
+          ${owner ? `<div class="row" style="margin-top:8px;gap:6px;">
+            ${rp.payment_id ? `<button class="btn-soft btn-sm" onclick="openEditPaymentModal('${rid}','${pid}','${rp.payment_id}')">✏️ Edit Payment</button>` : ''}
+            <button class="btn-outline btn-sm" onclick="resolvePaymentReport('${rp.id}','${rid}','${pid}')">✓ Mark Resolved</button>
+          </div>` : ''}
+        </div>`).join('')}
+      </div>
+    </div>` : ''}
+
+    <!-- Due Date & Instalment Schedule Card -->
+    <div class="card">
+      <div class="row between" style="margin-bottom:6px;">
+        <div class="card-title" style="margin:0;">📅 Schedule &amp; Due Dates</div>
+        ${owner ? `<button class="btn-outline btn-sm" onclick="openMemberScheduleModal('${rid}','${pid}')">Edit Schedule &amp; Email</button>` : ''}
+      </div>
+      ${sch.nextDue ? `
+        <div class="row between" style="padding:8px 0;">
+          <div>
+            <b>Next payment due: ${esc(sch.nextDue.due_date || '—')}</b>
+            <div class="small muted">${esc(sch.nextDue.label)}${sch.nextDue.amount ? ' · ' + money(sch.nextDue.amount) : ''}</div>
+          </div>
+          <span class="tag-inline ${sch.nextDue.overdue ? 'tag-overdue' : 'tag-due'}">${sch.nextDue.overdue ? `Overdue · ${sch.nextDue.daysOverdue}d` : sch.nextDue.daysLeft === 0 ? 'Due today' : `In ${sch.nextDue.daysLeft}d`}</span>
+        </div>
+      ` : `<p class="muted small" style="margin:4px 0;">${sch.rows.length ? 'All scheduled instalments are paid.' : 'No personal due date or instalment plan set yet.'}</p>`}
+      ${sch.rows.length ? `<div style="margin-top:6px;">
+        ${sch.rows.map(row => `<div class="sched-row">
+          <div><b>${esc(row.label)}</b><div class="small muted">${esc(row.due_date || 'No date')}</div></div>
+          <div style="text-align:right;"><b class="amt-num">${money(row.amount)}</b>
+            <div><span class="tag-inline ${row.status === 'paid' ? 'tag-ok' : row.status === 'overdue' ? 'tag-overdue' : 'tag-due'}">${row.status === 'paid' ? 'Paid' : row.status === 'overdue' ? 'Overdue' : row.status === 'partial' ? 'Partial (' + money(row.remaining) + ' left)' : 'Upcoming'}</span></div>
+          </div>
+        </div>`).join('')}
+      </div>` : ''}
     </div>
 
     <!-- Log Payment Card -->
@@ -5160,9 +6649,19 @@ function renderMemberAdmin(rid, pid) {
           <label for="payNote">Note / Reference</label>
           <input id="payNote" placeholder="e.g. First tranche / GTBank ref">
         </div>
+        <div class="field">
+          <label for="payProofFile">Transfer Proof / Screenshot (optional)</label>
+          <input id="payProofFile" type="file" accept="image/*,.pdf" onchange="previewProofInput(this,'payProofPrev')">
+          <div id="payProofPrev"></div>
+        </div>
       </div>
 
-      <button class="btn-primary" onclick="saveMemberPayment('${rid}', '${pid}')" style="margin-top:6px;">
+      ${p.email ? `<div class="field" style="display:flex;align-items:center;gap:8px;margin-top:4px;">
+        <input type="checkbox" id="paySendEmail" checked style="width:18px;height:18px;">
+        <label for="paySendEmail" style="margin:0;font-weight:600;">Email receipt automatically to ${esc(p.email)}</label>
+      </div>` : ''}
+
+      <button class="btn-primary" id="savePayBtn" onclick="saveMemberPayment('${rid}', '${pid}')" style="margin-top:6px;">
         Save Payment
       </button>
     </div>
@@ -5182,18 +6681,26 @@ function renderMemberAdmin(rid, pid) {
       <div class="card-title">📜 Payment History (${pays.length})</div>
       ${pays.length ? `
         <div class="list" style="margin-top:10px;">
-          ${pays.map(x => `
-            <div class="item-card between">
-              <div>
-                <div style="font-weight:700;font-size:16px;">${money(x.amount)}</div>
-                <div class="muted small">${esc(x.paid_on || 'Date not recorded')}${payTimeTxt(x)} · <span class="badge badge-gray">${esc(x.method || 'Payment')}</span> ${x.note ? `· ${esc(x.note)}` : ''}${x.payer_name ? ` · Paid by ${esc(x.payer_name)}${x.payer_phone ? ' (' + esc(x.payer_phone) + ')' : ''}` : ''}</div>
+          ${pays.map(x => {
+            const pFlags = (paymentReports || []).filter(rp => rp.payment_id === x.id && rp.status === 'open');
+            const logs = Array.isArray(x.change_log) ? x.change_log : [];
+            return `<div class="pay-card ${x.voided ? 'voided' : ''}">
+              <div class="row between">
+                <div>
+                  <div style="font-weight:700;font-size:16px;" class="amt-num">${money(x.amount)} ${x.voided ? '<span class="tag-inline tag-void">Voided</span>' : x.edited_at ? '<span class="tag-inline tag-due">Edited</span>' : ''}${pFlags.length ? '<span class="tag-inline tag-overdue">Flagged</span>' : ''}</div>
+                  <div class="muted small">${esc(x.paid_on || 'Date not recorded')}${payTimeTxt(x)} · <span class="badge badge-gray">${esc(x.method || 'Payment')}</span> ${x.note ? `· ${esc(x.note)}` : ''}${x.payer_name ? ` · Paid by ${esc(x.payer_name)}${x.payer_phone ? ' (' + esc(x.payer_phone) + ')' : ''}` : ''}</div>
+                </div>
+                <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+                  ${(x.proof_path || x.proof_preview) ? `<button class="btn-outline btn-sm" onclick="openProofModal('${esc(x.proof_path || '')}', ${(x.proof_preview ? 'findRec(\'' + rid + '\')?.people?.find(y=>y.id===\'' + pid + '\')?.payments?.find(z=>z.id===\'' + x.id + '\')?.proof_preview' : 'null')})">📎 Proof</button>` : ''}
+                  <button class="btn-soft btn-sm" onclick="openPaymentReceipt('${rid}', '${pid}', '${x.id}')">Receipt</button>
+                  ${owner && !x.voided ? `<button class="btn-outline btn-sm" onclick="openEditPaymentModal('${rid}', '${pid}', '${x.id}')">✏️ Edit</button>` : ''}
+                  ${owner && !x.voided ? `<button class="btn-danger btn-sm" onclick="openVoidPaymentModal('${rid}', '${pid}', '${x.id}')">Void</button>` : ''}
+                </div>
               </div>
-              <div class="row">
-                <button class="btn-soft btn-sm" onclick="openPaymentReceipt('${rid}', '${pid}', '${x.id}')">Receipt</button>
-                <button class="btn-danger btn-sm" onclick="deleteMemberPayment('${rid}', '${pid}', '${x.id}')" title="Delete payment entry">✕</button>
-              </div>
-            </div>
-          `).join('')}
+              ${x.voided ? `<div class="pay-audit">Voided on ${esc(fmtDateTime(x.voided_at) || 'record')} · Reason: ${esc(x.void_reason || 'No reason given')}</div>` : x.edited_at ? `<div class="pay-audit">Edited on ${esc(fmtDateTime(x.edited_at))} · Reason: ${esc(x.edit_reason || 'Updated')}</div>` : ''}
+              ${logs.length > 1 ? `<details class="small muted" style="margin-top:6px;"><summary style="cursor:pointer;">View full change history (${logs.length})</summary>${logs.map(lg => `<div style="margin-top:4px;">• <b>${esc(lg.action)}</b> on ${esc(fmtDateTime(lg.at))} by ${esc(lg.by || 'Admin')}: ${esc(lg.reason || '')}${lg.prev && lg.next ? ` (${moneyReal(lg.prev.amount)} → ${moneyReal(lg.next.amount)})` : ''}</div>`).join('')}</details>` : ''}
+            </div>`;
+          }).join('')}
         </div>
       ` : `<div class="empty-box">No payments recorded yet.</div>`}
     </div>
@@ -5204,10 +6711,10 @@ function renderMemberAdmin(rid, pid) {
 
 // Printable / PDF / shareable statement for one person: every payment, its date and the running balance
 function openMemberStatement(rid, pid) {
-  const r = Store.data.records.find(x => x.id === rid), p = r && (r.people || []).find(x => x.id === pid);
+  const r = findRec(rid), p = r && (r.people || []).find(x => x.id === pid);
   if (!r || !p) return;
   const biz = bizName(), target = Number(r.target || 0), rec = isRec(r);
-  const pays = (p.payments || []).slice().sort((a, b) => (a.paid_on || '').localeCompare(b.paid_on || '') || (a.paid_at || '').localeCompare(b.paid_at || ''));
+  const pays = activePays(p).slice().sort((a, b) => (a.paid_on || '').localeCompare(b.paid_on || '') || (a.paid_at || '').localeCompare(b.paid_at || ''));
   const paid = pays.reduce((a, x) => a + Number(x.amount || 0), 0);
   let run = 0;
   const rows = pays.map(x => {
@@ -5374,7 +6881,7 @@ function printStatement() {
   window.print();
 }
 
-function saveMemberPayment(rid, pid) {
+async function saveMemberPayment(rid, pid) {
   const amt = Number(val('payAmount'));
   if (!amt || amt <= 0) { toast('Please enter a valid payment amount.'); return; }
   const method = val('payMethod');
@@ -5389,46 +6896,110 @@ function saveMemberPayment(rid, pid) {
     paid_at = now.toISOString();   // paid today and no time typed: the time is right now
   }
   const note = val('payNote') || null;
+  const payer_name = val('payerName') || null;
+  const payer_phone = val('payerPhone') || null;
+  const sendEmailFlag = !!$('paySendEmail')?.checked;
 
-  const r = Store.data.records.find(x => x.id === rid);
+  const r = findRec(rid);
   const p = r?.people?.find(x => x.id === pid);
   if (!r || !p) return;
 
-  p.payments = p.payments || [];
-  p.payments.push({
-    id: 'rec_pay_' + uid(),
-    ref: 'RCP-' + uid().replace(/-/g, '').slice(0, 8).toUpperCase(),
+  const btn = $('savePayBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const payId = uid();
+  const proofFile = ($('payProofFile') && $('payProofFile').files && $('payProofFile').files[0]) || null;
+  let proof_path = null, proof_preview = null;
+  if (proofFile) {
+    const up = await uploadPaymentProof(rid, pid, payId, proofFile);
+    proof_path = up.path;
+    proof_preview = up.preview;
+  }
+
+  const payObj = {
+    id: payId,
+    ref: 'RCP-' + payId.replace(/-/g, '').slice(0, 8).toUpperCase(),
     biz: bizName(),
     amount: amt,
     paid_on,
     paid_at,
     method,
     note,
-    payer_name: val('payerName') || null,
-    payer_phone: val('payerPhone') || null,
+    payer_name,
+    payer_phone,
+    logged_by: user ? user.id : null,
+    proof_path,
+    proof_preview,
+    change_log: [],
     created_at: now.toISOString()
+  };
+
+  if (isStaffMode()) {
+    try {
+      const { error } = await sb.from('payments').insert({
+        id: payId, person_id: pid, amount: amt, paid_on, paid_at, method, note, payer_name, payer_phone,
+        logged_by: user ? user.id : null, proof_path
+      });
+      if (error) {
+        toast(error.message || 'Could not save payment.');
+        if (btn) { btn.disabled = false; btn.textContent = 'Save Payment'; }
+        return;
+      }
+    } catch (e) {
+      toast('Could not save payment online.');
+      if (btn) { btn.disabled = false; btn.textContent = 'Save Payment'; }
+      return;
+    }
+  }
+
+  p.payments = p.payments || [];
+  p.payments.push(payObj);
+
+  if (!isStaffMode()) Store.save();
+  toast('Payment recorded successfully!');
+
+  // Live Web Push & Realtime Notification to buyer (if claimed)
+  dispatchPushAlert({
+    recipient_user_id: p.claimed_by || null,
+    person_id: pid,
+    record_id: rid,
+    type: 'payment_logged',
+    title: `Payment received: ${moneyReal(amt)}`,
+    body: `${r.title} · Recorded on ${paid_on}`,
+    link: `#/p/${pid}`
   });
 
-  Store.save();
-  toast('Payment recorded successfully!');
+  // Optional automatic Brevo email receipt
+  if (sendEmailFlag && p.email) {
+    const tgt = Number(r.target || 0);
+    const bal = tgt > 0 ? Math.max(0, tgt - paySum(p)) : 0;
+    sendBrevoEmail({
+      type: 'receipt',
+      recordId: rid,
+      toEmail: p.email,
+      toName: p.name,
+      businessName: bizName(),
+      recordTitle: r.title,
+      amount: moneyReal(amt),
+      paidOn: paid_on,
+      method,
+      receiptRef: payObj.ref,
+      balance: bal > 0 ? moneyReal(bal) : '₦0.00',
+      note: note || '',
+      link: link('p/' + pid)
+    }).then(res => { if (res.ok) toast(`Receipt emailed to ${p.email}`); });
+  }
+
   renderMemberAdmin(rid, pid);
 }
 
+// Keep alias safe: never silently delete a payment — always require a void reason
 function deleteMemberPayment(rid, pid, payId) {
-  if (confirm('Are you sure you want to delete this payment record? This will adjust the balance.')) {
-    const r = Store.data.records.find(x => x.id === rid);
-    const p = r?.people?.find(x => x.id === pid);
-    if (!r || !p) return;
-    p.payments = p.payments.filter(x => x.id !== payId);
-    Store.save();
-    toast('Payment deleted.');
-    renderMemberAdmin(rid, pid);
-  }
+  openVoidPaymentModal(rid, pid, payId);
 }
 
 function confirmDeleteMember(rid, pid) {
+  if (isStaffMode()) { toast('Staff helpers cannot remove members.', 'bad'); return; }
   if (confirm('Remove this member and their payment history from the record?')) {
-    const r = Store.data.records.find(x => x.id === rid);
+    const r = findRec(rid);
     if (!r) return;
     r.people = r.people.filter(p => p.id !== pid);
     Store.save();
@@ -6610,9 +8181,9 @@ function renderReports() {
   updateNavActive('reports');
 
   let totalContrib = 0;
-  Store.data.records.forEach(r => {
+  activeRecords().forEach(r => {
     (r.people || []).forEach(p => {
-      totalContrib += (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+      totalContrib += paySum(p);
     });
   });
 
@@ -6731,10 +8302,10 @@ function renderReports() {
 function exportDataToCSV() {
   let csv = 'SECTION,TITLE_OR_NAME,AMOUNT_OR_TOTAL,STATUS_OR_DATE,NOTES\n';
 
-  Store.data.records.forEach(r => {
+  activeRecords().forEach(r => {
     (r.people || []).forEach(p => {
-      const paid = (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
-      csv += `"Contribution: ${r.title}","${p.name}",${paid},"${r.end_date || 'Ongoing'}","Phone: ${p.phone || ''} | ${r.description || ''}"\n`;
+      const paid = paySum(p);
+      csv += `"Contribution: ${r.title}","${p.name}",${paid},"${p.due_date || r.end_date || 'Ongoing'}","Phone: ${p.phone || ''} | Email: ${p.email || ''} | ${r.description || ''}"\n`;
     });
   });
 
@@ -6772,14 +8343,18 @@ const bizName = () => (Store.data.settings && Store.data.settings.businessName) 
 
 function renderMore() {
   updateNavActive('more');
+  const curPlan = (PLAN_META[(myPlanInfo && myPlanInfo.plan) || 'free'] || PLAN_META.free).name;
+  const staffWs = currentStaffWorkspace();
   $('app').innerHTML = `
     <div class="me-top">
       <div class="me-prof" onclick="location.hash='#/profile'">
         <div class="prof-av">${avatarHtml()}</div>
-        <div style="min-width:0;"><div class="me-nm">${esc(myName())} ${ico('chev', 18)}</div><span class="pill">${esc(bizName())}</span></div>
+        <div style="min-width:0;"><div class="me-nm">${esc(myName())} ${ico('chev', 18)}</div><span class="pill">${esc(bizName())} · ${esc(curPlan)} plan</span></div>
       </div>
       <button class="btn-outline btn-icon" style="width:44px;height:44px;border-radius:50%;" onclick="location.hash='#/settings'" aria-label="Settings">${ico('gear', 22)}</button>
     </div>
+
+    ${staffWs ? `<div class="staff-banner" style="margin-bottom:12px;"><div><b>Staff Mode: ${esc(staffWs.owner_name)}</b><div class="small muted">Logging payments and adding members only</div></div><button class="btn-soft btn-sm" onclick="switchWorkspace(null)">Personal</button></div>` : ''}
 
     <div class="card tiles t3">
       ${tile('', 'chart', 'Reports', "location.hash='#/reports'")}
@@ -6790,6 +8365,8 @@ function renderMore() {
     <div class="sgroup">
       ${srow('user', 'My Profile', '', "location.hash='#/profile'")}
       ${srow('store', 'Business name', `<span class="sval">${esc(bizName())}</span>`, "location.hash='#/profile'", { sub: 'Shown on your receipts' })}
+      ${srow('shield', 'Plan & usage', `<span class="sval">${esc(curPlan)}</span>`, 'openPlansModal()', { sub: 'Free, Pro & Business limits' })}
+      ${srow('users', 'Team & staff helpers', `<span class="sval">${(teamMembersList || []).filter(t => t.status === 'active').length}</span>`, 'openTeamManagerModal()', { sub: 'Let helpers log payments safely' })}
       ${srow('gear', 'Settings', '', "location.hash='#/settings'")}
     </div>
     <div class="sgroup">
@@ -6803,13 +8380,20 @@ function renderMore() {
 
 function renderSettings() {
   updateNavActive('more');
+  const curPlan = (PLAN_META[(myPlanInfo && myPlanInfo.plan) || 'free'] || PLAN_META.free).name;
+  const hideSearch = !!(Store.data.settings && Store.data.settings.hideFromSearch);
+  const staffMode = isStaffMode();
+  const blkCount = (myBlocks || []).length;
   $('app').innerHTML = `
     <div class="page-head"><button class="btn-outline pback" onclick="location.hash='#/more'" aria-label="Back">${ico('back', 20)}</button><h1>Settings</h1></div>
 
-    <div class="sh-title">ACCOUNT</div>
+    <div class="sh-title">ACCOUNT &amp; PLAN</div>
     <div class="sgroup">
       ${srow('user', 'My Profile', '', "location.hash='#/profile'")}
       ${srow('store', 'Business name', `<span class="sval">${esc(bizName())}</span>`, "location.hash='#/profile'", { sub: 'Shown on your receipts' })}
+      ${srow('shield', 'Plan & usage', `<span class="sval">${esc(curPlan)}</span>`, 'openPlansModal()', { sub: 'View database-enforced limits or switch plan' })}
+      ${srow('users', 'Team & staff accounts', `<span class="sval">${(teamMembersList || []).filter(t => t.status === 'active').length} active</span>`, 'openTeamManagerModal()', { sub: 'Add helpers who can log payments without delete rights' })}
+      ${staffWorkspaces.length ? srow('users', 'Switch workspace', `<span class="sval">${staffMode ? esc(currentStaffWorkspace().owner_name) : 'Personal'}</span>`, staffMode ? 'switchWorkspace(null)' : `switchWorkspace('${staffWorkspaces[0].owner_id}')`, { sub: 'Move between your workspace and staff workspaces' }) : ''}
     </div>
 
     <div class="sh-title">SHARE</div>
@@ -6818,18 +8402,21 @@ function renderSettings() {
       ${srow('file', 'Copy app link', '', 'copyAppLink()', { noChev: true })}
     </div>
 
-    <div class="sh-title">PRIVACY & SECURITY</div>
+    <div class="sh-title">PRIVACY &amp; SAFETY</div>
     <div class="sgroup">
+      ${srow('eyeoff', 'Hide me from search', swt(hideSearch), 'toggleHideFromSearch()', { noChev: true, sub: 'Stop logged-in users from finding your name in Discover' })}
       ${srow('eyeoff', 'Hide money amounts', swt(maskMoney), 'toggleMask()', { noChev: true, sub: 'Cover balances on this screen' })}
+      ${srow('shield', 'Blocked groups & users', `<span class="sval">${blkCount}</span>`, 'openBlockedListModal()', { sub: 'Manage accounts and groups you hid' })}
       ${srow('lock', 'App lock', `<span class="sval">${lockLabel()}</span>`, 'openLockSettings()', { sub: 'PIN or fingerprint when you open the app' })}
-      ${srow('shield', 'Privacy policy', '', "window.open('privacy.html','_blank')")}
+      ${srow('file', 'Terms of Service', '', "openLegalDoc('terms')")}
+      ${srow('shield', 'Privacy Policy', '', "openLegalDoc('privacy')")}
     </div>
 
     <div class="sh-title">PREFERENCES</div>
     <div class="sgroup">
       ${srow('sun', 'Theme', `<span class="sval">${esc(themeLabel())}</span>`, 'openThemeSettings()', { sub: 'Phone theme, light, dark or pure black' })}
       ${srow('volume', 'Notification sound', `<span class="sval">${esc(soundToneLabel())}</span>`, 'openSoundSettings()', { sub: 'Chime & tone for incoming alerts' })}
-      ${srow('bell', 'Reminders', `<span class="sval">${remCfg().on ? 'On' : 'Off'}</span>`, 'openReminderSettings()', { sub: 'Automatic nudges & phone notifications' })}
+      ${srow('bell', 'Reminders & Live Push', `<span class="sval">${remCfg().on ? 'On' : 'Off'}</span>`, 'openReminderSettings()', { sub: 'Automatic nudges, live push & email templates' })}
       ${srow('bell', 'Alerts', '', "location.hash='#/notifications'")}
     </div>
 
@@ -6845,12 +8432,14 @@ function renderSettings() {
       ${srow('info', 'About Recordly', '', 'aboutRecordly()')}
     </div>
 
+    ${staffMode ? `<div class="banner banner-info"><div>Staff helpers cannot reset or delete the owner’s account. Switch to Personal Workspace in Settings to manage your own account.</div></div>
+    <div class="sgroup">${srow('logout', 'Log out', '', 'logout()', { danger: true, noChev: true })}</div>` : `
     <div class="sh-title">DANGER ZONE</div>
     <div class="sgroup">
       ${srow('trash', 'Reset & clear workspace', '', "confirmWithPassword('Reset & clear workspace','This permanently deletes all your records, sales, debts and online data. Enter your password to confirm.', () => { Store.clearAll(); render(); })", { danger: true })}
       ${srow('power', 'Close account', '', "confirmWithPassword('Delete my account','This permanently deletes your Recordly account and ALL your records, people, payments, sales, debts and receipts from this phone and from our servers. It cannot be undone. Enter your password to confirm.', deleteMyAccount)", { danger: true })}
       ${srow('logout', 'Log out', '', 'logout()', { danger: true, noChev: true })}
-    </div>
+    </div>`}
   `;
 }
 const appLink = () => location.origin + location.pathname.replace(/index\.html$/, '');
@@ -6880,20 +8469,22 @@ function shareApp() {
   </div></div>`;
 }
 function aboutRecordly() {
-  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:360px;text-align:center;"><div class="prof-av" style="margin:0 auto 10px;">R</div><h2>Recordly</h2><p class="muted">Simple records, clear progress.</p><p class="small muted">Contributions, sales, expenses and debts with private progress links and instant receipts.</p><button class="btn-primary full" onclick="closeModal()">Close</button></div></div>`;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:360px;text-align:center;"><div class="prof-av" style="margin:0 auto 10px;">R</div><h2>Recordly</h2><p class="muted">Simple records, clear progress.</p><p class="small muted">Contributions, sales, expenses and debts with private progress links, audit logs, and instant receipts.</p><button class="btn-primary full" onclick="closeModal()">Close</button></div></div>`;
 }
 
 function renderProfile() {
   updateNavActive('more');
   const ids = user.identities || [], created = user.created_at ? new Date(user.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '';
   const method = ids.some(i => i.provider === 'google') ? 'Google' : ids.some(i => i.provider === 'email') ? 'Email & password' : user.phone ? 'Phone code' : 'Email code';
+  const curPlan = (PLAN_META[(myPlanInfo && myPlanInfo.plan) || 'free'] || PLAN_META.free).name;
+  const hideSearch = !!(Store.data.settings && Store.data.settings.hideFromSearch);
   $('app').innerHTML = `
     <div class="page-head"><button class="btn-outline pback" onclick="history.length > 1 ? history.back() : (location.hash='#/more')" aria-label="Back">${ico('back', 20)}</button><h1>My Profile</h1></div>
     <div class="card prof-top">
       <div class="prof-av">${avatarHtml()}</div>
       <div class="nm">${esc(myName())}</div>
       <div class="muted small" style="margin-bottom:8px;">${esc(user.email || user.phone || '')}</div>
-      <span class="pill">Free plan</span>
+      <span class="pill" style="cursor:pointer;" onclick="openPlansModal()">${esc(curPlan)} plan</span>
     </div>
     <div class="card">
       <div class="field"><label for="pfName">Your name</label><input id="pfName" value="${esc(myName())}" autocomplete="name"></div>
@@ -6905,6 +8496,9 @@ function renderProfile() {
       <button class="btn-primary full" style="height:50px;border-radius:16px;" onclick="saveProfile()">Save changes</button>
     </div>
     <div class="sgroup">
+      ${srow('eyeoff', 'Hide me from search', swt(hideSearch), 'toggleHideFromSearch()', { noChev: true, sub: 'Stay unlisted when users search Discover' })}
+      ${srow('shield', 'Plan & usage', `<span class="sval">${esc(curPlan)}</span>`, 'openPlansModal()')}
+      ${srow('users', 'Team & staff helpers', '', 'openTeamManagerModal()')}
       ${srow('user', 'Email', `<span class="sval">${esc(user.email || '—')}</span>`, '', { noChev: true })}
       ${user.phone ? srow('phone', 'Phone', `<span class="sval">${esc(user.phone)}</span>`, '', { noChev: true }) : ''}
       ${srow('shield', 'Sign-in method', `<span class="sval">${esc(method)}</span>`, '', { noChev: true })}
@@ -7094,11 +8688,11 @@ function renderNotifications() {
  * 8. PUBLIC LINKS (VISITOR VIEW: #/p/:id and #/g/:id)
  */
 async function renderPublicPerson(pid, src) {
-  let p = null, r = null, ownerView = false;
+  let p = null, r = null, ownerView = false, canSeePrivate = false, remoteReports = [];
   logVisit(null, pid, src === 'invite' || src === 'search' ? src : 'link');
-  Store.data.records.forEach(rec => {
+  activeRecords().forEach(rec => {
     const found = (rec.people || []).find(x => x.id === pid);
-    if (found) { p = found; r = rec; ownerView = true; }
+    if (found) { p = found; r = rec; ownerView = true; canSeePrivate = true; }
   });
 
   if (!p) {
@@ -7107,10 +8701,28 @@ async function renderPublicPerson(pid, src) {
       if (res.error || !res.data) res = await sb.rpc('get_person_view', { pid });
       const data = res.data;
       if (!res.error && data) {
-        p = { name: data.name, payments: data.payments || [] };
-        r = { title: data.title, description: data.description, target: data.target, show_table: data.show_table, hide_balance: !!data.hide_balance };
+        p = {
+          id: pid,
+          name: data.name,
+          due_date: data.due_date || null,
+          installment_plan: Array.isArray(data.installment_plan) ? data.installment_plan : [],
+          payments: data.payments || []
+        };
+        r = {
+          id: data.record_id || '',
+          title: data.title,
+          description: data.description,
+          target: data.target,
+          end_date: data.end_date || null,
+          show_table: data.show_table,
+          hide_balance: !!data.hide_balance
+        };
+        canSeePrivate = !!data.me;
+        remoteReports = Array.isArray(data.reports) ? data.reports : [];
       }
     } catch (e) {}
+  } else {
+    remoteReports = (paymentReports || []).filter(rp => rp.person_id === pid);
   }
 
   if (!p || !r) {
@@ -7124,10 +8736,18 @@ async function renderPublicPerson(pid, src) {
     return;
   }
 
-  const pays = (p.payments || []).slice().sort((a, b) => (b.paid_on || '').localeCompare(a.paid_on || ''));
-  const paid = pays.reduce((a, x) => a + Number(x.amount || 0), 0);
+  const allPays = (p.payments || []).slice().sort((a, b) => (b.paid_on || '').localeCompare(a.paid_on || ''));
+  const paid = paySum(p);
   const target = Number(r.target || 0);
   const pc = target ? Math.min(100, Math.round(paid / target * 100)) : 0;
+  const sched = memberScheduleSummary(r, p);
+  const localReps = (paymentReports || []).filter(rp => rp.person_id === pid);
+  const repByPay = new Map();
+  remoteReports.concat(localReps).forEach(rp => {
+    const arr = repByPay.get(rp.payment_id) || [];
+    if (!arr.some(z => z.id === rp.id)) arr.push(rp);
+    repByPay.set(rp.payment_id, arr);
+  });
 
   $('app').innerHTML = `
     <button class="btn-outline btn-sm backbtn" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
@@ -7154,21 +8774,60 @@ async function renderPublicPerson(pid, src) {
           <div class="small muted" style="margin-top:4px;">${pc}% completed · ${moneyReal(Math.max(0, target - paid))} remaining balance</div>
         ` : `<div class="small muted" style="margin-top:4px;">No fixed individual target set.</div>`}
       </div>
+
+      ${sched.nextDue ? `
+        <div class="banner ${sched.nextDue.overdue ? 'banner-warning' : 'banner-info'}" style="margin-top:10px;">
+          <div>
+            ${sched.nextDue.overdue ? '<span class="badge badge-red">Overdue</span> ' : '<span class="badge badge-blue">Next payment due</span> '}
+            <b>${esc(sched.nextDue.label)}</b>${sched.nextDue.due_date ? ` · Due ${esc(sched.nextDue.due_date)}` : ''}${sched.nextDue.amount ? ` · ${moneyReal(sched.nextDue.amount)}` : ''}
+          </div>
+        </div>
+      ` : ''}
+
+      ${sched.rows.length ? `
+        <div style="margin-top:10px;">
+          <div class="small muted" style="font-weight:700;margin-bottom:6px;">INSTALMENT SCHEDULE</div>
+          <div class="list">
+            ${sched.rows.map(s => `<div class="inst-row">
+              <div>
+                <b>${esc(s.label)}</b>
+                <div class="small muted">${esc(s.due_date || 'No date')} · ${moneyReal(s.amount)}</div>
+              </div>
+              <span class="badge ${s.status === 'paid' ? 'badge-green' : s.status === 'overdue' ? 'badge-red' : 'badge-amber'}">${s.status === 'paid' ? 'Paid' : s.status === 'overdue' ? 'Overdue' : s.status === 'partial' ? 'Partial (' + moneyReal(s.remaining) + ' left)' : 'Upcoming'}</span>
+            </div>`).join('')}
+          </div>
+        </div>
+      ` : ''}
     </div>
 
     <div class="card">
       <div class="card-title">📜 Verified Payment History</div>
-      ${pays.length ? `
+      ${allPays.length ? `
         <div class="list" style="margin-top:10px;">
-          ${pays.map(x => `
-            <div class="item-card between">
-              <div>
-                <b>${moneyReal(x.amount)}</b>
-                <div class="muted small">${esc(x.paid_on || 'Verified payment')}${payTimeTxt(x)} ${x.note ? `· ${esc(x.note)}` : ''}</div>
+          ${allPays.map(x => {
+            const reps = repByPay.get(x.id) || [];
+            const hasOpen = reps.some(rp => rp.status === 'open');
+            const audit = Array.isArray(x.change_log) ? x.change_log : [];
+            const proofBtn = (canSeePrivate && (x.proof_path || x.proof_preview)) ? `<button class="btn-soft btn-sm" onclick="openProofModal('${esc(x.proof_path || '')}','${esc(x.proof_preview || '')}')">📎 Proof</button>` : '';
+            return `
+            <div class="item-card${x.voided ? ' payment-voided' : ''}" style="flex-direction:column;align-items:stretch;gap:6px;">
+              <div class="between" style="gap:8px;align-items:flex-start;">
+                <div>
+                  <b class="pay-amt">${moneyReal(x.amount)}</b>
+                  <div class="muted small">${esc(x.paid_on || 'Verified payment')}${payTimeTxt(x)}${x.method ? ' · ' + esc(x.method) : ''} ${x.note ? `· ${esc(x.note)}` : ''}</div>
+                </div>
+                <span class="badge ${x.voided ? 'badge-red' : hasOpen ? 'badge-amber' : 'badge-green'}">${x.voided ? 'Voided' : hasOpen ? 'Flagged' : x.edited_at ? 'Edited' : 'Recorded'}</span>
               </div>
-              <span class="badge badge-green">Recorded</span>
-            </div>
-          `).join('')}
+              ${x.voided ? `<div class="audit-note"><b>Voided${x.voided_at ? ' on ' + esc(fmtDateTime(x.voided_at)) : ''}</b>${x.void_reason ? ' · Reason: ' + esc(x.void_reason) : ''}</div>` : ''}
+              ${!x.voided && x.edited_at ? `<div class="audit-note"><b>Edited on ${esc(fmtDateTime(x.edited_at))}</b>${x.edit_reason ? ' · Reason: ' + esc(x.edit_reason) : ''}</div>` : ''}
+              ${audit.length > 1 ? `<div class="small muted">${audit.length} changes recorded in audit log</div>` : ''}
+              ${reps.map(rp => `<div class="audit-note"><b>${rp.status === 'resolved' ? 'Resolved issue' : 'Reported problem'}:</b> ${esc(rp.reason)}${rp.expected_amount ? ' (Expected ' + moneyReal(rp.expected_amount) + ')' : ''}${rp.details ? ' — ' + esc(rp.details) : ''}</div>`).join('')}
+              <div class="row" style="gap:6px;margin-top:2px;">
+                ${proofBtn}
+                ${!x.voided ? `<button class="btn-outline btn-sm" onclick="openReportPaymentModal('${esc(pid)}','${esc(x.id)}',${Number(x.amount || 0)},'${esc(x.paid_on || '')}')">Report a problem</button>` : ''}
+              </div>
+            </div>`;
+          }).join('')}
         </div>
       ` : `<div class="empty-box">No payments have been recorded for your account yet.</div>`}
     </div>
@@ -7183,13 +8842,15 @@ async function renderPublicPerson(pid, src) {
 
 async function renderPublicGroup(rid, src) {
   logVisit(rid, null, src === 'invite' || src === 'search' ? src : 'link');
-  let r = Store.data.records.find(x => x.id === rid);
+  let r = activeRecords().find(x => x.id === rid), ownerId = r ? r.owner_id : '';
   if (!r) {
     try {
       const { data, error } = await sb.rpc('get_group_people', { rid });
       if (!error && data) {
         r = { title: data.title, description: data.description, people: data.people || [] };
       }
+      const cardRes = await sb.rpc('rc_group_card', { rid });
+      if (!cardRes.error && cardRes.data && cardRes.data.owner_id) ownerId = cardRes.data.owner_id;
     } catch (e) {}
   }
 
@@ -7204,16 +8865,25 @@ async function renderPublicGroup(rid, src) {
     return;
   }
 
+  const isMine = (Store.data.records || []).some(x => x.id === rid);
   $('app').innerHTML = `
     <button class="btn-outline btn-sm backbtn" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
     <div class="card">
-      <div class="pill">GROUP PROGRESS VIEW</div>
-      <h1 style="margin-top:8px;">${esc(r.title)}</h1>
+      <div class="between" style="align-items:flex-start;gap:10px;">
+        <div>
+          <div class="pill">GROUP PROGRESS VIEW</div>
+          <h1 style="margin-top:8px;">${esc(r.title)}</h1>
+        </div>
+        ${!isMine ? `<div class="row" style="gap:6px;">
+          <button class="btn-outline btn-sm" onclick="blockEntity({record_id:'${rid}',user_id:'${esc(ownerId)}',label:'${esc(r.title)}'})">Block</button>
+          <button class="btn-outline btn-sm" onclick="openReportGroupModal('${rid}','${esc(r.title)}','${esc(ownerId)}')">Report</button>
+        </div>` : ''}
+      </div>
       <p class="muted">${(r.people || []).length ? 'Select your name to inspect your individual payment status' : 'Already added by the admin? Open your personal link below. New here? Ask to join and the admin will confirm you.'}</p>
       ${r.description ? `
         <div class="banner banner-info" style="margin-top:8px;">
           <div>
-            <b>Group Purpose & Payment Instructions:</b>
+            <b>Group Purpose &amp; Payment Instructions:</b>
             <div style="margin-top:2px;">${esc(r.description)}</div>
           </div>
         </div>
@@ -7263,7 +8933,7 @@ const REM_DEFAULT = { on: true, daysBefore: 3, every: 7, daily: true, hour: 8, n
 function remCfg() { try { return { ...REM_DEFAULT, ...(JSON.parse(localStorage.getItem('rc_remind') || '{}')) }; } catch (e) { return { ...REM_DEFAULT }; } }
 function remSave(c) { try { localStorage.setItem('rc_remind', JSON.stringify(c)); } catch (e) {} scheduleSnapshot(); }
 const REM_DAY = 864e5;
-const paidOf = p => (p.payments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
+const paidOf = p => paySum(p);
 const debtBal = d => Number(d.original_amount || 0) - (d.repayments || []).reduce((a, x) => a + Number(x.amount || 0), 0);
 const daysUntil = ds => { if (!ds) return null; const a = new Date(ds + 'T00:00:00'), b = new Date(localDate() + 'T00:00:00'); return Math.round((a - b) / REM_DAY); };
 const remAgo = iso => { const d = Math.floor((Date.now() - Date.parse(iso)) / REM_DAY); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago'; };
@@ -7272,19 +8942,37 @@ function remPhone(p) { let t = String(p || '').replace(/[^\d+]/g, ''); if (!t) r
 // who is due a reminder (all = everyone who has not paid)
 function dueNudges(cfg, onlyRid, all) {
   const now = Date.now(), out = [];
-  (Store.data.records || []).forEach(r => {
+  activeRecords().forEach(r => {
     if (onlyRid && r.id !== onlyRid) return;
-    const target = Number(r.target || 0); if (!target) return;
+    const target = Number(r.target || 0);
     const dl = (r.end_date && !isRec(r)) ? daysUntil(r.end_date) : null;
     (r.people || []).forEach(p => {
-      const paid = paidOf(p), bal = target - paid; if (bal <= 0) return;
+      const paid = paidOf(p), bal = target ? Math.max(0, target - paid) : 0;
+      const sched = memberScheduleSummary(r, p);
+      if (target && bal <= 0 && !sched.nextDue) return;
       const last = p.last_reminded ? Date.parse(p.last_reminded) : 0;
       const since = last ? (now - last) / REM_DAY : Infinity;
       let due = false, why = '';
-      if (dl !== null && dl < 0) { due = since >= 3; why = 'Overdue'; }
-      else if (dl !== null && dl <= cfg.daysBefore) { due = since >= 2; why = dl === 0 ? 'Closes today' : 'Closes in ' + dl + (dl === 1 ? ' day' : ' days'); }
-      else if (dl === null) { const ref = last || Date.parse(r.created_at || '') || 0; due = !!ref && (now - ref) / REM_DAY >= cfg.every; why = 'Not paid yet'; }
-      if (due || all) out.push({ kind: 'person', rid: r.id, pid: p.id, name: p.name, phone: p.phone || '', title: r.title, bal, paid, target, why: why || 'Not paid yet', key: r.id + '|' + p.id });
+      if (sched.nextDue && sched.nextDue.overdue) {
+        due = since >= 2;
+        why = 'Overdue (' + sched.nextDue.due_date + ')';
+      } else if (sched.nextDue && sched.nextDue.daysLeft !== null && sched.nextDue.daysLeft <= cfg.daysBefore) {
+        due = since >= 2;
+        why = sched.nextDue.daysLeft === 0 ? 'Instalment due today' : 'Due in ' + sched.nextDue.daysLeft + 'd';
+      } else if (dl !== null && dl < 0) {
+        due = since >= 3; why = 'Overdue';
+      } else if (dl !== null && dl <= cfg.daysBefore) {
+        due = since >= 2; why = dl === 0 ? 'Closes today' : 'Closes in ' + dl + (dl === 1 ? ' day' : ' days');
+      } else if (dl === null && target) {
+        const ref = last || Date.parse(r.created_at || '') || 0;
+        due = !!ref && (now - ref) / REM_DAY >= cfg.every;
+        why = 'Not paid yet';
+      }
+      if (due || all) {
+        const remBal = bal || (sched.nextDue ? sched.nextDue.amount : 0);
+        if (!target && !sched.nextDue) return;
+        out.push({ kind: 'person', rid: r.id, pid: p.id, name: p.name, phone: p.phone || '', email: p.email || '', title: r.title, bal: remBal, paid, target: target || remBal, why: why || 'Not paid yet', key: r.id + '|' + p.id });
+      }
     });
   });
   return out;
@@ -7295,7 +8983,7 @@ function dueDebtNudges(cfg, all) {
     if (d.type !== 'receivable') return;
     const bal = debtBal(d); if (bal <= 0 || !d.due_date) return;
     const dl = daysUntil(d.due_date), last = d.last_reminded ? Date.parse(d.last_reminded) : 0, since = last ? (Date.now() - last) / REM_DAY : Infinity;
-    if ((dl <= cfg.daysBefore && since >= 3) || all) out.push({ kind: 'debt', did: d.id, name: d.person_name, phone: d.phone || d.person_phone || '', title: 'Debt', bal, due: d.due_date, why: dl < 0 ? 'Overdue' : dl === 0 ? 'Due today' : 'Due in ' + dl + ' days', key: 'debt|' + d.id });
+    if ((dl <= cfg.daysBefore && since >= 3) || all) out.push({ kind: 'debt', did: d.id, name: d.person_name, phone: d.phone || d.person_phone || '', email: d.email || '', title: 'Debt', bal, due: d.due_date, why: dl < 0 ? 'Overdue' : dl === 0 ? 'Due today' : 'Due in ' + dl + ' days', key: 'debt|' + d.id });
   });
   return out;
 }
@@ -7308,15 +8996,40 @@ function remindText(n) {
 function markReminded(n) {
   const now = new Date().toISOString();
   if (n.kind === 'debt') { const d = (Store.data.debts || []).find(x => x.id === n.did); if (d) d.last_reminded = now; }
-  else { const r = (Store.data.records || []).find(x => x.id === n.rid), p = r && (r.people || []).find(x => x.id === n.pid); if (p) p.last_reminded = now; }
+  else { const r = findRec(n.rid), p = r && (r.people || []).find(x => x.id === n.pid); if (p) p.last_reminded = now; }
   try { Store.save(); } catch (e) {}
   scheduleSnapshot();
 }
-function sendOne(n, via) {
+async function sendOne(n, via) {
   const txt = remindText(n);
+  if (via === 'email') {
+    if (!n.email) { toast('No email saved for this buyer.'); return false; }
+    toast('Sending reminder email via Brevo…');
+    const res = await sendBrevoEmail({
+      type: 'reminder',
+      recordId: n.rid || '',
+      toEmail: n.email,
+      toName: n.name,
+      businessName: bizName(),
+      recordTitle: n.title,
+      balance: moneyReal(n.bal),
+      paid: moneyReal(n.paid || 0),
+      target: moneyReal(n.target || n.bal),
+      dueDate: n.due || n.why || '',
+      message: txt,
+      link: n.pid ? link('p/' + n.pid) : appLink()
+    });
+    if (res && res.ok) {
+      markReminded(n);
+      toast(`Email reminder sent to ${n.email}!`);
+      return true;
+    }
+    return false;
+  }
   if (via === 'sms') location.href = 'sms:' + (n.phone || '') + '?body=' + encodeURIComponent(txt);
   else window.open('https://wa.me/' + remPhone(n.phone) + '?text=' + encodeURIComponent(txt), '_blank');
   markReminded(n);
+  return true;
 }
 function remindOne(rid, pid) {
   const n = dueNudges(remCfg(), rid, true).find(x => x.pid === pid); if (!n) { toast('This person has paid in full.'); return; }
@@ -7334,28 +9047,36 @@ function openRemindQueue(rid, all) {
 function renderRemindQueue() {
   const left = remQueue.filter(n => !remSent.has(n.key)).length, cfg = remCfg();
   const preview = remQueue.length ? remindText(remQueue[0]) : cfg.tpl;
-  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:440px;">
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:460px;">
     <div class="row between" style="margin-bottom:6px;"><h2>Send reminders</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
     ${remQueue.length ? `
       <div class="rc-prev" style="text-align:left;border-color:var(--line);background:var(--box-bg);color:var(--text);padding:10px 12px;margin:4px 0 10px;"><div class="small muted" style="margin-bottom:3px;">MESSAGE · <a onclick="openReminderSettings()" style="color:var(--primary);font-weight:700;cursor:pointer;">edit</a></div><div style="font-size:13px;">${esc(preview)}</div></div>
-      <button class="btn-primary full" style="height:48px;border-radius:14px;margin-bottom:8px;" ${left ? '' : 'disabled'} onclick="sendNextReminder()">${left ? 'Send next (' + left + ' left)' : 'All done ✓'}</button>
+      <button class="btn-primary full" style="height:48px;border-radius:14px;margin-bottom:8px;" ${left ? '' : 'disabled'} onclick="sendNextReminder()">${left ? 'Send next WhatsApp (' + left + ' left)' : 'All done ✓'}</button>
       <div class="list" style="max-height:46vh;overflow:auto;">
-        ${remQueue.map((n, i) => `<div class="item-card between" style="padding:10px 12px;">
+        ${remQueue.map((n, i) => `<div class="item-card between" style="padding:10px 12px;gap:8px;flex-wrap:wrap;">
           <div class="grow" style="min-width:0;"><b>${esc(n.name)}</b><div class="muted small" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${esc(n.title)} · ${moneyReal(n.bal)} · ${esc(n.why)}</div></div>
-          ${remSent.has(n.key) ? '<span class="badge badge-green">Sent ✓</span>' : `<span class="row" style="gap:6px;flex-wrap:nowrap;"><button class="btn-primary btn-sm" onclick="queueSend(${i},'wa')">WhatsApp</button>${n.phone ? `<button class="btn-outline btn-sm" onclick="queueSend(${i},'sms')">SMS</button>` : ''}</span>`}
+          ${remSent.has(n.key) ? '<span class="badge badge-green">Sent ✓</span>' : `<span class="row" style="gap:6px;flex-wrap:nowrap;"><button class="btn-primary btn-sm" onclick="queueSend(${i},'wa')">WhatsApp</button>${n.email ? `<button class="btn-soft btn-sm" onclick="queueSend(${i},'email')">Email</button>` : ''}${n.phone ? `<button class="btn-outline btn-sm" onclick="queueSend(${i},'sms')">SMS</button>` : ''}</span>`}
         </div>`).join('')}
       </div>
       ${!remScope && !remAll ? '<button class="btn-outline btn-sm" style="margin-top:10px;" onclick="openRemindQueue(null,true)">Show everyone who has not paid</button>' : ''}
     ` : `<div class="empty-box"><h3>Nobody is due a reminder</h3><p class="muted small">Recordly will tell you when someone should be nudged.</p><button class="btn-outline btn-sm" onclick="openRemindQueue(null,true)">Show everyone who has not paid</button></div>`}
   </div></div>`;
 }
-function queueSend(i, via) { const n = remQueue[i]; if (!n) return; sendOne(n, via); remSent.add(n.key); renderRemindQueue(); }
-function sendNextReminder() { const i = remQueue.findIndex(n => !remSent.has(n.key)); if (i >= 0) queueSend(i, 'wa'); }
+async function queueSend(i, via) {
+  const n = remQueue[i];
+  if (!n) return;
+  const ok = await sendOne(n, via);
+  if (ok) {
+    remSent.add(n.key);
+    renderRemindQueue();
+  }
+}
+async function sendNextReminder() { const i = remQueue.findIndex(n => !remSent.has(n.key)); if (i >= 0) await queueSend(i, 'wa'); }
 function remindCardHtml() {
   const cfg = remCfg(), n = dueNudges(cfg).length + dueDebtNudges(cfg).length;
   return `<div class="card">
     <div class="row between" style="flex-wrap:nowrap;gap:10px;">
-      <div><b>${n ? n + (n === 1 ? ' reminder is due' : ' reminders are due') : 'No reminders due'}</b><div class="muted small">Recordly writes the message. You tap to send.</div></div>
+      <div><b>${n ? n + (n === 1 ? ' reminder is due' : ' reminders are due') : 'No reminders due'}</b><div class="muted small">Recordly writes the message. Send by WhatsApp, SMS, or Email.</div></div>
       <button class="btn-primary" ${n ? '' : 'disabled'} onclick="openRemindQueue()">Send</button>
     </div>
     <div class="row" style="margin-top:10px;gap:8px;"><button class="btn-outline btn-sm" onclick="openRemindQueue(null,true)">Everyone unpaid</button><button class="btn-outline btn-sm" onclick="openReminderSettings()">Reminder settings</button></div>
@@ -7371,7 +9092,14 @@ function buildNotifItems(cfg) {
   const at = ymd => { const [y, m, d] = ymd.split('-').map(Number); return new Date(y, m - 1, d, cfg.hour, 0, 0).getTime(); };
   const push = (tag, when, title, body, url) => { if (when > now - 36 * 3600e3 && when < now + 15 * REM_DAY) items.push({ tag, when, title, body, url }); };
   const inDays = n => n === 1 ? 'tomorrow' : 'in ' + n + ' days';
-  (Store.data.records || []).forEach(r => {
+  activeRecords().forEach(r => {
+    (r.people || []).forEach(p => {
+      const sched = memberScheduleSummary(r, p);
+      if (sched.nextDue && sched.nextDue.due_date) {
+        const tail = withAmt && sched.nextDue.amount ? ' (' + moneyReal(sched.nextDue.amount) + ')' : '';
+        push(`mem|${p.id}|${sched.nextDue.due_date}`, at(sched.nextDue.due_date), `${p.name}: ${sched.nextDue.label} due`, `${r.title}${tail}`, `#/r/${r.id}/${p.id}`);
+      }
+    });
     if (!r.end_date || !Number(r.target) || isRec(r)) return;
     const unpaid = (r.people || []).filter(p => paidOf(p) < Number(r.target)).length; if (!unpaid) return;
     const body = `${unpaid} ${unpaid === 1 ? "person hasn't" : "people haven't"} paid yet. Tap to remind them.`;
@@ -7424,13 +9152,13 @@ async function toggleNotify() {
   if (!('Notification' in window) || !('serviceWorker' in navigator)) { toast('This phone or browser cannot show notifications.'); return; }
   let perm = Notification.permission; if (perm === 'default') perm = await Notification.requestPermission();
   if (perm !== 'granted') { toast('Notifications are blocked. Allow them for Recordly in your phone settings.'); return; }
-  c.notify = true; remSave(c); await registerPeriodic(); pushSnapshot(); toast('Phone notifications are on.'); openReminderSettings();
+  c.notify = true; remSave(c); await registerPeriodic(); await subscribeWebPush(true); pushSnapshot(); toast('Phone & live push notifications are on.'); openReminderSettings();
 }
 async function testNotify() {
   try {
     if (!('Notification' in window) || Notification.permission !== 'granted') { toast('Turn on phone notifications first.'); return; }
     const reg = await navigator.serviceWorker.ready;
-    await reg.showNotification('Recordly test', { body: 'Notifications are working on this phone.', icon: 'icon-192.png', badge: 'icon-192.png', tag: 'rc-test', data: { url: '#/notifications' } });
+    await reg.showNotification('Recordly test', { body: 'Live notifications are working on this phone.', icon: 'icon-192.png', badge: 'icon-192.png', tag: 'rc-test', data: { url: '#/notifications' } });
   } catch (e) { toast('Could not show a test notification.'); }
 }
 function setRem(k, v) { const c = remCfg(); c[k] = v; remSave(c); openReminderSettings(); }
@@ -7438,14 +9166,15 @@ function saveRemTpl() { const t = ($('remTpl') || {}).value; if (t && t.trim()) 
 function resetRemTpl() { const c = remCfg(); c.tpl = REM_DEFAULT.tpl; remSave(c); openReminderSettings(); }
 function openReminderSettings() {
   const c = remCfg(), perm = ('Notification' in window) ? Notification.permission : 'unsupported', notifOn = c.notify && perm === 'granted';
+  const hasVapid = !!getConfiguredVapidKey();
   let periodic = false; try { periodic = localStorage.getItem('rc_periodic') === '1'; } catch (e) {}
   const chips = (key, opts, fmt) => `<div class="row" style="gap:6px;">${opts.map(o => `<button class="${c[key] === o ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="saveRemTpl();setRem('${key}',${o})">${fmt(o)}</button>`).join('')}</div>`;
   $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this){saveRemTpl();closeModal();}"><div class="modal-window" style="max-width:440px;max-height:88vh;overflow:auto;">
-    <div class="row between" style="margin-bottom:6px;"><h2>Reminders</h2><button class="btn-outline btn-icon" onclick="saveRemTpl();closeModal()">✕</button></div>
+    <div class="row between" style="margin-bottom:6px;"><h2>Reminders &amp; Live Push</h2><button class="btn-outline btn-icon" onclick="saveRemTpl();closeModal()">✕</button></div>
     <div class="sgroup" style="margin:6px 0 10px;">
       ${srow('bell', 'Automatic reminders', swt(c.on), `saveRemTpl();setRem('on',${!c.on})`, { noChev: true, sub: 'Find who should be nudged' })}
       ${srow('clock', 'Daily summary', swt(c.daily), `saveRemTpl();setRem('daily',${!c.daily})`, { noChev: true, sub: 'A short note every morning at 8:00' })}
-      ${srow('phone', 'Phone notifications', swt(notifOn), 'saveRemTpl();toggleNotify()', { noChev: true, sub: perm === 'denied' ? 'Blocked in your phone settings' : notifOn ? (periodic ? 'On. Works in the background, even offline.' : 'On. Works while Recordly is open. Install the app for background alerts.') : 'Get alerts even with no internet' })}
+      ${srow('phone', 'Live push & phone alerts', swt(notifOn), 'saveRemTpl();toggleNotify()', { noChev: true, sub: perm === 'denied' ? 'Blocked in your phone settings' : notifOn ? (hasVapid ? 'On. Buyers get live Web Push + offline snapshot alerts.' : (periodic ? 'On. Background snapshot alerts active.' : 'On. Works while Recordly is open.')) : 'Get live push alerts when payments are logged' })}
     </div>
     <div class="small muted" style="font-weight:700;margin:8px 2px 6px;">WARN ME BEFORE A DEADLINE</div>
     ${chips('daysBefore', [1, 3, 7], o => o + (o === 1 ? ' day' : ' days'))}
@@ -7501,7 +9230,19 @@ async function upsertProfile() {
   if (!user) return;
   const biz = Store.data.settings && Store.data.settings.businessName;
   const nm = user.user_metadata?.name || user.user_metadata?.full_name || (biz && biz !== 'My Enterprise' ? biz : '') || 'Recordly user';
-  try { await sb.from('rc_profiles').upsert({ id: user.id, display_name: String(nm).slice(0, 80), updated_at: new Date().toISOString() }); } catch (e) {}
+  const hideSearch = !!(Store.data.settings && Store.data.settings.hideFromSearch);
+  const tosAt = (user.user_metadata && user.user_metadata.tos_accepted_at) || null;
+  try {
+    await sb.from('rc_profiles').upsert({
+      id: user.id,
+      display_name: String(nm).slice(0, 80),
+      searchable: !hideSearch,
+      ...(tosAt ? { tos_accepted_at: tosAt, tos_version: TOS_VERSION } : {}),
+      updated_at: new Date().toISOString()
+    });
+  } catch (e) {
+    try { await sb.from('rc_profiles').upsert({ id: user.id, display_name: String(nm).slice(0, 80), updated_at: new Date().toISOString() }); } catch (e2) {}
+  }
 }
 
 function logVisit(rid, pid, src) {
@@ -7651,8 +9392,16 @@ async function renderJoinPage(rid, src) {
   $('app').innerHTML = `
     <button class="btn-outline btn-sm backbtn" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
     <div class="card">
-      <div class="pill">${src === 'invite' ? 'YOU ARE INVITED' : 'GROUP'}</div>
-      <h1 style="margin-top:8px;">${esc(g.title)}</h1>
+      <div class="between" style="align-items:flex-start;gap:10px;">
+        <div>
+          <div class="pill">${src === 'invite' ? 'YOU ARE INVITED' : 'GROUP'}</div>
+          <h1 style="margin-top:8px;">${esc(g.title)}</h1>
+        </div>
+        ${!mine ? `<div class="row" style="gap:6px;">
+          <button class="btn-outline btn-sm" onclick="blockEntity({record_id:'${rid}',user_id:'${esc(g.owner_id || '')}',label:'${esc(g.title)}'})">Block</button>
+          <button class="btn-outline btn-sm" onclick="openReportGroupModal('${rid}','${esc(g.title)}','${esc(g.owner_id || '')}')">Report</button>
+        </div>` : ''}
+      </div>
       <p class="muted">Run by ${esc(g.owner_name || 'a Recordly user')} · ${Number(g.member_count || 0)} members</p>
       ${g.description ? `<div class="banner banner-info"><div>${esc(g.description)}</div></div>` : ''}
       ${action}
@@ -7699,28 +9448,35 @@ async function runDiscover() {
     out.innerHTML = `<div class="empty-box">${/function|does not exist|schema cache/i.test(error.message || '') ? 'Search is not switched on yet. The app owner must run the SQL upgrade.' : esc(error.message || 'Search failed.')}</div>`;
     return;
   }
-  const groups = data.groups || [], people = data.people || [];
+  const groups = (data.groups || []).filter(g => !isBlockedTarget(g.id, g.owner_id));
+  const people = (data.people || []).filter(p => !isBlockedTarget(null, p.id));
   const gCard = g => `
-    <div class="item-card between" style="cursor:pointer;" onclick="location.hash='#/j/${g.id}/search'">
-      <div class="grow">
-        <b>${esc(g.title)}</b>
-        <div class="muted small">by ${esc(g.owner_name)} · ${Number(g.member_count || 0)} members</div>
-        ${g.description ? `<div class="muted small" style="margin-top:2px;">${esc(g.description)}</div>` : ''}
+    <div class="item-card" style="flex-direction:column;align-items:stretch;gap:8px;">
+      <div class="between" style="cursor:pointer;gap:8px;" onclick="location.hash='#/j/${g.id}/search'">
+        <div class="grow">
+          <b>${esc(g.title)}</b>
+          <div class="muted small">by ${esc(g.owner_name)} · ${Number(g.member_count || 0)} members</div>
+          ${g.description ? `<div class="muted small" style="margin-top:2px;">${esc(g.description)}</div>` : ''}
+        </div>
+        <span class="btn-soft btn-sm">View ›</span>
       </div>
-      <span class="btn-soft btn-sm">View ›</span>
+      <div class="row" style="gap:6px;">
+        <button class="btn-outline btn-sm" onclick="blockEntity({record_id:'${g.id}',user_id:'${esc(g.owner_id || '')}',label:'${esc(g.title)}'})">Block group</button>
+        <button class="btn-outline btn-sm" onclick="openReportGroupModal('${g.id}','${esc(g.title)}','${esc(g.owner_id || '')}')">Report</button>
+      </div>
     </div>`;
   out.innerHTML = `
     ${groups.length ? `<div class="card"><div class="card-title">👥 Groups (${groups.length})</div><div class="list" style="margin-top:10px;">${groups.map(gCard).join('')}</div></div>` : ''}
     ${people.length ? `<div class="card"><div class="card-title">🙂 People (${people.length})</div><div class="list" style="margin-top:10px;">${people.map(p => {
       const gs = groups.filter(g => g.owner_id === p.id);
-      return `<div class="item-card" style="flex-wrap:wrap;"><div class="avatar-circle">${esc((p.display_name || '?').slice(0, 1).toUpperCase())}</div><div class="grow"><b>${esc(p.display_name)}</b>${gs.length ? `<div class="row" style="margin-top:6px;">${gs.map(g => `<button class="btn-soft btn-sm" onclick="location.hash='#/j/${g.id}/search'">${esc(g.title)} ›</button>`).join('')}</div>` : `<div class="muted small">No public groups yet.</div>`}</div></div>`;
+      return `<div class="item-card" style="flex-direction:column;align-items:stretch;gap:8px;"><div class="row"><div class="avatar-circle">${esc((p.display_name || '?').slice(0, 1).toUpperCase())}</div><div class="grow"><b>${esc(p.display_name)}</b>${gs.length ? `<div class="row" style="margin-top:6px;">${gs.map(g => `<button class="btn-soft btn-sm" onclick="location.hash='#/j/${g.id}/search'">${esc(g.title)} ›</button>`).join('')}</div>` : `<div class="muted small">No public groups yet.</div>`}</div></div><div class="row" style="gap:6px;"><button class="btn-outline btn-sm" onclick="blockEntity({user_id:'${p.id}',label:'${esc(p.display_name)}'})">Block person</button><button class="btn-outline btn-sm" onclick="openReportGroupModal('','${esc(p.display_name)}','${p.id}')">Report</button></div></div>`;
     }).join('')}</div></div>` : ''}
-    ${!groups.length && !people.length ? '<div class="empty-box">Nothing found. Groups only appear here when their admin turns on "Show in Recordly search".</div>' : ''}`;
+    ${!groups.length && !people.length ? '<div class="empty-box">Nothing found. Groups only appear here when their admin turns on "Show in Recordly search", and users who hide from search stay unlisted.</div>' : ''}`;
 }
 
 
 // ---- Fixed page bar (back button + current page name) ----
-const PB_TITLES = { contributions: 'Contributions', business: 'Business', debts: 'Debts', reports: 'Reports', more: 'Me', settings: 'Settings', profile: 'My Profile', notifications: 'Notifications', discover: 'Find people & groups', r: 'Record', p: 'Payment progress', g: 'Group', j: 'Join group' };
+const PB_TITLES = { contributions: 'Contributions', business: 'Business', debts: 'Debts', reports: 'Reports', more: 'Me', settings: 'Settings', profile: 'My Profile', notifications: 'Notifications', discover: 'Find people & groups', r: 'Record', p: 'Payment progress', g: 'Group', j: 'Join group', 'staff-invite': 'Staff invite', terms: 'Terms of Service', privacy: 'Privacy Policy' };
 const PB_PARENT = { settings: '#/more', profile: '#/more', r: '#/contributions' };
 let navIdx = 0;
 try {
@@ -7742,7 +9498,7 @@ function pageBack() {
   location.hash = to;
 }
 function updatePageBar(p) {
-  const pub = ['p', 'g', 'j'].includes(p[0]);
+  const pub = ['p', 'g', 'j', 'staff-invite', 'terms', 'privacy'].includes(p[0]);
   const show = p.length > 0 && !appLocked && (user || pub);
   document.body.classList.toggle('has-pagebar', !!show);
   if (!show) return;
@@ -7774,6 +9530,8 @@ async function renderCore() {
     if (p[0] === 'p' && p[1]) res = await renderPublicPerson(p[1], p[2]);
     else if (p[0] === 'g' && p[1]) res = await renderPublicGroup(p[1], p[2]);
     else if (p[0] === 'j' && p[1]) res = await renderJoinPage(p[1], p[2]);
+    else if (p[0] === 'staff-invite' && p[1]) res = await renderStaffInviteRoute(p[1]);
+    else if (p[0] === 'terms' || p[0] === 'privacy') { $('app').innerHTML = `<div class="card empty-box"><h2>${p[0] === 'terms' ? 'Terms of Service' : 'Privacy Policy'}</h2><p class="muted">Review Recordly's legal terms and data privacy commitments.</p><div class="row" style="justify-content:center;gap:8px;margin-top:10px;"><button class="btn-primary" onclick="openLegalDoc('${p[0]}')">Read Here</button><a class="btn-outline" href="${p[0]}.html" target="_blank" rel="noopener">Open Standalone Page</a></div></div>`; }
     else if (!user) res = renderLoggedOut();
     else if (appLocked) res = renderLock();
     else if (p[0] === 'discover') res = renderDiscover();
