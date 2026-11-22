@@ -1230,6 +1230,11 @@ body.sub-page:not(.loggedout) #app{padding-top:8px}
   body.print-stmt .modal-window{background:#fff!important}
   .stmt-paper{border:none!important;padding:0!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
 }
+
+/* Back buttons follow the screen while you scroll */
+html,body{overflow-x:clip}
+.backbtn{position:sticky;top:calc(env(safe-area-inset-top,0px) + 8px);z-index:30;display:flex;width:max-content;background:var(--modal-bg);box-shadow:var(--shadow)}
+.page-head{position:sticky;top:0;z-index:30;background:var(--bg);margin:-8px 0 8px;padding:calc(env(safe-area-inset-top,0px) + 8px) 0 8px}
 </style>
 </head>
 <body>
@@ -7058,7 +7063,7 @@ async function renderPublicPerson(pid, src) {
   const pc = target ? Math.min(100, Math.round(paid / target * 100)) : 0;
 
   $('app').innerHTML = `
-    <button class="btn-outline btn-sm" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
+    <button class="btn-outline btn-sm backbtn" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
     <div class="card">
       <div class="pill">PERSONAL CONTRIBUTION PROGRESS</div>
       <h1 style="margin-top:8px;">${esc(p.name)}</h1>
@@ -7133,7 +7138,7 @@ async function renderPublicGroup(rid, src) {
   }
 
   $('app').innerHTML = `
-    <button class="btn-outline btn-sm" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
+    <button class="btn-outline btn-sm backbtn" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
     <div class="card">
       <div class="pill">GROUP PROGRESS VIEW</div>
       <h1 style="margin-top:8px;">${esc(r.title)}</h1>
@@ -7569,7 +7574,7 @@ async function renderJoinPage(rid, src) {
       <button class="btn-primary" id="jrBtn" onclick="sendJoinRequest('${rid}')">Ask to join</button>
       <p class="muted small" style="margin-top:8px;">The admin must approve you before you become a member.</p>`;
   $('app').innerHTML = `
-    <button class="btn-outline btn-sm" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
+    <button class="btn-outline btn-sm backbtn" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
     <div class="card">
       <div class="pill">${src === 'invite' ? 'YOU ARE INVITED' : 'GROUP'}</div>
       <h1 style="margin-top:8px;">${esc(g.title)}</h1>
@@ -7596,7 +7601,7 @@ async function sendJoinRequest(rid) {
 let discTimer = null;
 function renderDiscover() {
   $('app').innerHTML = `
-    <button class="btn-outline btn-sm" onclick="location.hash='#/'" style="margin-bottom:12px;">← Back</button>
+    <button class="btn-outline btn-sm backbtn" onclick="location.hash='#/'" style="margin-bottom:12px;">← Back</button>
     <div class="card">
       <h1>🌍 Find people & groups</h1>
       <p class="muted">Search everyone on Recordly. To join a group you must ask, and its admin has to approve you.</p>
