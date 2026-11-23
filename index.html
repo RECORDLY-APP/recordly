@@ -4101,11 +4101,18 @@ async function syncLocalDataToSupabase(options = { silent: true }) {
         } catch (e) {}
       }
     } else {
-      // No backup table yet: keep the old metadata backup so nothing is lost.
-      const { error: updateError } = await sb.auth.updateUser({
-        data: { recordly_backup: backupPayload, recordly_last_synced: syncTimestamp }
-      });
-      if (updateError) console.warn('Supabase auth metadata backup notice:', updateError);
+      // The backup table did not answer. Never put a big backup in the login token (it is sent with every
+      // request and, once it grows, the server rejects everything). Only tiny backups may go there.
+      if (JSON.stringify(backupPayload).length < 3000) {
+        const { error: updateError } = await sb.auth.updateUser({
+          data: { recordly_backup: backupPayload, recordly_last_synced: syncTimestamp }
+        });
+        if (updateError) console.warn('Supabase auth metadata backup notice:', updateError);
+      } else {
+        console.warn('Backup table not reachable; backup kept on this phone until it is.');
+        cloudSyncStatus = 'error'; updateSyncStatusBadge();
+        return;
+      }
     }
 
     lastBackupSig = bsig;
