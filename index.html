@@ -2932,12 +2932,14 @@ function openEditPaymentModal(rid, pid, payId) {
     <div class="field"><label for="edPayProof">Attach / replace transfer proof (optional)</label><input id="edPayProof" type="file" accept="image/*,.pdf" onchange="previewProofInput(this,'edProofPrev')"><div id="edProofPrev"></div></div>
     <div class="row between" style="margin-top:14px;">
       <button class="btn-outline" onclick="closeModal()">Cancel</button>
-      <button class="btn-primary" onclick="submitEditPayment('${rid}','${pid}','${payId}')">Save Audit Change</button>
+      <button class="btn-primary" id="edPaySaveBtn" onclick="submitEditPayment('${rid}','${pid}','${payId}')">Save Audit Change</button>
     </div>
   </div></div>`;
 }
 
 async function submitEditPayment(rid, pid, payId) {
+  if (!user) { toast('Sign in to edit payments on the server.', 'bad'); return; }
+  if (!navigator.onLine) { toast('Connect to the internet — payment edits must be verified by the server.', 'bad'); return; }
   const amt = Number(val('edPayAmt'));
   const paidOn = val('edPayDate') || localDate();
   const method = val('edPayMethod') || 'Cash';
@@ -2949,37 +2951,57 @@ async function submitEditPayment(rid, pid, payId) {
   const r = findRec(rid), p = r && (r.people || []).find(x => x.id === pid), x = p && (p.payments || []).find(y => y.id === payId);
   if (!x) return;
 
+  const btn = $('edPaySaveBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving on server…'; }
+
   const proofFile = ($('edPayProof') && $('edPayProof').files && $('edPayProof').files[0]) || null;
-  let proofPath = x.proof_path || null;
+  let proofPath = null, proofPreview = null;
   if (proofFile) {
     const up = await uploadPaymentProof(rid, pid, payId, proofFile);
     if (up.path) proofPath = up.path;
-    if (up.preview) x.proof_preview = up.preview;
+    if (up.preview) proofPreview = up.preview;
   }
 
-  const nowIso = new Date().toISOString();
-  const entry = {
-    action: 'edited',
-    at: nowIso,
-    by: myName(),
-    reason,
-    prev: { amount: Number(x.amount), paid_on: x.paid_on, method: x.method || 'Cash', note: x.note || null },
-    next: { amount: amt, paid_on: paidOn, method, note }
-  };
-  x.change_log = Array.isArray(x.change_log) ? x.change_log.concat([entry]) : [entry];
-  x.amount = amt;
-  x.paid_on = paidOn;
-  x.method = method;
-  x.note = note;
-  x.edited_at = nowIso;
-  x.edit_reason = reason;
-  if (proofPath) x.proof_path = proofPath;
+  let srv = null;
+  try {
+    let res = await sb.rpc('rc_edit_payment', {
+      pay_id: payId,
+      new_amount: amt,
+      new_paid_on: paidOn,
+      new_method: method,
+      new_note: note,
+      reason_txt: reason,
+      new_proof_path: proofPath
+    });
+    if (res.error && /function rc_edit_payment/i.test(String(res.error.message || ''))) {
+      res = await sb.rpc('rc_edit_payment', { pay_id: payId, new_amount: amt, new_paid_on: paidOn, new_method: method, new_note: note, reason_txt: reason });
+    }
+    if (res.error) throw res.error;
+    srv = res.data;
+  } catch (e) {
+    toast((e && e.message) || 'Server rejected payment edit. Nothing was changed.', 'bad');
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Audit Change'; }
+    return;
+  }
+
+  if (srv && typeof srv === 'object') {
+    x.amount = Number(srv.amount ?? amt);
+    x.paid_on = srv.paid_on || paidOn;
+    x.method = srv.method || method;
+    x.note = srv.note ?? note;
+    x.edited_at = srv.edited_at || new Date().toISOString();
+    x.edit_reason = srv.edit_reason || reason;
+    if (srv.proof_path || proofPath) x.proof_path = srv.proof_path || proofPath;
+    if (Array.isArray(srv.change_log)) x.change_log = srv.change_log;
+  } else {
+    x.amount = amt; x.paid_on = paidOn; x.method = method; x.note = note;
+    x.edited_at = new Date().toISOString(); x.edit_reason = reason;
+    if (proofPath) x.proof_path = proofPath;
+  }
+  if (proofPreview) x.proof_preview = proofPreview;
+  x.server_synced = true;
 
   Store.save();
-  try {
-    await sb.rpc('rc_edit_payment', { pay_id: payId, new_amount: amt, new_paid_on: paidOn, new_method: method, new_note: note, reason_txt: reason });
-    if (proofPath) await sb.from('payments').update({ proof_path: proofPath }).eq('id', payId);
-  } catch (e) {}
 
   dispatchPushAlert({
     recipient_user_id: p.claimed_by || null,
@@ -2987,12 +3009,12 @@ async function submitEditPayment(rid, pid, payId) {
     record_id: rid,
     type: 'payment_edited',
     title: `Payment updated in ${r.title}`,
-    body: `Updated to ${moneyReal(amt)} · Reason: ${reason}`,
+    body: `Updated to ${moneyReal(x.amount)} · Reason: ${reason}`,
     link: `#/p/${pid}`
   });
 
   closeModal();
-  toast('Payment edited and logged to audit trail.');
+  toast('Payment edited on server and logged to audit trail.');
   renderMemberAdmin(rid, pid);
 }
 
@@ -3764,7 +3786,30 @@ async function syncRecordsToDb() {
         if (rr.length) { try { const x = await sb.from('records').upsert(rr); if (x.error && /column|schema cache|PGRST204|42703/i.test(String(x.error.message || '') + ' ' + String(x.error.code || ''))) recExtOk = false; } catch (e) {} }
       }
       await upsertSafe('people', peopleRows, ['email', 'due_date', 'installment_plan']);
-      await upsertSafe('payments', payRows, ['paid_at', 'method', 'payer_name', 'payer_phone', 'logged_by', 'edited_at', 'edit_reason', 'voided', 'voided_at', 'void_reason', 'proof_path', 'change_log']);
+      // Payment rows are server-authoritative: never write them directly from the client.
+      // rc_log_payment is idempotent for an existing pay_id, so this also safely migrates
+      // older local payments without overwriting existing server-side edits or audit data.
+      for (const rec of recs) {
+        for (const person of (rec.people || [])) {
+          for (const payment of (person.payments || [])) {
+            if (Number(payment.amount) <= 0 || payment.voided) continue;
+            const { data, error } = await sb.rpc('rc_log_payment', {
+              pid: person.id,
+              amt: Number(payment.amount),
+              p_paid_on: payment.paid_on || today,
+              p_paid_at: payment.paid_at || null,
+              p_method: payment.method || 'Cash',
+              p_note: payment.note || null,
+              p_payer_name: payment.payer_name || null,
+              p_payer_phone: payment.payer_phone || null,
+              p_proof_path: payment.proof_path || null,
+              pay_id: payment.id
+            });
+            if (error || !data) throw (error || new Error('Server did not confirm payment synchronisation.'));
+            payment.server_synced = true;
+          }
+        }
+      }
       const sy = Object.assign({ r: [], p: [], x: [] }, Store.data.synced || {});
       const L = { r: new Set(recRows.map(a => a.id)), p: new Set(peopleRows.map(a => a.id)), x: new Set(payRows.map(a => a.id)) };
       const gone = k => sy[k].filter(id => !L[k].has(id));
@@ -6979,12 +7024,28 @@ async function saveMemberPayment(rid, pid) {
   const payer_phone = val('payerPhone') || null;
   const sendEmailFlag = !!$('paySendEmail')?.checked;
 
+  if (!user) {
+    toast('Sign in to record payments on the server.', 'bad');
+    authModal('login');
+    return;
+  }
+  if (!navigator.onLine) {
+    toast('Connect to the internet — payments must be recorded on the server.', 'bad');
+    return;
+  }
+
   const r = findRec(rid);
   const p = r?.people?.find(x => x.id === pid);
   if (!r || !p) return;
 
-  const btn = $('savePayBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+  const btn = $('savePayBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Recording on server…'; }
   const payId = uid();
+
+  // Ensure the parent group and member exist on the server before calling rc_log_payment
+  if (!isStaffMode()) {
+    try { await syncRecordsToDb(); } catch (e) {}
+  }
+
   const proofFile = ($('payProofFile') && $('payProofFile').files && $('payProofFile').files[0]) || null;
   let proof_path = null, proof_preview = null;
   if (proofFile) {
@@ -6993,47 +7054,55 @@ async function saveMemberPayment(rid, pid) {
     proof_preview = up.preview;
   }
 
-  const payObj = {
-    id: payId,
-    ref: 'RCP-' + payId.replace(/-/g, '').slice(0, 8).toUpperCase(),
-    biz: bizName(),
-    amount: amt,
-    paid_on,
-    paid_at,
-    method,
-    note,
-    payer_name,
-    payer_phone,
-    logged_by: user ? user.id : null,
-    proof_path,
-    proof_preview,
-    change_log: [],
-    created_at: now.toISOString()
-  };
-
-  if (isStaffMode()) {
-    try {
-      const { error } = await sb.from('payments').insert({
-        id: payId, person_id: pid, amount: amt, paid_on, paid_at, method, note, payer_name, payer_phone,
-        logged_by: user ? user.id : null, proof_path
-      });
-      if (error) {
-        toast(error.message || 'Could not save payment.');
-        if (btn) { btn.disabled = false; btn.textContent = 'Save Payment'; }
-        return;
-      }
-    } catch (e) {
-      toast('Could not save payment online.');
-      if (btn) { btn.disabled = false; btn.textContent = 'Save Payment'; }
-      return;
-    }
+  let srv = null;
+  try {
+    const { data, error } = await sb.rpc('rc_log_payment', {
+      pid,
+      amt,
+      p_paid_on: paid_on,
+      p_paid_at: paid_at,
+      p_method: method,
+      p_note: note,
+      p_payer_name: payer_name,
+      p_payer_phone: payer_phone,
+      p_proof_path: proof_path,
+      pay_id: payId
+    });
+    if (error || !data) throw (error || new Error('Server did not confirm payment.'));
+    srv = data;
+  } catch (e) {
+    toast((e && e.message) || 'Server could not record this payment. Nothing was saved.', 'bad');
+    if (btn) { btn.disabled = false; btn.textContent = 'Save Payment'; }
+    return;
   }
 
+  const finalId = (srv && srv.id) || payId;
+  const payObj = {
+    id: finalId,
+    ref: 'RCP-' + finalId.replace(/-/g, '').slice(0, 8).toUpperCase(),
+    biz: bizName(),
+    amount: Number(srv.amount ?? amt),
+    paid_on: srv.paid_on || paid_on,
+    paid_at: srv.paid_at || paid_at,
+    method: srv.method || method,
+    note: srv.note ?? note,
+    payer_name: srv.payer_name ?? payer_name,
+    payer_phone: srv.payer_phone ?? payer_phone,
+    logged_by: srv.logged_by || (user ? user.id : null),
+    proof_path: srv.proof_path || proof_path,
+    proof_preview,
+    change_log: Array.isArray(srv.change_log) ? srv.change_log : [],
+    buyer_liked: !!srv.buyer_liked,
+    buyer_liked_at: srv.buyer_liked_at || null,
+    created_at: srv.created_at || now.toISOString(),
+    server_synced: true
+  };
+
   p.payments = p.payments || [];
-  p.payments.push(payObj);
+  if (!p.payments.some(x => x.id === finalId)) p.payments.push(payObj);
 
   if (!isStaffMode()) Store.save();
-  toast('Payment recorded successfully!');
+  toast('Payment recorded on server!');
 
   // Live Web Push & Realtime Notification to buyer (if claimed)
   dispatchPushAlert({
@@ -7041,8 +7110,8 @@ async function saveMemberPayment(rid, pid) {
     person_id: pid,
     record_id: rid,
     type: 'payment_logged',
-    title: `Payment received: ${moneyReal(amt)}`,
-    body: `${r.title} · Recorded on ${paid_on}`,
+    title: `Payment received: ${moneyReal(payObj.amount)}`,
+    body: `${r.title} · Recorded on ${payObj.paid_on}`,
     link: `#/p/${pid}`
   });
 
@@ -7057,12 +7126,12 @@ async function saveMemberPayment(rid, pid) {
       toName: p.name,
       businessName: bizName(),
       recordTitle: r.title,
-      amount: moneyReal(amt),
-      paidOn: paid_on,
-      method,
+      amount: moneyReal(payObj.amount),
+      paidOn: payObj.paid_on,
+      method: payObj.method,
       receiptRef: payObj.ref,
       balance: bal > 0 ? moneyReal(bal) : '₦0.00',
-      note: note || '',
+      note: payObj.note || '',
       link: link('p/' + pid)
     }).then(res => { if (res.ok) toast(`Receipt emailed to ${p.email}`); });
   }
