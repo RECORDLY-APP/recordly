@@ -1311,6 +1311,15 @@ body.has-pagebar .backbtn,body.has-pagebar .page-head .pback{display:none}
 .legal-body{font-size:13.5px;line-height:1.65;color:var(--muted);max-height:62vh;overflow-y:auto;padding-right:4px}
 .legal-body h3{margin:16px 0 6px;font-size:15px;color:var(--text)}
 .legal-body ul{padding-left:18px;margin:6px 0}
+
+/* Settings: tap a heading to open its section */
+.setacc{margin:8px 0 0}
+.setacc>summary.set-sum{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:15px 16px;font-size:15px;font-weight:700;color:var(--text)}
+.setacc>summary.set-sum::-webkit-details-marker{display:none}
+.setacc>summary.set-sum::after{content:"›";font-size:22px;line-height:1;color:var(--muted);transform:rotate(90deg);transition:transform .2s}
+.setacc[open]>summary.set-sum::after{transform:rotate(-90deg)}
+.setacc[open]>summary.set-sum{border-bottom-left-radius:0;border-bottom-right-radius:0}
+.setacc>.sgroup{border-top-left-radius:0;border-top-right-radius:0;border-top:0;margin-top:0}
 </style>
 </head>
 <body>
@@ -2475,7 +2484,7 @@ const PLAN_META = {
     groups: 25,
     members: 200,
     staff: 3,
-    features: ['Up to 25 contribution groups', 'Up to 200 members per group', 'Up to 3 staff / helper accounts', 'Email receipts & live payment push alerts']
+    features: ['Up to 25 contribution groups', 'Up to 200 members per group', 'Up to 3 staff accounts', 'Email receipts & live payment push alerts']
   },
   business: {
     name: 'Business',
@@ -2483,7 +2492,7 @@ const PLAN_META = {
     groups: Infinity,
     members: Infinity,
     staff: 15,
-    features: ['Unlimited contribution groups', 'Unlimited members per group', 'Up to 15 staff / helper accounts', 'Full payment change log & CSV exports']
+    features: ['Unlimited contribution groups', 'Unlimited members per group', 'Up to 15 staff accounts', 'Full payment change log & CSV exports']
   }
 };
 
@@ -2513,7 +2522,7 @@ function paySum(p) {
   return activePays(p).reduce((a, x) => a + Number(x.amount || 0), 0);
 }
 
-// Workspace helpers (Owner vs Staff/Helper)
+// Workspace helpers (Owner vs Staff)
 function currentStaffWorkspace() {
   if (!activeStaffOwnerId) return null;
   return (staffWorkspaces || []).find(w => w.owner_id === activeStaffOwnerId) || null;
@@ -2554,7 +2563,7 @@ async function loadStaffWorkspacesAndRecords() {
 async function fetchStaffOwnerRecords(ownerId) {
   if (!user || !ownerId) { staffRecords = []; return; }
   try {
-    const SEL_STAFF = 'id,owner_id,title,description,target,end_date,show_table,group_link,hide_balance,discoverable,freq,start_date,period_amount,created_at,people(id,name,phone,email,due_date,installment_plan,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note,logged_by,edited_at,edit_reason,voided,voided_at,void_reason,proof_path,change_log))';
+    const SEL_STAFF = 'id,owner_id,title,description,target,end_date,show_table,group_link,hide_balance,discoverable,freq,start_date,period_amount,created_at,people(id,name,phone,email,due_date,installment_plan,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note,logged_by,edited_at,edit_reason,voided,voided_at,void_reason,proof_path,buyer_liked_at,change_log))';
     let q = await sb.from('records').select(SEL_STAFF).eq('owner_id', ownerId).order('created_at');
     if (q.error) {
       q = await sb.from('records').select('id,owner_id,title,description,target,end_date,show_table,group_link,created_at,people(id,name,phone,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note))').eq('owner_id', ownerId).order('created_at');
@@ -2665,7 +2674,7 @@ function handleDbPlanError(err) {
     return true;
   }
   if (/PLAN_LIMIT_STAFF/i.test(msg)) {
-    toast('Staff limit reached for your current plan. Upgrade to invite more helpers.', 'bad');
+    toast('Staff limit reached for your current plan. Upgrade to invite more staff.', 'bad');
     openPlansModal();
     return true;
   }
@@ -2693,7 +2702,7 @@ function openPlansModal() {
       <div class="small muted" style="font-weight:700;margin-bottom:8px;">YOUR CURRENT USAGE (${esc((PLAN_META[cur] || PLAN_META.free).name.toUpperCase())} PLAN)</div>
       ${meter('Contribution Groups', recsUsed, (PLAN_META[cur] || PLAN_META.free).groups)}
       ${meter('Largest Group Size', maxMem, (PLAN_META[cur] || PLAN_META.free).members)}
-      ${meter('Staff / Helper Accounts', staffUsed, (PLAN_META[cur] || PLAN_META.free).staff)}
+      ${meter('Staff Accounts', staffUsed, (PLAN_META[cur] || PLAN_META.free).staff)}
     </div>
     <div class="plan-grid">
       ${Object.keys(PLAN_META).map(k => {
@@ -2718,7 +2727,20 @@ async function selectUserPlan(planName) {
   toast('Paid plans are coming soon.');
 }
 
-// Staff / Helper team management
+// Name of whoever logged a payment (shown on the owner's page only, never on member links)
+function loggedByLabel(x) {
+  if (!x || !x.logged_by) return '';
+  if (user && x.logged_by === user.id) return 'You';
+  const m = (teamMembersList || []).find(s => s.staff_user_id === x.logged_by);
+  return m ? (m.staff_name || m.staff_email || 'Staff') : 'Staff';
+}
+function staffWaLink(phone, url) {
+  let d = String(phone || '').replace(/\D/g, '');
+  if (d.length === 11 && d[0] === '0') d = '234' + d.slice(1);
+  return 'https://wa.me/' + d + '?text=' + encodeURIComponent('You have been invited to join my Recordly workspace as staff. Open this link to accept: ' + url);
+}
+
+// Staff team management
 async function loadTeamMembers() {
   if (!user) return;
   try {
@@ -2735,11 +2757,12 @@ async function openTeamManagerModal() {
   const staffLimit = (PLAN_META[curPlan] || PLAN_META.free).staff;
   $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:480px;max-height:90vh;overflow:auto;">
     <div class="row between" style="margin-bottom:8px;"><h2>Team &amp; Staff Accounts</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
-    <p class="muted small">Helpers can view your groups, add members, and log payments. Database rules stop helpers from deleting groups, removing members, voiding payments, or changing account settings.</p>
-    ${staffLimit === 0 ? `<div class="banner banner-warning"><div>Your <b>Free plan</b> includes 0 staff seats. Upgrade to Pro (3 staff) or Business (15 staff) to invite helpers.</div></div><button class="btn-primary full" onclick="openPlansModal()">View Plans &amp; Upgrade</button>` : `
+    <p class="muted small">Staff can view your groups, add members, and log payments. Database rules stop staff from deleting groups, removing members, voiding payments, or changing account settings.</p>
+    ${staffLimit === 0 ? `<div class="banner banner-warning"><div>Your <b>Free plan</b> includes 0 staff seats. Upgrade to Pro (3 staff) or Business (15 staff) to invite staff.</div></div><button class="btn-primary full" onclick="openPlansModal()">View Plans &amp; Upgrade</button>` : `
       <div class="card" style="background:var(--box-bg);margin:10px 0;">
-        <div class="field"><label for="staffName">Helper Name</label><input id="staffName" placeholder="e.g. Musa Cashier"></div>
-        <div class="field"><label for="staffEmail">Helper Email *</label><input id="staffEmail" type="email" placeholder="helper@gmail.com"></div>
+        <div class="field"><label for="staffName">Staff Name</label><input id="staffName" placeholder="e.g. Musa Cashier"></div>
+        <div class="field"><label for="staffEmail">Staff Email *</label><input id="staffEmail" type="email" placeholder="staff@gmail.com"></div>
+        <div class="field"><label for="staffPhone">Staff Phone Number <span style="font-weight:500;">(optional)</span></label><input id="staffPhone" type="tel" inputmode="tel" placeholder="e.g. 0803 123 4567" autocomplete="tel"></div>
         <button class="btn-primary full" id="invStaffBtn" onclick="inviteStaffMember()">Create Staff Invite Link</button>
       </div>
     `}
@@ -2751,16 +2774,17 @@ async function openTeamManagerModal() {
           <div class="row between">
             <div>
               <b>${esc(t.staff_name || t.staff_email)}</b>
-              <div class="small muted">${esc(t.staff_email)} · <span class="badge ${t.status === 'active' ? 'badge-green' : t.status === 'revoked' ? 'badge-red' : 'badge-amber'}">${esc(t.status)}</span></div>
+              <div class="small muted">${esc(t.staff_email)}${t.staff_phone ? ' · ' + esc(t.staff_phone) : ''} · <span class="badge ${t.status === 'active' ? 'badge-green' : t.status === 'revoked' ? 'badge-red' : 'badge-amber'}">${esc(t.status)}</span></div>
             </div>
             ${t.status !== 'revoked' ? `<button class="btn-danger btn-sm" onclick="revokeStaffMember('${t.id}')">Revoke</button>` : ''}
           </div>
           ${t.status === 'pending' && t.invite_code ? `<div class="row" style="gap:6px;">
             <input readonly value="${esc(invUrl)}" style="font-size:12px;padding:7px 9px;" onclick="this.select()">
             <button class="btn-soft btn-sm" onclick="copyText('${esc(invUrl)}')">Copy Invite</button>
+            ${t.staff_phone ? `<button class="btn-soft btn-sm" onclick="window.open('${esc(staffWaLink(t.staff_phone, invUrl))}', '_blank')">WhatsApp</button>` : ''}
           </div>` : ''}
         </div>`;
-      }).join('') : '<div class="empty-box" style="padding:16px;">No staff helpers invited yet.</div>'}
+      }).join('') : '<div class="empty-box" style="padding:16px;">No staff invited yet.</div>'}
     </div>
   </div></div>`;
 }
@@ -2769,16 +2793,17 @@ async function inviteStaffMember() {
   if (!checkPlanQuota('staff', 1)) return;
   const email = val('staffEmail');
   const name = val('staffName');
-  if (!email || !email.includes('@')) { toast('Enter a valid helper email address.'); return; }
+  const phone = val('staffPhone');
+  if (!email || !email.includes('@')) { toast('Enter a valid staff email address.'); return; }
   const btn = $('invStaffBtn'); if (btn) { btn.disabled = true; btn.textContent = 'Creating invite…'; }
   try {
-    const { data, error } = await sb.rpc('rc_invite_staff', { email_in: email, name_in: name || null });
+    const { data, error } = await sb.rpc('rc_invite_staff', { email_in: email, name_in: name || null, phone_in: phone || null });
     if (error) {
       if (!handleDbPlanError(error)) toast(error.message || 'Could not create invite.');
       if (btn) { btn.disabled = false; btn.textContent = 'Create Staff Invite Link'; }
       return;
     }
-    toast('Staff invite created! Share the invite link with your helper.');
+    toast('Staff invite created! Share the invite link with your staff member.');
     await openTeamManagerModal();
   } catch (e) {
     toast('Could not invite staff. Make sure schema.sql is applied.');
@@ -2787,7 +2812,7 @@ async function inviteStaffMember() {
 }
 
 async function revokeStaffMember(id) {
-  if (!confirm('Revoke this helper’s access to your workspace?')) return;
+  if (!confirm('Revoke this staff member’s access to your workspace?')) return;
   try {
     const { error } = await sb.rpc('rc_revoke_staff', { tm_id: id });
     if (error) throw error;
@@ -2804,7 +2829,7 @@ async function renderStaffInviteRoute(code) {
     $('app').innerHTML = `<div class="card">
       <div class="pill">STAFF INVITATION</div>
       <h1 style="margin-top:8px;">You are invited to help manage a Recordly workspace</h1>
-      <p class="muted">Sign in or create a free Recordly account with the invited email address to accept this helper role.</p>
+      <p class="muted">Sign in or create a free Recordly account with the invited email address to accept this staff role.</p>
       <div class="row" style="margin-top:12px;">
         <button class="btn-primary" onclick="authModal('login')">Log in</button>
         <button class="btn-outline" onclick="authModal('signup')">Create account</button>
@@ -2814,8 +2839,8 @@ async function renderStaffInviteRoute(code) {
   }
   $('app').innerHTML = `<div class="card">
     <div class="pill">STAFF INVITATION</div>
-    <h1 style="margin-top:8px;">Join Workspace as Helper</h1>
-    <p class="muted">As a staff helper, you can view the owner's contribution groups, add members, and log payments with receipts. You cannot delete groups, remove members, void payments, or delete the account.</p>
+    <h1 style="margin-top:8px;">Join Workspace as Staff</h1>
+    <p class="muted">As staff, you can view the owner's contribution groups, add members, and log payments with receipts. You cannot delete groups, remove members, void payments, or delete the account.</p>
     <div class="row" style="margin-top:14px;">
       <button class="btn-primary" id="accStaffBtn" onclick="acceptStaffInviteCode('${esc(code)}')">Accept Staff Role</button>
       <button class="btn-outline" onclick="location.hash='#/'">Cancel</button>
@@ -2834,7 +2859,7 @@ async function acceptStaffInviteCode(code) {
       try { localStorage.setItem('rc_staff_owner', activeStaffOwnerId); } catch (e) {}
       await fetchStaffOwnerRecords(activeStaffOwnerId);
     }
-    toast('You are now active as a staff helper!');
+    toast('You are now active as staff!');
     location.hash = '#/';
     render();
   } catch (e) {
@@ -3062,6 +3087,25 @@ async function submitVoidPayment(rid, pid, payId) {
   closeModal();
   toast('Payment voided and balance updated.');
   renderMemberAdmin(rid, pid);
+}
+
+function openPaymentActions(pid, payId, amt, paidOn, liked) {
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:380px;">
+    <div class="row between" style="margin-bottom:8px;"><h2>${moneyReal(amt)}</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted small">${paidOn ? esc(paidOn) + ' · ' : ''}Is this payment recorded correctly?</p>
+    <div class="list">
+      <button class="${liked ? 'btn-soft' : 'btn-primary'} full" style="height:50px;border-radius:16px;" onclick="likePayment('${pid}','${payId}',${liked ? 'false' : 'true'})">${liked ? '👍 Confirmed · tap to undo' : '👍 Yes, this is correct'}</button>
+      <button class="btn-outline full" style="height:50px;border-radius:16px;" onclick="openReportPaymentModal('${pid}','${payId}',${Number(amt) || 0},'${esc(paidOn || '')}')">⚠️ Report a problem</button>
+    </div></div></div>`;
+}
+async function likePayment(pid, payId, on) {
+  try {
+    const { error } = await sb.rpc('rc_like_payment', { pid, pay_id: payId, liked: !!on });
+    if (error) throw error;
+    closeModal();
+    toast(on ? 'Thanks! The admin can see you confirmed this payment.' : 'Confirmation removed.');
+    render();
+  } catch (e) { toast((e && e.message) || 'Could not save. Please try again.'); }
 }
 
 function openReportPaymentModal(pid, payId, amt, paidOn) {
@@ -3316,7 +3360,7 @@ function openLegalDoc(kind) {
     <p>Effective: November 2026. Recordly helps businesses, clubs, and groups keep clear ledgers of contributions, sales, expenses, and debts.</p>
     <h3>1. Accounts &amp; Honest Records</h3>
     <p>You are responsible for accurate amounts, member names, phone numbers, email addresses, and proofs uploaded into your workspace. Payment edits and voids are permanently logged to protect buyers.</p>
-    <h3>2. Staff &amp; Helper Permissions</h3>
+    <h3>2. Staff Permissions</h3>
     <p>Account owners control who joins as staff. Staff can log payments and upload receipts but cannot delete records, void payments, or close your account.</p>
     <h3>3. Prohibited Use &amp; Safety</h3>
     <p>Do not impersonate organisations, publish fraudulent groups in Discover, or upload illegal files. Users can block or report suspicious groups at any time.</p>
@@ -3359,7 +3403,7 @@ async function maybeRequireTos() {
   $('modalRoot').innerHTML = `<div class="modal-overlay"><div class="modal-window" style="max-width:420px;">
     <h2>Terms &amp; Privacy Update</h2>
     <p class="muted small">Before using Recordly to store member names, phone numbers, and money records, please review and accept our Terms of Service and Privacy Policy.</p>
-    <div class="tos-check"><input type="checkbox" id="tosGateChk" checked><label for="tosGateChk">I agree to Recordly's <a href="terms.html" target="_blank" onclick="event.preventDefault();openLegalDoc('terms')">Terms of Service</a> and <a href="privacy.html" target="_blank" onclick="event.preventDefault();openLegalDoc('privacy')">Privacy Policy</a>.</label></div>
+    <div class="tos-check"><input type="checkbox" id="tosGateChk"><label for="tosGateChk">I agree to Recordly's <a href="terms.html" target="_blank" onclick="event.preventDefault();openLegalDoc('terms')">Terms of Service</a> and <a href="privacy.html" target="_blank" onclick="event.preventDefault();openLegalDoc('privacy')">Privacy Policy</a>.</label></div>
     <button class="btn-primary full" onclick="acceptTosNow()">Agree &amp; Continue</button>
   </div></div>`;
 }
@@ -3611,7 +3655,7 @@ async function loadAccountData() {
     }
     Store.data.owner = user.id;
     const SEL_BASE = 'id,title,description,target,end_date,show_table,group_link,created_at,people(id,name,phone,payments(id,amount,paid_on,note))';
-    const SEL_EXT = 'id,title,description,target,end_date,show_table,group_link,hide_balance,discoverable,created_at,people(id,name,phone,email,due_date,installment_plan,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note,logged_by,edited_at,edit_reason,voided,voided_at,void_reason,proof_path,change_log))';
+    const SEL_EXT = 'id,title,description,target,end_date,show_table,group_link,hide_balance,discoverable,created_at,people(id,name,phone,email,due_date,installment_plan,payments(id,amount,paid_on,paid_at,method,payer_name,payer_phone,note,logged_by,edited_at,edit_reason,voided,voided_at,void_reason,proof_path,buyer_liked_at,change_log))';
     // Start the independent queries together with the records query instead of one after another.
     const safe = q => q.then(r => r, e => ({ error: e }));
     const exP = safe(sb.from('records').select('id,freq,start_date,period_amount').eq('owner_id', user.id));
@@ -3653,6 +3697,7 @@ async function loadAccountData() {
             payer_phone: x.payer_phone || null,
             note: x.note || '',
             logged_by: x.logged_by || null,
+            buyer_liked_at: x.buyer_liked_at || null,
             edited_at: x.edited_at || null,
             edit_reason: x.edit_reason || null,
             voided: !!x.voided,
@@ -5301,7 +5346,7 @@ async function showAppStatus() {
     ['Last load error', extError || 'none'],
     ['Server connection', net],
     ['Browser online', navigator.onLine ? 'yes' : 'no'],
-    ['Offline helper (service worker)', swInfo]
+    ['Offline mode (service worker)', swInfo]
   ];
   $('modalRoot').innerHTML = miniModal('App status', rows.map(r =>
     `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;"><span class="muted">${esc(r[0])}</span><b style="text-align:right;">${esc(String(r[1] == null ? '' : r[1]))}</b></div>`
@@ -5469,7 +5514,7 @@ function renderAdminHome() {
 
   const staffBannerHtml = staffWs ? `
     <div class="staff-banner">
-      <div><b>Staff Helper Mode</b> · Viewing <b>${esc(staffWs.owner_name)}</b>’s groups (add members &amp; log payments only)</div>
+      <div><b>Staff Mode</b> · Viewing <b>${esc(staffWs.owner_name)}</b>’s groups (add members &amp; log payments only)</div>
       <button class="btn-outline btn-sm" onclick="switchWorkspace('')">Back to Mine</button>
     </div>` : '';
 
@@ -5635,7 +5680,7 @@ function renderContributions() {
   ];
 
   $('app').innerHTML = `
-    ${staffWs ? `<div class="staff-banner"><div><b>Staff Helper Mode</b> · ${esc(staffWs.owner_name)}</div><button class="btn-outline btn-sm" onclick="switchWorkspace('')">Back to Mine</button></div>` : ''}
+    ${staffWs ? `<div class="staff-banner"><div><b>Staff Mode</b> · ${esc(staffWs.owner_name)}</div><button class="btn-outline btn-sm" onclick="switchWorkspace('')">Back to Mine</button></div>` : ''}
     <div class="card">
       <div class="row between">
         <div>
@@ -5895,7 +5940,7 @@ function renderRecordDetail(rid) {
   const overdueCount = people.filter(p => memberScheduleSummary(r, p).overdue).length;
 
   $('app').innerHTML = `
-    ${!owner ? `<div class="staff-banner"><div><b>Staff Helper View</b> · You can add members and log payments for <b>${esc(r.title)}</b>.</div><button class="btn-outline btn-sm" onclick="switchWorkspace('')">Exit Staff Mode</button></div>` : ''}
+    ${!owner ? `<div class="staff-banner"><div><b>Staff View</b> · You can add members and log payments for <b>${esc(r.title)}</b>.</div><button class="btn-outline btn-sm" onclick="switchWorkspace('')">Exit Staff Mode</button></div>` : ''}
     <div class="card">
       <div class="row between">
         <div>
@@ -6215,7 +6260,7 @@ function toggleRecordProp(rid, prop) {
 }
 
 function confirmDeleteRecord(rid) {
-  if (isStaffMode()) { toast('Staff helpers cannot delete groups.', 'bad'); return; }
+  if (isStaffMode()) { toast('Staff cannot delete groups.', 'bad'); return; }
   const r = Store.data.records.find(x => x.id === rid);
   const name = r ? r.title : 'this record';
   if (confirm(`Are you sure you want to permanently delete "${name}" and all its member transactions?`)) {
@@ -6645,7 +6690,7 @@ function renderMemberAdmin(rid, pid) {
 
   $('app').innerHTML = `
     <button class="btn-outline btn-sm backbtn" onclick="pageBack()" style="margin-bottom:12px;">← ${esc(r.title)}</button>
-    ${!owner ? `<div class="staff-banner"><div><b>Staff Helper Mode</b> · You can log payments and view receipts for <b>${esc(p.name)}</b>.</div></div>` : ''}
+    ${!owner ? `<div class="staff-banner"><div><b>Staff Mode</b> · You can log payments and view receipts for <b>${esc(p.name)}</b>.</div></div>` : ''}
 
     <div class="card">
       <div class="row between">
@@ -6813,6 +6858,8 @@ function renderMemberAdmin(rid, pid) {
                 <div>
                   <div style="font-weight:700;font-size:16px;" class="amt-num">${money(x.amount)} ${x.voided ? '<span class="tag-inline tag-void">Voided</span>' : x.edited_at ? '<span class="tag-inline tag-due">Edited</span>' : ''}${pFlags.length ? '<span class="tag-inline tag-overdue">Flagged</span>' : ''}</div>
                   <div class="muted small">${esc(x.paid_on || 'Date not recorded')}${payTimeTxt(x)} · <span class="badge badge-gray">${esc(x.method || 'Payment')}</span> ${x.note ? `· ${esc(x.note)}` : ''}${x.payer_name ? ` · Paid by ${esc(x.payer_name)}${x.payer_phone ? ' (' + esc(x.payer_phone) + ')' : ''}` : ''}</div>
+                  ${owner && x.logged_by ? `<div class="small muted">Logged by <b>${esc(loggedByLabel(x))}</b></div>` : ''}
+                  ${x.buyer_liked_at && !x.voided ? `<div class="small" style="color:var(--primary);font-weight:700;">👍 Member confirmed this payment</div>` : ''}
                 </div>
                 <div class="row" style="gap:6px;flex-wrap:wrap;justify-content:flex-end;">
                   ${(x.proof_path || x.proof_preview) ? `<button class="btn-outline btn-sm" onclick="openProofModal('${esc(x.proof_path || '')}', ${(x.proof_preview ? 'findRec(\'' + rid + '\')?.people?.find(y=>y.id===\'' + pid + '\')?.payments?.find(z=>z.id===\'' + x.id + '\')?.proof_preview' : 'null')})">📎 Proof</button>` : ''}
@@ -7145,7 +7192,7 @@ function deleteMemberPayment(rid, pid, payId) {
 }
 
 function confirmDeleteMember(rid, pid) {
-  if (isStaffMode()) { toast('Staff helpers cannot remove members.', 'bad'); return; }
+  if (isStaffMode()) { toast('Staff cannot remove members.', 'bad'); return; }
   if (confirm('Remove this member and their payment history from the record?')) {
     const r = findRec(rid);
     if (!r) return;
@@ -8514,7 +8561,7 @@ function renderMore() {
       ${srow('user', 'My Profile', '', "location.hash='#/profile'")}
       ${srow('store', 'Business name', `<span class="sval">${esc(bizName())}</span>`, "location.hash='#/profile'", { sub: 'Shown on your receipts' })}
       ${srow('shield', 'Plan & usage', `<span class="sval">${esc(curPlan)}</span>`, 'openPlansModal()', { sub: 'Free, Pro & Business limits' })}
-      ${srow('users', 'Team & staff helpers', `<span class="sval">${(teamMembersList || []).filter(t => t.status === 'active').length}</span>`, 'openTeamManagerModal()', { sub: 'Let helpers log payments safely' })}
+      ${srow('users', 'Team & staff', `<span class="sval">${(teamMembersList || []).filter(t => t.status === 'active').length}</span>`, 'openTeamManagerModal()', { sub: 'Let staff log payments safely' })}
       ${srow('gear', 'Settings', '', "location.hash='#/settings'")}
     </div>
     <div class="sgroup">
@@ -8535,55 +8582,49 @@ function renderSettings() {
   $('app').innerHTML = `
     <div class="page-head"><button class="btn-outline pback" onclick="location.hash='#/more'" aria-label="Back">${ico('back', 20)}</button><h1>Settings</h1></div>
 
-    <div class="sh-title">ACCOUNT &amp; PLAN</div>
-    <div class="sgroup">
+    <details class="setacc"><summary class="set-sum">Account &amp; plan</summary><div class="sgroup">
       ${srow('user', 'My Profile', '', "location.hash='#/profile'")}
       ${srow('store', 'Business name', `<span class="sval">${esc(bizName())}</span>`, "location.hash='#/profile'", { sub: 'Shown on your receipts' })}
       ${srow('shield', 'Plan & usage', `<span class="sval">${esc(curPlan)}</span>`, 'openPlansModal()', { sub: 'View database-enforced limits or switch plan' })}
-      ${srow('users', 'Team & staff accounts', `<span class="sval">${(teamMembersList || []).filter(t => t.status === 'active').length} active</span>`, 'openTeamManagerModal()', { sub: 'Add helpers who can log payments without delete rights' })}
+      ${srow('users', 'Team & staff accounts', `<span class="sval">${(teamMembersList || []).filter(t => t.status === 'active').length} active</span>`, 'openTeamManagerModal()', { sub: 'Add staff who can log payments without delete rights' })}
       ${staffWorkspaces.length ? srow('users', 'Switch workspace', `<span class="sval">${staffMode ? esc(currentStaffWorkspace().owner_name) : 'Personal'}</span>`, staffMode ? 'switchWorkspace(null)' : `switchWorkspace('${staffWorkspaces[0].owner_id}')`, { sub: 'Move between your workspace and staff workspaces' }) : ''}
-    </div>
+    </div></details>
 
-    <div class="sh-title">SHARE</div>
-    <div class="sgroup">
+    <details class="setacc"><summary class="set-sum">Share</summary><div class="sgroup">
       ${srow('link', 'Share Recordly', '', 'shareApp()', { sub: 'Send the app link to friends and your group' })}
       ${srow('file', 'Copy app link', '', 'copyAppLink()', { noChev: true })}
-    </div>
+    </div></details>
 
-    <div class="sh-title">PRIVACY &amp; SAFETY</div>
-    <div class="sgroup">
+    <details class="setacc"><summary class="set-sum">Privacy &amp; safety</summary><div class="sgroup">
       ${srow('eyeoff', 'Hide me from search', swt(hideSearch), 'toggleHideFromSearch()', { noChev: true, sub: 'Stop logged-in users from finding your name in Discover' })}
       ${srow('eyeoff', 'Hide money amounts', swt(maskMoney), 'toggleMask()', { noChev: true, sub: 'Cover balances on this screen' })}
       ${srow('shield', 'Blocked groups & users', `<span class="sval">${blkCount}</span>`, 'openBlockedListModal()', { sub: 'Manage accounts and groups you hid' })}
       ${srow('lock', 'App lock', `<span class="sval">${lockLabel()}</span>`, 'openLockSettings()', { sub: 'PIN or fingerprint when you open the app' })}
       ${srow('file', 'Terms of Service', '', "openLegalDoc('terms')")}
       ${srow('shield', 'Privacy Policy', '', "openLegalDoc('privacy')")}
-    </div>
+    </div></details>
 
-    <div class="sh-title">PREFERENCES</div>
-    <div class="sgroup">
+    <details class="setacc"><summary class="set-sum">Preferences</summary><div class="sgroup">
       ${srow('sun', 'Theme', `<span class="sval">${esc(themeLabel())}</span>`, 'openThemeSettings()', { sub: 'Phone theme, light, dark or pure black' })}
       ${srow('shield', 'App status', '', 'showAppStatus()', { sub: 'Shows what the app sees, for troubleshooting' })}
       ${srow('volume', 'Notification sound', `<span class="sval">${esc(soundToneLabel())}</span>`, 'openSoundSettings()', { sub: 'Chime & tone for incoming alerts' })}
       ${srow('bell', 'Reminders & Live Push', `<span class="sval">${remCfg().on ? 'On' : 'Off'}</span>`, 'openReminderSettings()', { sub: 'Automatic nudges, live push & email templates' })}
       ${srow('bell', 'Alerts', '', "location.hash='#/notifications'")}
-    </div>
+    </div></details>
 
-    <div class="sh-title">DATA</div>
-    <div class="sgroup">
+    <details class="setacc"><summary class="set-sum">Data</summary><div class="sgroup">
       ${srow('download', 'Export to Excel / CSV', '', 'exportDataToCSV()')}
       ${isStandalone() ? '' : srow('phone', 'Install on this phone', '', 'installApp()')}
-    </div>
+    </div></details>
 
-    <div class="sh-title">HELP</div>
-    <div class="sgroup">
+    <details class="setacc"><summary class="set-sum">Help</summary><div class="sgroup">
       ${srow('compass', 'Take a tour', '', 'openTourPicker()')}
       ${srow('info', 'About Recordly', '', 'aboutRecordly()')}
-    </div>
+    </div></details>
 
-    ${staffMode ? `<div class="banner banner-info"><div>Staff helpers cannot reset or delete the owner’s account. Switch to Personal Workspace in Settings to manage your own account.</div></div>
+    ${staffMode ? `<div class="banner banner-info"><div>Staff cannot reset or delete the owner’s account. Switch to Personal Workspace in Settings to manage your own account.</div></div>
     <div class="sgroup">${srow('logout', 'Log out', '', 'logout()', { danger: true, noChev: true })}</div>` : `
-    <div class="sh-title">DANGER ZONE</div>
+    <div class="sh-title">LEAVING RECORDLY</div>
     <div class="sgroup">
       ${srow('trash', 'Reset & clear workspace', '', "confirmWithPassword('Reset & clear workspace','This permanently deletes all your records, sales, debts and online data. Enter your password to confirm.', () => { Store.clearAll(); render(); })", { danger: true })}
       ${srow('power', 'Close account', '', "confirmWithPassword('Delete my account','This permanently deletes your Recordly account and ALL your records, people, payments, sales, debts and receipts from this phone and from our servers. It cannot be undone. Enter your password to confirm.', deleteMyAccount)", { danger: true })}
@@ -8618,7 +8659,22 @@ function shareApp() {
   </div></div>`;
 }
 function aboutRecordly() {
-  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:360px;text-align:center;"><div class="prof-av" style="margin:0 auto 10px;">R</div><h2>Recordly</h2><p class="muted">Simple records, clear progress.</p><p class="small muted">Contributions, sales, expenses and debts with private progress links, audit logs, and instant receipts.</p><button class="btn-primary full" onclick="closeModal()">Close</button></div></div>`;
+  const li = s => `<li style="margin:5px 0;">${s}</li>`;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:400px;max-height:88vh;overflow:auto;"><div style="text-align:center;"><div class="prof-av" style="margin:0 auto 10px;">R</div><h2>Recordly</h2><p class="muted">Simple records, clear progress.</p></div>
+    <p class="small muted" style="text-align:center;">Contributions, sales, expenses and debts with private progress links, a full payment history and instant receipts. Recordly keeps the record. It never moves your money.</p>
+    <div class="sh-title" style="margin-top:14px;">WHAT YOU CAN DO</div>
+    <ul class="small" style="padding-left:18px;margin:0;">
+      ${li('<b>Staff accounts:</b> let trusted staff log payments and add members, while only you can delete or void.')}
+      ${li('<b>Payment history you can trust:</b> edit or void with a reason, and every change is logged.')}
+      ${li('<b>Members can respond:</b> tap a payment to confirm it with a 👍 or report a problem.')}
+      ${li('<b>Proof of payment:</b> attach a transfer screenshot to a payment.')}
+      ${li('<b>Due dates and instalment plans</b> with clear balances and progress.')}
+      ${li('<b>Email receipts and live alerts</b> when payments are recorded.')}
+      ${li('<b>Private by design:</b> hide balances, hide yourself from search, block or report groups, and lock the app with a PIN or fingerprint.')}
+      ${li('<b>Your look:</b> light, dark, pure black, or follow your phone.')}
+    </ul>
+    <p class="small muted" style="text-align:center;margin-top:12px;">Made to keep payments honest and easy to follow.</p>
+    <button class="btn-primary full" style="margin-top:8px;" onclick="closeModal()">Close</button></div></div>`;
 }
 
 function renderProfile() {
@@ -8647,7 +8703,7 @@ function renderProfile() {
     <div class="sgroup">
       ${srow('eyeoff', 'Hide me from search', swt(hideSearch), 'toggleHideFromSearch()', { noChev: true, sub: 'Stay unlisted when users search Discover' })}
       ${srow('shield', 'Plan & usage', `<span class="sval">${esc(curPlan)}</span>`, 'openPlansModal()')}
-      ${srow('users', 'Team & staff helpers', '', 'openTeamManagerModal()')}
+      ${srow('users', 'Team & staff', '', 'openTeamManagerModal()')}
       ${srow('user', 'Email', `<span class="sval">${esc(user.email || '—')}</span>`, '', { noChev: true })}
       ${user.phone ? srow('phone', 'Phone', `<span class="sval">${esc(user.phone)}</span>`, '', { noChev: true }) : ''}
       ${srow('shield', 'Sign-in method', `<span class="sval">${esc(method)}</span>`, '', { noChev: true })}
@@ -8957,9 +9013,9 @@ async function renderPublicPerson(pid, src) {
             const reps = repByPay.get(x.id) || [];
             const hasOpen = reps.some(rp => rp.status === 'open');
             const audit = Array.isArray(x.change_log) ? x.change_log : [];
-            const proofBtn = (canSeePrivate && (x.proof_path || x.proof_preview)) ? `<button class="btn-soft btn-sm" onclick="openProofModal('${esc(x.proof_path || '')}','${esc(x.proof_preview || '')}')">📎 Proof</button>` : '';
+            const proofBtn = (canSeePrivate && (x.proof_path || x.proof_preview)) ? `<button class="btn-soft btn-sm" onclick="event.stopPropagation();openProofModal('${esc(x.proof_path || '')}','${esc(x.proof_preview || '')}')">📎 Proof</button>` : '';
             return `
-            <div class="item-card${x.voided ? ' payment-voided' : ''}" style="flex-direction:column;align-items:stretch;gap:6px;">
+            <div class="item-card${x.voided ? ' payment-voided' : ''}" ${!x.voided ? `onclick="openPaymentActions('${esc(pid)}','${esc(x.id)}',${Number(x.amount || 0)},'${esc(x.paid_on || '')}',${(x.liked_at || x.buyer_liked_at) ? 'true' : 'false'})"` : ''} style="flex-direction:column;align-items:stretch;gap:6px;${!x.voided ? 'cursor:pointer;' : ''}">
               <div class="between" style="gap:8px;align-items:flex-start;">
                 <div>
                   <b class="pay-amt">${moneyReal(x.amount)}</b>
@@ -8973,7 +9029,7 @@ async function renderPublicPerson(pid, src) {
               ${reps.map(rp => `<div class="audit-note"><b>${rp.status === 'resolved' ? 'Resolved issue' : 'Reported problem'}:</b> ${esc(rp.reason)}${rp.expected_amount ? ' (Expected ' + moneyReal(rp.expected_amount) + ')' : ''}${rp.details ? ' — ' + esc(rp.details) : ''}</div>`).join('')}
               <div class="row" style="gap:6px;margin-top:2px;">
                 ${proofBtn}
-                ${!x.voided ? `<button class="btn-outline btn-sm" onclick="openReportPaymentModal('${esc(pid)}','${esc(x.id)}',${Number(x.amount || 0)},'${esc(x.paid_on || '')}')">Report a problem</button>` : ''}
+                ${!x.voided ? `<span class="small muted">${(x.liked_at || x.buyer_liked_at) ? '👍 You confirmed this · ' : ''}Tap to confirm or report ›</span>` : ''}
               </div>
             </div>`;
           }).join('')}
