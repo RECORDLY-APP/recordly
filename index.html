@@ -5199,6 +5199,32 @@ function applyRoleNav() {
   set('nav-business', mem ? 'Alerts' : 'Business', mem ? '#/notifications' : '#/business', true, mem ? 'bell' : null);
   set('nav-debts', 'Debts', '#/debts', !mem, null);
 }
+async function showAppStatus() {
+  $('modalRoot').innerHTML = miniModal('App status', '<p class="muted">Checking…</p>');
+  let groupsLine = '', err = '';
+  try {
+    const r = await sb.rpc('rc_my_groups');
+    if (r.error) err = r.error.message || String(r.error.code || 'error');
+    else if (Array.isArray(r.data)) { myGroups = r.data; groupsLine = r.data.length + (r.data.length ? ' (' + r.data.map(g => g.title).join(', ') + ')' : ''); }
+    else groupsLine = 'unexpected reply';
+  } catch (e) { err = (e && e.message) || 'failed'; }
+  const d = Store.data, own = ownsStuff(), mem = isMemberRole();
+  const rows = [
+    ['Signed in as', user && user.email],
+    ['Groups you joined (from server)', err ? 'ERROR: ' + err : groupsLine],
+    ['Waiting join requests', myReqs.filter(r => r.status === 'pending').length],
+    ['Your own groups on this phone', (d.records || []).length],
+    ['Customers / sales / debts', (d.customers || []).length + ' / ' + (d.sales || []).length + ' / ' + (d.debts || []).length],
+    ['Member side', mem ? 'yes' : 'no'],
+    ['Own data side', own ? 'yes' : 'no'],
+    ['Toggle should show', mem && own ? 'yes' : 'no'],
+    ['Working in', isStaffMode() ? 'a staff workspace' : 'your own workspace']
+  ];
+  $('modalRoot').innerHTML = miniModal('App status', rows.map(r =>
+    `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;"><span class="muted">${esc(r[0])}</span><b style="text-align:right;">${esc(String(r[1] == null ? '' : r[1]))}</b></div>`
+  ).join('') + '<p class="muted small" style="margin-top:10px;">Send a screenshot of this screen if something looks wrong.</p>');
+  applyRoleNav();
+}
 function roleSwitchHtml() { return ''; }   // replaced by the toggle at the top of the home page
 function roleToggleHtml(cur) {
   if (!(isMemberRole() && ownsStuff())) return '';
@@ -8430,6 +8456,7 @@ function renderSettings() {
     <div class="sh-title">PREFERENCES</div>
     <div class="sgroup">
       ${srow('sun', 'Theme', `<span class="sval">${esc(themeLabel())}</span>`, 'openThemeSettings()', { sub: 'Phone theme, light, dark or pure black' })}
+      ${srow('shield', 'App status', '', 'showAppStatus()', { sub: 'Shows what the app sees, for troubleshooting' })}
       ${srow('volume', 'Notification sound', `<span class="sval">${esc(soundToneLabel())}</span>`, 'openSoundSettings()', { sub: 'Chime & tone for incoming alerts' })}
       ${srow('bell', 'Reminders & Live Push', `<span class="sval">${remCfg().on ? 'On' : 'Off'}</span>`, 'openReminderSettings()', { sub: 'Automatic nudges, live push & email templates' })}
       ${srow('bell', 'Alerts', '', "location.hash='#/notifications'")}
