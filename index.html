@@ -5220,6 +5220,20 @@ async function showAppStatus() {
     else if (Array.isArray(r.data)) { myGroups = r.data; groupsLine = r.data.length + (r.data.length ? ' (' + r.data.map(g => g.title).join(', ') + ')' : ''); }
     else groupsLine = 'unexpected reply';
   } catch (e) { err = (e && e.message) || 'failed'; }
+  let net = '';
+  try {
+    const t0 = Date.now();
+    const rr = await fetch(SB_URL + '/auth/v1/settings', { headers: { apikey: SB_KEY } });
+    net = 'reachable (' + rr.status + ', ' + (Date.now() - t0) + ' ms)';
+  } catch (e) { net = 'CANNOT REACH SERVER: ' + ((e && e.message) || 'failed'); }
+  let swInfo = 'none';
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      const keys = await caches.keys();
+      swInfo = (reg ? (navigator.serviceWorker.controller ? 'active' : 'registered') : 'not registered') + (keys.length ? ' · ' + keys.join(',') : '');
+    }
+  } catch (e) { swInfo = 'unknown'; }
   const d = Store.data, own = ownsStuff(), mem = isMemberRole();
   const rows = [
     ['Signed in as', user && user.email],
@@ -5232,7 +5246,10 @@ async function showAppStatus() {
     ['Toggle should show', mem && own ? 'yes' : 'no'],
     ['Working in', isStaffMode() ? 'a staff workspace' : 'your own workspace'],
     ['Online columns', extOk === false ? 'BASIC (some settings not saved online)' : extOk ? 'full' : 'not checked yet'],
-    ['Last load error', extError || 'none']
+    ['Last load error', extError || 'none'],
+    ['Server connection', net],
+    ['Browser online', navigator.onLine ? 'yes' : 'no'],
+    ['Offline helper (service worker)', swInfo]
   ];
   $('modalRoot').innerHTML = miniModal('App status', rows.map(r =>
     `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;"><span class="muted">${esc(r[0])}</span><b style="text-align:right;">${esc(String(r[1] == null ? '' : r[1]))}</b></div>`
