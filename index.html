@@ -3597,7 +3597,19 @@ async function loadAccountData() {
     const rpP = safe(sb.from('payment_reports').select('*').order('created_at', { ascending: false }).limit(60));
     const blP = safe(sb.from('user_blocks').select('*').eq('blocker_id', user.id).order('created_at', { ascending: false }));
     let qres = await sb.from('records').select(SEL_EXT).eq('owner_id', user.id).order('created_at');
-    if (qres.error) { qres = await sb.from('records').select(SEL_BASE).eq('owner_id', user.id).order('created_at'); extOk = false; } else { extOk = true; }
+    if (qres.error) {
+      const m = String(qres.error.message || '') + ' ' + String(qres.error.code || '');
+      extError = m;
+      if (/column|schema cache|PGRST204|42703/i.test(m)) {
+        // a column really is missing online: fall back to the basic columns
+        qres = await sb.from('records').select(SEL_BASE).eq('owner_id', user.id).order('created_at'); extOk = false;
+      } else {
+        // network / sign-in hiccup: try once more, and if it still fails keep what is on the phone (do NOT switch to basic mode)
+        await new Promise(r => setTimeout(r, 1500));
+        qres = await sb.from('records').select(SEL_EXT).eq('owner_id', user.id).order('created_at');
+        if (!qres.error) { extOk = true; extError = ''; }
+      }
+    } else { extOk = true; extError = ''; }
     const { data, error } = qres;
     if (!error && data) {
       data.forEach(r => {
@@ -3749,7 +3761,7 @@ async function syncRecordsToDb() {
       await upsertSafe('records', recRows, ['hide_balance', 'discoverable']);
       if (recExtOk !== false) {
         const rr = recs.filter(isRec).map(r => ({ id: r.id, owner_id: user.id, title: r.title || 'Untitled', freq: r.freq, start_date: r.start || null, period_amount: Number(r.period_amount) || null }));
-        if (rr.length) { try { const x = await sb.from('records').upsert(rr); if (x.error) recExtOk = false; } catch (e) { recExtOk = false; } }
+        if (rr.length) { try { const x = await sb.from('records').upsert(rr); if (x.error && /column|schema cache|PGRST204|42703/i.test(String(x.error.message || '') + ' ' + String(x.error.code || ''))) recExtOk = false; } catch (e) {} }
       }
       await upsertSafe('people', peopleRows, ['email', 'due_date', 'installment_plan']);
       await upsertSafe('payments', payRows, ['paid_at', 'method', 'payer_name', 'payer_phone', 'logged_by', 'edited_at', 'edit_reason', 'voided', 'voided_at', 'void_reason', 'proof_path', 'change_log']);
@@ -5218,7 +5230,9 @@ async function showAppStatus() {
     ['Member side', mem ? 'yes' : 'no'],
     ['Own data side', own ? 'yes' : 'no'],
     ['Toggle should show', mem && own ? 'yes' : 'no'],
-    ['Working in', isStaffMode() ? 'a staff workspace' : 'your own workspace']
+    ['Working in', isStaffMode() ? 'a staff workspace' : 'your own workspace'],
+    ['Online columns', extOk === false ? 'BASIC (some settings not saved online)' : extOk ? 'full' : 'not checked yet'],
+    ['Last load error', extError || 'none']
   ];
   $('modalRoot').innerHTML = miniModal('App status', rows.map(r =>
     `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;"><span class="muted">${esc(r[0])}</span><b style="text-align:right;">${esc(String(r[1] == null ? '' : r[1]))}</b></div>`
@@ -9242,6 +9256,7 @@ if ('serviceWorker' in navigator) {
  * RECORDLY UPGRADE: safe DB writes, soft re-render, visits, join requests, ecosystem search
  */
 let inbox = { joins: [], visits: [] };
+let extError = '';   // last reason the full online columns could not be read (shown in Settings > App status)
 let extOk = null;          // null = not tested yet, true = new columns exist online, false = SQL upgrade not run yet
 let liveChan2 = null;
 
