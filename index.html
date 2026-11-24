@@ -5352,6 +5352,7 @@ async function loadMemberGroups() {
   if (!user) return;
   try { const { data, error } = await sb.rpc('rc_my_groups'); if (!error && Array.isArray(data)) myGroups = data; } catch (e) {}
   try { const q = await sb.from('join_requests').select('id,record_id,status,created_at').eq('requester_id', user.id).order('created_at', { ascending: false }).limit(30); if (!q.error && q.data) myReqs = q.data; } catch (e) {}
+  if (adminCheckedFor !== user.id) { adminCheckedFor = user.id; await loadAdminFlag(); }
   applyRoleNav(); softRender();
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden && user && loadedFor === user.id) loadMemberGroups(); });
@@ -5572,6 +5573,7 @@ function renderAdminHome() {
     if (waitingOrders) items.push({ icon: 'bag', t: waitingOrders === 1 ? '1 order is waiting' : waitingOrders + ' orders are waiting', s: 'Not given to the customer yet', go: '#/business' });
     { const cfgR = remCfg(), dueN = cfgR.on ? dueNudges(cfgR).length : 0; if (dueN) items.unshift({ icon: 'bell', t: dueN === 1 ? '1 person is due a reminder' : dueN + ' people are due a reminder', s: 'Tap to send', go: '#/notifications' }); }
   }
+  if (appAdmin && adminStats && adminStats.reports_open) items.unshift({ icon: 'shield', t: adminStats.reports_open === 1 ? '1 user report is waiting' : adminStats.reports_open + ' user reports are waiting', s: 'Open the Admin console', go: '#/admin' });
   const reminders = checkReminders().filter(n => !isRead(n));
   if (!items.length && reminders.length) items.push({ icon: 'bell', t: reminders.length === 1 ? '1 new alert' : reminders.length + ' new alerts', s: reminders[0].title, go: '#/notifications' });
   const shown = items.slice(0, 3);
@@ -8683,6 +8685,7 @@ function renderSettings() {
       ${srow('store', 'Business name', `<span class="sval">${esc(bizName())}</span>`, "location.hash='#/profile'", { sub: 'Shown on your receipts' })}
       ${srow('shield', 'Plan & usage', `<span class="sval">${esc(curPlan)}</span>`, 'openPlansModal()', { sub: 'View database-enforced limits or switch plan' })}
       ${srow('users', 'Team & staff accounts', `<span class="sval">${(teamMembersList || []).filter(t => t.status === 'active').length} active</span>`, 'openTeamManagerModal()', { sub: 'Add staff who can log payments without delete rights' })}
+      ${appAdmin ? srow('shield', 'Admin console', `<span class="sval">${adminStats && adminStats.reports_open ? adminStats.reports_open + ' report' + (adminStats.reports_open === 1 ? '' : 's') : ''}</span>`, "location.hash='#/admin'", { sub: 'Users, reports and app stats' }) : ''}
       ${staffWorkspaces.length ? srow('users', 'Switch workspace', `<span class="sval">${staffMode ? esc(currentStaffWorkspace().owner_name) : 'Personal'}</span>`, staffMode ? 'switchWorkspace(null)' : `switchWorkspace('${staffWorkspaces[0].owner_id}')`, { sub: 'Move between your workspace and staff workspaces' }) : ''}
     </div></details>
 
@@ -9763,6 +9766,108 @@ async function sendJoinRequest(rid) {
   render(); loadMemberGroups();
 }
 
+// ================= ADMIN CONSOLE (owner only; every call is checked again on the server) =================
+let appAdmin = false, adminStats = null, adminCheckedFor = null, adminTab = 'overview', adminFilter = 'open', adminUserTimer = null;
+async function loadAdminFlag() {
+  if (!user) { appAdmin = false; return; }
+  try {
+    const a = await sb.rpc('rc_is_admin');
+    appAdmin = !a.error && a.data === true;
+    if (appAdmin) { const s = await sb.rpc('rc_admin_stats'); if (!s.error && s.data) adminStats = s.data; }
+  } catch (e) {}
+}
+function setAdminTab(k) { adminTab = k; renderAdmin(); }
+async function renderAdmin() {
+  if (user && adminCheckedFor !== user.id) { adminCheckedFor = user.id; await loadAdminFlag(); }
+  if (!appAdmin) { $('app').innerHTML = `<div class="card empty-box"><h3>Not available</h3><p class="muted">This area is only for the Recordly owner.</p></div>`; return; }
+  const tabs = [['overview', 'Overview'], ['reports', 'Reports'], ['users', 'Users']];
+  $('app').innerHTML = `<div class="ntabs">${tabs.map(([k, l]) => `<button class="ntab ${adminTab === k ? 'on' : ''}" onclick="setAdminTab('${k}')">${l}${k === 'reports' && adminStats && adminStats.reports_open ? `<i class="nbadge">${adminStats.reports_open}</i>` : ''}</button>`).join('')}</div><div id="adminBody"><p class="muted" style="text-align:center;padding:24px;">Loading…</p></div>`;
+  if (adminTab === 'reports') return adminLoadReports();
+  if (adminTab === 'users') return adminLoadUsers();
+  return adminLoadOverview();
+}
+async function adminLoadOverview() {
+  const r = await sb.rpc('rc_admin_stats');
+  const el = $('adminBody'); if (!el) return;
+  if (r.error || !r.data) { el.innerHTML = `<div class="card empty-box"><p class="muted">${esc((r.error && r.error.message) || 'Could not load stats.')}</p></div>`; return; }
+  const s = r.data; adminStats = s;
+  const stat = (label, value, sub, hot) => `<div class="card" style="padding:14px;text-align:center;margin:0;${hot ? 'border:2px solid #e11d48;' : ''}"><div class="muted small">${label}</div><div style="font-size:26px;font-weight:800;${hot ? 'color:#e11d48;' : ''}">${value}</div>${sub ? `<div class="muted small">${sub}</div>` : ''}</div>`;
+  const plans = s.plans || {}; const paid = Object.keys(plans).filter(k => k !== 'free').reduce((a, k) => a + Number(plans[k] || 0), 0);
+  el.innerHTML = `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;">
+    ${stat('People with accounts', s.users_total, '+' + s.users_7d + ' this week · +' + s.users_30d + ' this month')}
+    ${stat('Active this week', s.active_7d, 'signed in within 7 days')}
+    ${stat('Groups', s.groups, s.members + ' members · ' + s.linked_members + ' linked')}
+    ${stat('Payments recorded', s.payments, moneyReal(Number(s.payments_total || 0)) + ' in total')}
+    ${stat('User reports', s.reports_open, 'open of ' + s.reports_total, s.reports_open > 0)}
+    ${stat('Payment problems', s.payment_reports_open, 'open')}
+    ${stat('Join requests', s.pending_joins, 'waiting for admins')}
+    ${stat('Staff accounts', s.staff_active, 'active')}
+    ${stat('Plans', (s.users_total - paid) + ' free', paid + ' on Pro or Business')}
+    ${stat('Voided payments', s.voided, 'all time')}
+  </div>
+  <p class="muted small" style="text-align:center;margin-top:14px;">Updated ${esc(fmtDateTime(new Date().toISOString()))}</p>
+  <button class="btn-outline full" style="margin-top:6px;" onclick="adminLoadOverview()">Refresh</button>`;
+}
+async function adminLoadReports() {
+  const el = $('adminBody'); if (!el) return;
+  const r = await sb.rpc('rc_admin_reports', { status_filter: adminFilter });
+  if (!$('adminBody')) return;
+  if (r.error) { el.innerHTML = `<div class="card empty-box"><p class="muted">${esc(r.error.message || 'Could not load reports.')}</p></div>`; return; }
+  const list = Array.isArray(r.data) ? r.data : [];
+  const chips = ['open', 'reviewing', 'resolved', 'dismissed', 'all'].map(k => `<button class="${adminFilter === k ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="adminFilter='${k}';adminLoadReports()">${k[0].toUpperCase() + k.slice(1)}</button>`).join('');
+  const nm = (name, email) => esc(name || '') + (email ? ` <span class="muted small">(${esc(email)})</span>` : '');
+  el.innerHTML = `<div class="row" style="gap:6px;flex-wrap:wrap;margin:10px 0;">${chips}</div>` + (list.length ? list.map(x => `
+    <div class="card" style="margin:0 0 10px;">
+      <div class="between" style="gap:8px;"><b>${esc(x.reason || 'Report')}</b><span class="badge ${x.status === 'open' ? 'badge-red' : 'badge-gray'}">${esc(x.status)}</span></div>
+      ${x.details ? `<p style="margin:6px 0;">${esc(x.details)}</p>` : ''}
+      <div class="small muted">Group: <b>${esc(x.group_title || 'Unknown')}</b></div>
+      <div class="small muted">Run by: ${nm(x.owner_name, x.owner_email)}</div>
+      <div class="small muted">Reported by: ${nm(x.reporter_name, x.reporter_email)}</div>
+      <div class="small muted">${esc(fmtDateTime(x.created_at))}</div>
+      ${x.admin_note ? `<div class="small" style="margin-top:6px;"><b>Your note:</b> ${esc(x.admin_note)}</div>` : ''}
+      <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:10px;">
+        ${x.status !== 'reviewing' ? `<button class="btn-soft btn-sm" onclick="adminReportStatus('${esc(x.id)}','reviewing')">Reviewing</button>` : ''}
+        ${x.status !== 'resolved' ? `<button class="btn-primary btn-sm" onclick="adminReportStatus('${esc(x.id)}','resolved')">Resolve</button>` : ''}
+        ${x.status !== 'dismissed' ? `<button class="btn-outline btn-sm" onclick="adminReportStatus('${esc(x.id)}','dismissed')">Dismiss</button>` : ''}
+        ${x.record_id ? `<button class="btn-danger btn-sm" onclick="adminUnlistGroup('${esc(x.record_id)}')">Hide group from search</button>` : ''}
+      </div>
+    </div>`).join('') : `<div class="card empty-box"><h3>🎉 Nothing here</h3><p class="muted">No ${adminFilter === 'all' ? '' : esc(adminFilter) + ' '}reports.</p></div>`);
+}
+async function adminReportStatus(id, st) {
+  let note = null;
+  if (st === 'resolved' || st === 'dismissed') { note = window.prompt('Note for your records (optional):', ''); if (note === null) return; }
+  const r = await sb.rpc('rc_admin_set_report_status', { rid: id, new_status: st, note: note || null });
+  if (r.error) { toast(r.error.message || 'Could not update.'); return; }
+  toast('Report updated.');
+  try { const s = await sb.rpc('rc_admin_stats'); if (!s.error && s.data) adminStats = s.data; } catch (e) {}
+  adminLoadReports();
+}
+async function adminUnlistGroup(rid) {
+  if (!confirm('Hide this group from Recordly search and turn off its public group link?')) return;
+  const r = await sb.rpc('rc_admin_unlist_group', { rid });
+  toast(r.error ? (r.error.message || 'Could not update.') : 'Group hidden from search.');
+}
+async function adminLoadUsers() {
+  const el = $('adminBody'); if (!el) return;
+  el.innerHTML = `<div class="search-input" style="margin:10px 0;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg><input id="adminUserQ" placeholder="Search by name or email…" oninput="adminUsersSoon()" autocomplete="off"></div><div id="adminUserList"><p class="muted" style="text-align:center;">Loading…</p></div>`;
+  adminRunUsers();
+}
+function adminUsersSoon() { clearTimeout(adminUserTimer); adminUserTimer = setTimeout(adminRunUsers, 350); }
+async function adminRunUsers() {
+  const out = $('adminUserList'); if (!out) return;
+  const q = val('adminUserQ');
+  const r = await sb.rpc('rc_admin_users', { search: q || null, lim: 50 });
+  if (!$('adminUserList')) return;
+  if (r.error) { out.innerHTML = `<div class="card empty-box"><p class="muted">${esc(r.error.message || 'Could not load users.')}</p></div>`; return; }
+  const list = Array.isArray(r.data) ? r.data : [];
+  out.innerHTML = list.length ? `<div class="list">${list.map(u => `
+    <div class="item-card" style="flex-direction:column;align-items:stretch;gap:2px;">
+      <div class="between"><b>${esc(u.display_name || u.email || 'User')}</b><span class="badge badge-gray">${esc(u.plan || 'free')}</span></div>
+      <div class="small muted">${esc(u.email || '')}</div>
+      <div class="small muted">${Number(u.groups || 0)} group${Number(u.groups || 0) === 1 ? '' : 's'} · joined ${esc((u.created_at || '').slice(0, 10))} · last seen ${esc(u.last_sign_in_at ? (u.last_sign_in_at).slice(0, 10) : 'never')}</div>
+    </div>`).join('')}</div>` : '<div class="card empty-box"><p class="muted">No users found.</p></div>';
+}
+
 let discTimer = null;
 function renderDiscover() {
   $('app').innerHTML = `
@@ -9817,8 +9922,8 @@ async function runDiscover() {
 
 
 // ---- Fixed page bar (back button + current page name) ----
-const PB_TITLES = { contributions: 'Contributions', business: 'Business', debts: 'Debts', reports: 'Reports', more: 'Me', settings: 'Settings', profile: 'My Profile', notifications: 'Notifications', discover: 'Find people & groups', r: 'Record', p: 'Payment progress', g: 'Group', j: 'Join group', 'staff-invite': 'Staff invite', terms: 'Terms of Service', privacy: 'Privacy Policy' };
-const PB_PARENT = { settings: '#/more', profile: '#/more', r: '#/contributions' };
+const PB_TITLES = { admin: 'Admin console', contributions: 'Contributions', business: 'Business', debts: 'Debts', reports: 'Reports', more: 'Me', settings: 'Settings', profile: 'My Profile', notifications: 'Notifications', discover: 'Find people & groups', r: 'Record', p: 'Payment progress', g: 'Group', j: 'Join group', 'staff-invite': 'Staff invite', terms: 'Terms of Service', privacy: 'Privacy Policy' };
+const PB_PARENT = { admin: '#/settings', settings: '#/more', profile: '#/more', r: '#/contributions' };
 let navIdx = 0;
 try {
   if (history.state && typeof history.state.idx === 'number') navIdx = history.state.idx;
@@ -9876,6 +9981,7 @@ async function renderCore() {
     else if (!user) res = renderLoggedOut();
     else if (appLocked) res = renderLock();
     else if (p[0] === 'discover') res = renderDiscover();
+    else if (p[0] === 'admin') res = renderAdmin();
     else if (p[0] === 'contributions') {
       if (p[1] === 'new') res = newRecordForm();
       else res = renderContributions();
