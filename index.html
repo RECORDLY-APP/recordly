@@ -1320,6 +1320,33 @@ body.has-pagebar .backbtn,body.has-pagebar .page-head .pback{display:none}
 .setacc[open]>summary.set-sum::after{transform:rotate(-90deg)}
 .setacc[open]>summary.set-sum{border-bottom-left-radius:0;border-bottom-right-radius:0}
 .setacc>.sgroup{border-top-left-radius:0;border-top-right-radius:0;border-top:0;margin-top:0}
+
+/* Needs attention: loud and hard to miss */
+.att-wrap{border-radius:20px;overflow:hidden;border:2px solid #e11d48;background:var(--card);margin:10px 0 14px;animation:attGlow 2.2s ease-out infinite}
+@keyframes attGlow{0%{box-shadow:0 0 0 0 rgba(225,29,72,.5)}70%{box-shadow:0 0 0 12px rgba(225,29,72,0)}100%{box-shadow:0 0 0 0 rgba(225,29,72,0)}}
+.att-head{display:flex;align-items:center;gap:10px;padding:13px 14px;background:linear-gradient(90deg,#e11d48,#f97316);color:#fff;font-size:14px;font-weight:800;letter-spacing:.7px;text-transform:uppercase}
+.att-dot{width:11px;height:11px;border-radius:50%;background:#fff;flex:none;animation:attBlink 1s ease-in-out infinite}
+@keyframes attBlink{50%{opacity:.2;transform:scale(.8)}}
+.att-count{background:#fff;color:#e11d48;border-radius:999px;font-weight:900;padding:2px 10px;font-size:13px}
+.att-all{margin-left:auto;color:#fff;font-size:12.5px;font-weight:700;text-transform:none;letter-spacing:0;cursor:pointer;text-decoration:underline}
+.att-row{display:flex;align-items:center;gap:12px;padding:13px 14px;border-top:1px solid var(--line);border-left:6px solid #f59e0b;cursor:pointer}
+.att-row.bad{border-left-color:#e11d48;background:rgba(225,29,72,.09)}
+.att-row .aic{width:40px;height:40px;border-radius:13px;display:grid;place-items:center;flex-shrink:0;background:rgba(245,158,11,.18);color:#d97706}
+.att-row.bad .aic{background:#e11d48;color:#fff}
+.att-row .atx{flex:1;min-width:0}.att-row .atx b{display:block;font-size:15px}
+.att-row .atx small{display:block;color:var(--muted);font-size:12.5px}
+.att-more{padding:11px 14px;border-top:1px solid var(--line);text-align:center;font-weight:700;font-size:13px;color:#e11d48;cursor:pointer}
+@media (prefers-reduced-motion:reduce){.att-wrap,.att-dot{animation:none}}
+/* Search sections */
+.gs-sec{font-size:11.5px;letter-spacing:.8px;font-weight:800;color:var(--muted);margin:14px 2px 6px}
+/* User manual */
+.man-item{border:1px solid var(--line);border-radius:14px;margin:8px 0;background:var(--card)}
+.man-item>summary{list-style:none;cursor:pointer;padding:13px 14px;font-weight:700;font-size:14.5px;display:flex;justify-content:space-between;align-items:center}
+.man-item>summary::-webkit-details-marker{display:none}
+.man-item>summary::after{content:"›";font-size:20px;color:var(--muted);transform:rotate(90deg);transition:transform .2s}
+.man-item[open]>summary::after{transform:rotate(-90deg)}
+.man-item .man-body{padding:0 14px 12px;font-size:14px;line-height:1.5;color:var(--text)}
+.man-item .man-body ol,.man-item .man-body ul{padding-left:20px;margin:6px 0}
 </style>
 </head>
 <body>
@@ -3089,14 +3116,32 @@ async function submitVoidPayment(rid, pid, payId) {
   renderMemberAdmin(rid, pid);
 }
 
+let _pubPayMap = new Map(), _pubRepByPay = new Map(), _pubOwnerView = false;
 function openPaymentActions(pid, payId, amt, paidOn, liked) {
-  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:380px;">
-    <div class="row between" style="margin-bottom:8px;"><h2>${moneyReal(amt)}</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
-    <p class="muted small">${paidOn ? esc(paidOn) + ' · ' : ''}Is this payment recorded correctly?</p>
-    <div class="list">
-      <button class="${liked ? 'btn-soft' : 'btn-primary'} full" style="height:50px;border-radius:16px;" onclick="likePayment('${pid}','${payId}',${liked ? 'false' : 'true'})">${liked ? '👍 Confirmed · tap to undo' : '👍 Yes, this is correct'}</button>
-      <button class="btn-outline full" style="height:50px;border-radius:16px;" onclick="openReportPaymentModal('${pid}','${payId}',${Number(amt) || 0},'${esc(paidOn || '')}')">⚠️ Report a problem</button>
-    </div></div></div>`;
+  const x = _pubPayMap.get(payId) || { id: payId, amount: amt, paid_on: paidOn };
+  const isLiked = !!(x.liked_at || x.buyer_liked_at);
+  const reps = _pubRepByPay.get(payId) || [];
+  const row = (k, v) => v ? `<div style="display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid var(--line);font-size:14px;"><span class="muted">${k}</span><b style="text-align:right;">${v}</b></div>` : '';
+  const when = x.paid_at ? fmtDateTime(x.paid_at) : (x.paid_on || paidOn || '');
+  const status = x.voided ? 'Voided' : (reps.some(z => z.status === 'open') ? 'Problem reported' : (x.edited_at ? 'Edited' : 'Recorded'));
+  const changes = Array.isArray(x.change_log) ? x.change_log.length : 0;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:400px;max-height:88vh;overflow:auto;">
+    <div class="row between" style="margin-bottom:2px;"><div class="muted small" style="font-weight:700;">PAYMENT DETAILS</div><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <div style="font-size:30px;font-weight:800;margin:4px 0 8px;">${moneyReal(Number(x.amount || amt || 0))}</div>
+    ${row('Date &amp; time', esc(when))}
+    ${row('Method', esc(x.method || ''))}
+    ${row('Status', esc(status))}
+    ${row('Note', x.note ? esc(x.note) : '')}
+    ${row('Edited', x.edited_at ? esc(fmtDateTime(x.edited_at)) + (x.edit_reason ? '<br><span class="muted small" style="font-weight:500;">' + esc(x.edit_reason) + '</span>' : '') : '')}
+    ${row('Voided', x.voided ? esc(x.void_reason || 'Yes') : '')}
+    ${row('Changes logged', changes ? String(changes) : '')}
+    ${row('Confirmed by member', isLiked ? '👍 ' + esc(fmtDateTime(x.liked_at || x.buyer_liked_at)) : '')}
+    ${reps.length ? `<div class="gs-sec" style="margin-top:12px;">PROBLEMS REPORTED</div>${reps.map(z => `<div class="small" style="padding:6px 0;border-bottom:1px solid var(--line);"><b>${esc(z.reason || 'Problem')}</b> · ${esc(z.status || 'open')}${z.resolution_note ? '<br><span class="muted">' + esc(z.resolution_note) + '</span>' : ''}</div>`).join('')}` : ''}
+    ${x.voided ? '' : (_pubOwnerView ? '<p class="muted small" style="margin-top:12px;">This is what your member sees. They can confirm it with 👍 or report a problem.</p>' : `<div class="list" style="margin-top:14px;">
+      <button class="${isLiked ? 'btn-soft' : 'btn-primary'} full" style="height:50px;border-radius:16px;" onclick="likePayment('${esc(pid)}','${esc(payId)}',${isLiked ? 'false' : 'true'})">${isLiked ? '👍 Confirmed · tap to undo' : '👍 Yes, this is correct'}</button>
+      <button class="btn-outline full" style="height:50px;border-radius:16px;" onclick="openReportPaymentModal('${esc(pid)}','${esc(payId)}',${Number(x.amount || amt || 0)},'${esc(x.paid_on || paidOn || '')}')">⚠️ Report a problem</button>
+    </div>`)}
+  </div></div>`;
 }
 async function likePayment(pid, payId, on) {
   try {
@@ -4840,17 +4885,18 @@ function openGlobalSearch() {
     <div class="modal-overlay" onclick="if(event.target===this)closeModal()">
       <div class="modal-window" style="max-height:85vh;">
         <div class="row between" style="margin-bottom:12px;">
-          <h2>Search Workspace</h2>
+          <h2>Search</h2>
           <button class="btn-outline btn-icon" onclick="closeModal()">✕</button>
         </div>
 
         <div class="search-input">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          <input id="globalSearchInput" placeholder="Type name, group title, sale item, or debt..." autofocus oninput="executeGlobalSearch()">
+          <input id="globalSearchInput" placeholder="Search your workspace and everyone on Recordly..." autofocus oninput="executeGlobalSearch()">
         </div>
 
         <div id="globalSearchResults" style="margin-top:14px;max-height:55vh;overflow-y:auto;">
-          <p class="muted small" style="text-align:center;padding:20px 0;">Search across contributions, members, business sales, expenses, and debts.</p>
+          <div id="gsLocal"><p class="muted small" style="text-align:center;padding:20px 0;">Your own records, members, sales, expenses and debts show first. People and groups from all of Recordly show below them.</p></div>
+          <div id="gsOnline"></div>
         </div>
         <button class="btn-soft" style="width:100%;margin-top:10px;" onclick="closeModal();location.hash='#/discover'">🌍 Search everyone on Recordly</button>
       </div>
@@ -4861,9 +4907,11 @@ function openGlobalSearch() {
 
 function executeGlobalSearch() {
   const q = val('globalSearchInput').toLowerCase();
-  const resEl = $('globalSearchResults');
+  const resEl = $('gsLocal');
+  if (!resEl) return;
   if (!q) {
-    resEl.innerHTML = `<p class="muted small" style="text-align:center;padding:20px 0;">Start typing to search records...</p>`;
+    resEl.innerHTML = `<p class="muted small" style="text-align:center;padding:20px 0;">Start typing to search...</p>`;
+    const on = $('gsOnline'); if (on) on.innerHTML = '';
     return;
   }
 
@@ -4935,11 +4983,13 @@ function executeGlobalSearch() {
   });
 
   if (!results.length) {
-    resEl.innerHTML = `<div class="empty-box" style="padding:20px;">No matching records found for "${esc(q)}"</div>`;
+    resEl.innerHTML = `<div class="gs-sec">IN YOUR WORKSPACE</div><p class="muted small" style="margin:0 2px 4px;">Nothing in your own records matches "${esc(q)}".</p>`;
+    gsOnlineSoon();
     return;
   }
 
   resEl.innerHTML = `
+    <div class="gs-sec">IN YOUR WORKSPACE (${results.length})</div>
     <div class="list">
       ${results.map(r => `
         <div class="item-card between" style="cursor:pointer;" onclick="closeModal();location.hash='${r.link}'">
@@ -4955,6 +5005,28 @@ function executeGlobalSearch() {
       `).join('')}
     </div>
   `;
+  gsOnlineSoon();
+}
+
+// Everyone on Recordly (shown under the workspace results, which always come first)
+let gsTimer = null;
+function gsOnlineSoon() { clearTimeout(gsTimer); gsTimer = setTimeout(runGlobalOnline, 400); }
+async function runGlobalOnline() {
+  const out = $('gsOnline'); if (!out) return;
+  const q = val('globalSearchInput').trim();
+  if (q.length < 2) { out.innerHTML = ''; return; }
+  out.innerHTML = '<div class="gs-sec">ON RECORDLY</div><p class="muted small" style="margin:0 2px;">Searching…</p>';
+  let data = null, err = null;
+  try { const r = await sb.rpc('rc_search', { q }); data = r.data; err = r.error; } catch (e) { err = e; }
+  if (!$('gsOnline') || val('globalSearchInput').trim() !== q) return;
+  if (err || !data) { out.innerHTML = '<div class="gs-sec">ON RECORDLY</div><p class="muted small" style="margin:0 2px;">Could not search everyone right now.</p>'; return; }
+  const groups = (data.groups || []).filter(g => !isBlockedTarget(g.id, g.owner_id)).slice(0, 6);
+  const people = (data.people || []).filter(x => !isBlockedTarget(null, x.id)).slice(0, 6);
+  if (!groups.length && !people.length) { out.innerHTML = '<div class="gs-sec">ON RECORDLY</div><p class="muted small" style="margin:0 2px;">No one else matches.</p>'; return; }
+  out.innerHTML = `<div class="gs-sec">ON RECORDLY (${groups.length + people.length})</div><div class="list">
+    ${groups.map(g => `<div class="item-card between" style="cursor:pointer;" onclick="closeModal();location.hash='#/j/${esc(g.id)}/search'"><div class="row"><span style="font-size:18px;">🌍</span><div><div style="font-weight:700;">${esc(g.title)}</div><div class="muted small">by ${esc(g.owner_name || '')} · ${Number(g.member_count || 0)} members</div></div></div><span class="badge badge-gray">Group</span></div>`).join('')}
+    ${people.map(x => { const gs = groups.filter(g => g.owner_id === x.id); return `<div class="item-card between" ${gs.length ? `style="cursor:pointer;" onclick="closeModal();location.hash='#/j/${esc(gs[0].id)}/search'"` : ''}><div class="row"><span style="font-size:18px;">🙂</span><div><div style="font-weight:700;">${esc(x.display_name || 'Member')}</div><div class="muted small">${gs.length ? 'Runs ' + esc(gs[0].title) : 'Recordly user'}</div></div></div><span class="badge badge-gray">Person</span></div>`; }).join('')}
+  </div>`;
 }
 
 /**
@@ -5348,9 +5420,10 @@ async function showAppStatus() {
     ['Browser online', navigator.onLine ? 'yes' : 'no'],
     ['Offline mode (service worker)', swInfo]
   ];
+  const mailHref = 'mailto:afolabipaul003@gmail.com?subject=' + encodeURIComponent('Recordly support') + '&body=' + encodeURIComponent('Hello Recordly support,\n\nMy app status:\n' + rows.map(r => r[0] + ': ' + (r[1] == null ? '' : r[1])).join('\n') + '\n\nWhat happened:\n');
   $('modalRoot').innerHTML = miniModal('App status', rows.map(r =>
     `<div style="display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px;"><span class="muted">${esc(r[0])}</span><b style="text-align:right;">${esc(String(r[1] == null ? '' : r[1]))}</b></div>`
-  ).join('') + '<p class="muted small" style="margin-top:10px;">Send a screenshot of this screen if something looks wrong.</p>');
+  ).join('') + '<p class="muted small" style="margin-top:10px;">Something looks wrong? Message our support team and we will help.</p><a class="btn-primary full" style="display:flex;align-items:center;justify-content:center;height:48px;border-radius:14px;text-decoration:none;" href="' + esc(mailHref) + '">Message support</a><p class="small muted" style="text-align:center;margin-top:8px;">afolabipaul003@gmail.com</p>');
   applyRoleNav();
 }
 function roleSwitchHtml() { return ''; }   // replaced by the toggle at the top of the home page
@@ -5533,16 +5606,20 @@ function renderAdminHome() {
         </div>
       </div>` : ''}
 
-      <div class="sec"><span>NEEDS ATTENTION</span>${reminders.length ? `<a onclick="location.hash='#/notifications'">All alerts</a>` : ''}</div>
-      <div class="card ${shown.length ? 'att' : ''}" style="padding:${shown.length ? '' : '0'}">
-        ${shown.length ? shown.map(i => `
-          <div class="arow" onclick="location.hash='${i.go}'">
-            <span class="aic">${ico(i.icon, 20)}</span>
-            <span class="atx"><b>${esc(i.t)}</b><small>${esc(i.s)}</small></span>
-            ${ico('chev', 18)}
-          </div>`).join('')
-        : `<div class="ok-row">${ico('check', 22)}<span>${recs.length ? 'All caught up' : 'Nothing to do yet'}</span></div>`}
-      </div>
+      ${shown.length ? `<div class="att-wrap">
+        <div class="att-head"><span class="att-dot"></span><span>Needs attention</span><span class="att-count">${items.length}</span>${reminders.length ? `<a class="att-all" onclick="location.hash='#/notifications'">All alerts ›</a>` : ''}</div>
+        ${shown.map(i => { const bad = /problem|overdue|owes you|you owe/i.test(i.t + ' ' + i.s); return `
+        <div class="att-row ${bad ? 'bad' : ''}" onclick="location.hash='${i.go}'">
+          <span class="aic">${ico(i.icon, 20)}</span>
+          <span class="atx"><b>${esc(i.t)}</b><small>${esc(i.s)}</small></span>
+          ${ico('chev', 18)}
+        </div>`; }).join('')}
+        ${items.length > shown.length ? `<div class="att-more" onclick="location.hash='#/notifications'">+ ${items.length - shown.length} more to check ›</div>` : ''}
+      </div>` : `
+      <div class="sec"><span>NEEDS ATTENTION</span></div>
+      <div class="card" style="padding:0">
+        <div class="ok-row">${ico('check', 22)}<span>${recs.length ? 'All caught up' : 'Nothing to do yet'}</span></div>
+      </div>`}
 
       <div class="sec"><span>${staffWs ? 'ASSIGNED GROUPS' : 'YOUR RECORDS'}</span>${recs.length > 3 ? `<a onclick="toggleRecsAll()">${recsAll ? 'Show less' : 'See all ' + recs.length}</a>` : ''}</div>
       ${recs.length ? `
@@ -6672,7 +6749,25 @@ function downloadMemberCsvTemplate() {
 /**
  * 2B. MEMBER ADMIN & PAYMENT CORRECTION
  */
+async function refreshPaymentLikes(rid, pid) {
+  try {
+    if (!user) return;
+    const r = activeRecords().find(x => x.id === rid);
+    const per = r && (r.people || []).find(x => x.id === pid);
+    if (!per || !(per.payments || []).length) return;
+    const { data, error } = await sb.from('payments').select('id,buyer_liked_at').eq('person_id', pid);
+    if (error || !data) return;
+    let changed = false;
+    data.forEach(row => {
+      const x = per.payments.find(z => z.id === row.id);
+      if (x && (x.buyer_liked_at || null) !== (row.buyer_liked_at || null)) { x.buyer_liked_at = row.buyer_liked_at || null; changed = true; }
+    });
+    const h = hash();
+    if (changed && h[0] === 'r' && h[1] === rid && h[2] === pid) renderMemberAdmin(rid, pid);
+  } catch (e) {}
+}
 function renderMemberAdmin(rid, pid) {
+  setTimeout(() => refreshPaymentLikes(rid, pid), 60);
   const r = findRec(rid);
   const p = r?.people?.find(x => x.id === pid);
   if (!r || !p) {
@@ -8567,6 +8662,7 @@ function renderMore() {
     <div class="sgroup">
       ${srow('download', 'Export to Excel / CSV', '', 'exportDataToCSV()')}
       ${isStandalone() ? '' : srow('phone', 'Install Recordly on this phone', '', 'installApp()')}
+      ${srow('help', 'User manual', '', 'openUserManual()', { sub: 'Step-by-step guide to using Recordly' })}
       ${srow('compass', 'Take a tour', '', 'openTourPicker()')}
     </div>
     <button class="btn-outline full" style="height:50px;border-radius:16px;" onclick="logout()">Log out</button>
@@ -8590,9 +8686,9 @@ function renderSettings() {
       ${staffWorkspaces.length ? srow('users', 'Switch workspace', `<span class="sval">${staffMode ? esc(currentStaffWorkspace().owner_name) : 'Personal'}</span>`, staffMode ? 'switchWorkspace(null)' : `switchWorkspace('${staffWorkspaces[0].owner_id}')`, { sub: 'Move between your workspace and staff workspaces' }) : ''}
     </div></details>
 
-    <details class="setacc"><summary class="set-sum">Share</summary><div class="sgroup">
-      ${srow('link', 'Share Recordly', '', 'shareApp()', { sub: 'Send the app link to friends and your group' })}
-      ${srow('file', 'Copy app link', '', 'copyAppLink()', { noChev: true })}
+    <details class="setacc"><summary class="set-sum">Invitation</summary><div class="sgroup">
+      ${srow('link', 'Invite someone', '', 'shareApp()', { sub: 'Send an invitation to friends and your group' })}
+      ${srow('file', 'Copy invitation link', '', 'copyAppLink()', { noChev: true })}
     </div></details>
 
     <details class="setacc"><summary class="set-sum">Privacy &amp; safety</summary><div class="sgroup">
@@ -8618,6 +8714,7 @@ function renderSettings() {
     </div></details>
 
     <details class="setacc"><summary class="set-sum">Help</summary><div class="sgroup">
+      ${srow('help', 'User manual', '', 'openUserManual()', { sub: 'Step-by-step guide to using Recordly' })}
       ${srow('compass', 'Take a tour', '', 'openTourPicker()')}
       ${srow('info', 'About Recordly', '', 'aboutRecordly()')}
     </div></details>
@@ -8636,9 +8733,9 @@ const appLink = () => location.origin + location.pathname.replace(/index\.html$/
 const appInvite = () => 'Keep clear records and see your payment progress with Recordly: ' + appLink();
 function copyAppLink() {
   const t = appLink();
-  (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('App link copied.')).catch(() => {
+  (navigator.clipboard && navigator.clipboard.writeText ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => toast('Invitation link copied.')).catch(() => {
     const i = document.createElement('input'); i.value = t; document.body.appendChild(i); i.select();
-    try { document.execCommand('copy'); toast('App link copied.'); } catch (e) { toast(t); } i.remove();
+    try { document.execCommand('copy'); toast('Invitation link copied.'); } catch (e) { toast(t); } i.remove();
   });
 }
 async function shareAppNative() {
@@ -8648,13 +8745,13 @@ async function shareAppNative() {
 function shareApp() {
   const link = appLink(), canShare = !!navigator.share;
   $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:380px;">
-    <div class="row between" style="margin-bottom:10px;"><h2>Share Recordly</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
-    <div style="text-align:center;margin:4px 0 14px;"><div class="prof-av" style="margin:0 auto 8px;width:64px;height:64px;font-size:26px;">R</div><div class="muted small">Anyone with this link can open Recordly and create their own account.</div></div>
+    <div class="row between" style="margin-bottom:10px;"><h2>Invite to Recordly</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <div style="text-align:center;margin:4px 0 14px;"><div class="prof-av" style="margin:0 auto 8px;width:64px;height:64px;font-size:26px;">R</div><div class="muted small">Anyone with this invitation can open Recordly and create their own account.</div></div>
     <div class="rc-prev" style="border-color:var(--line);background:var(--box-bg);color:var(--text);padding:11px 12px;"><div style="font-family:monospace;font-size:12.5px;word-break:break-all;">${esc(link)}</div></div>
     <div class="list">
-      ${canShare ? `<button class="btn-primary full" style="height:50px;border-radius:16px;" onclick="shareAppNative()">${ico('link', 18)} Share…</button>` : ''}
+      ${canShare ? `<button class="btn-primary full" style="height:50px;border-radius:16px;" onclick="shareAppNative()">${ico('link', 18)} Send invitation…</button>` : ''}
       <button class="${canShare ? 'btn-soft' : 'btn-primary'} full" style="height:50px;border-radius:16px;" onclick="window.open('https://wa.me/?text=' + encodeURIComponent(appInvite()), '_blank')">Send on WhatsApp</button>
-      <button class="btn-outline full" style="height:50px;border-radius:16px;" onclick="copyAppLink()">Copy link</button>
+      <button class="btn-outline full" style="height:50px;border-radius:16px;" onclick="copyAppLink()">Copy invitation link</button>
     </div>
   </div></div>`;
 }
@@ -8759,19 +8856,32 @@ function updateBizName() {
 }
 
 const byText = txt => [...document.querySelectorAll('#app button, #app a, #app .tile')].find(e => e.textContent.replace(/\s+/g, ' ').toLowerCase().includes(txt)) || null;
+const srowBy = txt => [...document.querySelectorAll('#app .srow')].find(e => e.textContent.toLowerCase().includes(txt)) || null;
+const openSettingsSection = n => { const d = document.querySelectorAll('#app details.setacc'); if (d[n]) d[n].open = true; };
 const TOURS = {
   welcome: { label: 'Start here', sub: 'The main buttons in 30 seconds', icon: 'compass', steps: [
+    { hash: '#/', sel: '#hdSearch', icon: 'search', t: 'Search', s: 'Your own records first, then everyone on Recordly' },
     { hash: '#/', sel: '#tFab', icon: 'plus', t: 'Tap the + button', s: 'New record, log payment, share link' },
     { hash: '#/', sel: '#tGrid', icon: 'bag', t: 'Sales, expenses, debts', s: 'One tap away' },
+    { hash: '#/', sel: () => document.querySelector('.att-wrap') || document.querySelector('.ok-row'), icon: 'bell', t: 'Needs attention', s: 'Problems and late payments show here in red' },
     { hash: '#/', sel: '#nav-contributions', icon: 'users', t: 'Your groups', s: 'Every record lives here' },
     { hash: '#/', sel: '#hdrLeft', icon: 'user', t: 'Your profile', s: 'Set your business name' },
-    { hash: '#/', sel: '#nav-more', icon: 'gear', t: 'Settings & help', s: 'Privacy, lock, tours' } ] },
+    { hash: '#/', sel: '#nav-more', icon: 'gear', t: 'Settings & help', s: 'Privacy, lock, user manual, tours' } ] },
   records: { label: 'Create a record', sub: 'Name it and add people', icon: 'plus', steps: [
     { hash: '#/contributions', sel: () => byText('new'), icon: 'plus', t: 'Tap New', s: 'To start a record' },
     { hash: '#/contributions/new', sel: '#recordTitle', icon: 'file', t: 'Name it', s: 'Example: Church Fund' },
     { hash: '#/contributions/new', sel: () => byText('next'), icon: 'chevron', t: 'Then Next', s: '3 quick steps' } ] },
   payments: { label: 'Log & share payments', sub: 'Money in, progress out', icon: 'cash', steps: [
-    { hash: '#/', sel: '#tFab', icon: 'cash', t: 'Tap +, then Log payment', s: 'Or Share link to send by WhatsApp' } ] },
+    { hash: '#/', sel: '#tFab', icon: 'cash', t: 'Tap +, then Log payment', s: 'Pick the group, the member and the amount' },
+    { hash: '#/contributions', sel: null, icon: 'link', t: 'Send the personal link', s: 'Open a member and send their link by WhatsApp. They see only their own payments.' },
+    { hash: '#/contributions', sel: null, icon: 'check', t: 'Members can respond', s: 'On their link they tap a payment to confirm it with 👍 or report a problem. You see it on the payment.' } ] },
+  staff: { label: 'Add staff', sub: 'Let staff log payments safely', icon: 'users', steps: [
+    { hash: '#/settings', pre: () => openSettingsSection(0), sel: () => srowBy('team & staff'), icon: 'users', t: 'Team & staff accounts', s: 'Add a staff member with their email and optional phone' },
+    { hash: '#/settings', sel: null, icon: 'shield', t: 'Staff can add members and log payments', s: 'They cannot delete or void. Only you see who logged each payment.' } ] },
+  settings: { label: 'Settings & user manual', sub: 'Find everything in Settings', icon: 'gear', steps: [
+    { hash: '#/settings', sel: () => document.querySelector('#app summary.set-sum'), icon: 'gear', t: 'Tap a heading to open it', s: 'Account & plan, Invitation, Privacy & safety, Preferences, Data, Help' },
+    { hash: '#/settings', pre: () => openSettingsSection(5), sel: () => srowBy('user manual'), icon: 'help', t: 'User manual', s: 'Step-by-step help for every feature' },
+    { hash: '#/settings', pre: () => openSettingsSection(1), sel: () => srowBy('invite someone'), icon: 'link', t: 'Invitation', s: 'Invite friends and your group to Recordly' } ] },
   business: { label: 'Sales & expenses', sub: 'Run your shop', icon: 'bag', steps: [
     { hash: '#/', sel: '#tGrid', icon: 'bag', t: 'Sale or expense', s: 'Tap the icon you need' },
     { hash: '#/business', sel: () => byText('sale') || document.querySelector('#app .btn-primary'), icon: 'bag', t: 'Record a sale', s: 'Paid, partial or credit' } ] },
@@ -8782,6 +8892,28 @@ const TOURS = {
     { hash: '#/discover', sel: () => document.querySelector('#app input'), icon: 'search', t: 'Search here', s: 'Groups or names' } ] }
 };
 let tour = null;
+function openUserManual() {
+  const T = (title, body, open) => `<details class="man-item"${open ? ' open' : ''}><summary>${title}</summary><div class="man-body">${body}</div></details>`;
+  $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:440px;max-height:90vh;overflow:auto;">
+    <div class="row between" style="margin-bottom:6px;"><h2>User manual</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
+    <p class="muted small" style="margin:0 0 6px;">Tap a topic to open it.</p>
+    ${T('1. Get started', '<ol><li>Open <b>Me → My Profile</b> and set your business name. It shows on receipts and messages.</li><li>Use the <b>+</b> button for the things you do most: log a payment, start a record, add a sale or a debt.</li><li>Your data is saved online with your account, so you can log in on another phone and see it.</li></ol>', true)}
+    ${T('2. Create a contribution group', '<ol><li>Go to <b>Contributions → New</b>.</li><li>Name it (for example <i>Church Fund</i>) and set a target amount if you have one.</li><li>Add the people who will pay. You can add more later.</li></ol>')}
+    ${T('3. Record a payment', '<ol><li>Open the group, then the member.</li><li>Tap to add a payment: amount, date and how it was paid.</li><li>You can attach a screenshot of the transfer as proof.</li><li>A receipt is ready to send straight away.</li></ol>')}
+    ${T('4. Edit or void a payment', '<p>Open the member, find the payment and tap <b>Edit</b> or <b>Void</b>. You must give a reason. Nothing is silently deleted: every change stays in the history, and the member can see that a payment was edited or voided.</p>')}
+    ${T('5. Personal links', '<p>Every member has a private link. Copy it or send it by WhatsApp. The member sees only their own payments, balance and progress, and cannot change anything.</p>')}
+    ${T('6. Members confirm or report', '<p>On their link, a member can tap any payment and choose <b>👍 Yes, this is correct</b> or <b>⚠️ Report a problem</b>. You see the 👍 on that payment, and problems appear under <b>Needs attention</b> on Home.</p>')}
+    ${T('7. Invitations and join requests', '<ol><li>Open <b>Settings → Invitation</b> to invite people to Recordly.</li><li>Turn on <b>Show in Recordly search</b> for a group so others can find it.</li><li>People ask to join. You approve and choose which member they are. If you say no, they can ask again after a short wait.</li></ol>')}
+    ${T('8. Staff accounts', '<ol><li>Go to <b>Settings → Account &amp; plan → Team &amp; staff accounts</b>.</li><li>Add the staff member\'s email (phone is optional) and send them the invite link.</li><li>Staff can add members and log payments. They cannot delete, void or edit, and only you see who logged each payment.</li></ol>')}
+    ${T('9. Reminders and receipts', '<p>Turn reminders on in <b>Settings → Preferences → Reminders &amp; Live Push</b>. Recordly writes the message and you send it by WhatsApp, SMS or email. Alerts and due payments appear on Home and in Notifications.</p>')}
+    ${T('10. Sales, expenses and debts', '<p>Use the Business and Debts pages for shop sales, expenses and money owed to you or by you. Set a due date on a debt and Recordly will flag it when it is late.</p>')}
+    ${T('11. Privacy and safety', '<ul><li><b>Hide balance</b> on a group so visitors see only what was paid.</li><li><b>Hide me from search</b> in Settings → Privacy &amp; safety.</li><li><b>App lock</b> with a PIN or fingerprint.</li><li><b>Block</b> or <b>Report</b> a group you do not trust.</li></ul>')}
+    ${T('12. Backup and export', '<p>Settings → Data lets you export your records. Your data is also saved online automatically whenever you are connected.</p>')}
+    ${T('13. Look and install', '<p>Settings → Preferences → Theme lets you choose light, dark, pure black or your phone\'s setting. To install Recordly, use your browser menu and choose <b>Add to Home screen</b>.</p>')}
+    ${T('Need help?', '<p>Message our support team at <a href="mailto:afolabipaul003@gmail.com?subject=Recordly%20support">afolabipaul003@gmail.com</a>. Settings → Help → App status can attach your details.</p>')}
+    <button class="btn-primary full" style="margin-top:10px;" onclick="closeModal()">Close</button>
+  </div></div>`;
+}
 function openTourPicker() {
   $('modalRoot').innerHTML = `<div class="modal-overlay" onclick="if(event.target===this)closeModal()"><div class="modal-window" style="max-width:420px;">
     <div class="row between" style="margin-bottom:6px;"><h2>Take a tour</h2><button class="btn-outline btn-icon" onclick="closeModal()">✕</button></div>
@@ -8813,6 +8945,8 @@ async function tourShow() {
     const want = st.hash.replace(/^#\/?/, ''), have = location.hash.replace(/^#\/?/, '');
     if (want !== have) { location.hash = st.hash; await new Promise(r => setTimeout(r, 650)); }
   }
+  if (!tour) return;
+  if (typeof st.pre === 'function') { try { st.pre(); } catch (e) {} await new Promise(r => setTimeout(r, 220)); }
   if (!tour) return;
   const el = typeof st.sel === 'function' ? st.sel() : (st.sel ? document.querySelector(st.sel) : null);
   tour.el = el;
@@ -8953,6 +9087,7 @@ async function renderPublicPerson(pid, src) {
     if (!arr.some(z => z.id === rp.id)) arr.push(rp);
     repByPay.set(rp.payment_id, arr);
   });
+  _pubPayMap = new Map(allPays.map(z => [z.id, z])); _pubRepByPay = repByPay; _pubOwnerView = !!ownerView;
 
   $('app').innerHTML = `
     <button class="btn-outline btn-sm backbtn" onclick="goBack()" style="margin-bottom:12px;">← Back</button>
@@ -9284,7 +9419,7 @@ function remindCardHtml() {
       <div><b>${n ? n + (n === 1 ? ' reminder is due' : ' reminders are due') : 'No reminders due'}</b><div class="muted small">Recordly writes the message. Send by WhatsApp, SMS, or Email.</div></div>
       <button class="btn-primary" ${n ? '' : 'disabled'} onclick="openRemindQueue()">Send</button>
     </div>
-    <div class="row" style="margin-top:10px;gap:8px;"><button class="btn-outline btn-sm" onclick="openRemindQueue(null,true)">Everyone unpaid</button><button class="btn-outline btn-sm" onclick="openReminderSettings()">Reminder settings</button></div>
+    <div class="row" style="margin-top:10px;gap:8px;"><button class="btn-outline btn-sm" onclick="openRemindQueue(null,true)">Everyone unpaid</button></div>
   </div>`;
 }
 
