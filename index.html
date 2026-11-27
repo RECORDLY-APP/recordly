@@ -1351,6 +1351,30 @@ body.has-pagebar .backbtn,body.has-pagebar .page-head .pback{display:none}
 .about-card{border:1px solid var(--line);border-radius:18px;padding:14px 16px;margin:10px 0;background:var(--card)}
 .about-title{font-weight:800;font-size:16px;line-height:1.3;margin-bottom:6px}
 .about-text{color:var(--muted);font-size:14.5px;line-height:1.5}
+
+/* New Home look: search bar + colourful money cards (colours from the design) */
+.hsearch{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 14px;color:var(--muted);font-size:14.5px;margin:4px 0 8px;cursor:pointer}
+.hsearch svg{flex:none}
+.mcards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:6px 0 12px}
+.mcard{position:relative;overflow:hidden;border-radius:20px;padding:14px 14px 13px;color:#fff;cursor:pointer;min-height:98px;box-shadow:0 6px 16px rgba(0,0,0,.12);-webkit-tap-highlight-color:transparent}
+.mcard:active{transform:scale(.98)}
+.mcard.wide{grid-column:1/-1;min-height:104px}
+.mcard .ml{font-size:13.5px;font-weight:700;opacity:.96}
+.mcard .mv{font-weight:800;margin-top:6px;letter-spacing:-.3px;line-height:1.1;white-space:nowrap}
+.mcard .ms{font-size:11.5px;opacity:.92;margin-top:3px}
+.mcard .mi{position:absolute;right:10px;top:10px;opacity:.2;display:grid;place-items:center}
+.mcard .mi svg{width:38px;height:38px}
+.mc-green{background:linear-gradient(135deg,#3aae85,#339f78 55%,#2a8a67)}
+.mc-amber{background:linear-gradient(135deg,#e6ac55,#db9f49 55%,#c98d37)}
+.mc-amber2{background:linear-gradient(135deg,#e9b360,#e0a447 55%,#cf9234)}
+.mc-blue{background:linear-gradient(135deg,#5a85dc,#4870d0 55%,#3a5fba)}
+.mc-red{background:linear-gradient(135deg,#dc6362,#d25554 55%,#bf4543)}
+[data-theme="dark"] .mc-blue{background:linear-gradient(135deg,#2e3745,#242a30)}
+[data-theme="black"] .mc-blue{background:linear-gradient(135deg,#1e242c,#14181e)}
+.pbarcard{padding:14px 16px;cursor:pointer;margin-bottom:12px}
+.pbarcard .pbp{font-size:20px;font-weight:800;color:#339f78}
+.pbtrack{height:14px;border-radius:999px;background:rgba(51,159,120,.16);overflow:hidden;margin:10px 0 8px}
+.pbfill{height:100%;border-radius:999px;background:repeating-linear-gradient(135deg,#3aae85 0 10px,#339f78 10px 20px);min-width:4px;transition:width .5s}
 </style>
 </head>
 <body>
@@ -5582,6 +5606,33 @@ function renderAdminHome() {
   if (!items.length && reminders.length) items.push({ icon: 'bell', t: reminders.length === 1 ? '1 new alert' : reminders.length + ' new alerts', s: reminders[0].title, go: '#/notifications' });
   const shown = items.slice(0, 3);
 
+  // ---- Money cards ----
+  let cIn = 0, toCollect = 0;
+  recs.forEach(r => (r.people || []).forEach(p => { const paid = paySum(p); cIn += paid; toCollect += Math.max(0, Number(r.target || 0) - paid); }));
+  let salesTot = 0, salesCash = 0, owedToMe = 0, iOwe = 0, nSales = 0;
+  if (!staffWs) {
+    const S = Store.data.sales || [];
+    nSales = S.length;
+    salesTot = S.reduce((a, s) => a + Number(s.total || 0), 0);
+    salesCash = S.reduce((a, s) => a + Number(s.amount_paid || 0), 0);
+    (Store.data.debts || []).forEach(d => {
+      const rep = (d.repayments || []).reduce((a, r) => a + Number(r.amount || 0), 0);
+      const bal = Math.max(0, Number(d.original_amount || 0) - rep);
+      if (d.type === 'receivable') owedToMe += bal; else iOwe += bal;
+    });
+  }
+  const cashIn = cIn + salesCash, owedYou = owedToMe + Math.max(0, salesTot - salesCash);
+  const cardMoney = n => maskMoney ? '₦ ••••••' : new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(Math.round(Number(n || 0)));
+  const mv = (n, wide) => { const s = cardMoney(n); const L = s.length; const sz = wide ? (L > 15 ? 22 : L > 12 ? 26 : 30) : (L > 13 ? 16 : L > 11 ? 18 : L > 9 ? 21 : 25); return `<div class="mv" style="font-size:${sz}px">${esc(s)}</div>`; };
+  const mcard = (cls, label, n, sub, icon, go) => `<div class="mcard ${cls}" onclick="location.hash='${go}'"><div class="ml">${label}</div>${mv(n, /wide/.test(cls))}<div class="ms">${sub}</div><span class="mi">${ico(icon, 46)}</span></div>`;
+  const moneyCardsHtml = `<div class="mcards">
+    ${mcard('wide mc-green', 'Total Cash', cashIn, staffWs ? 'Collected in these groups' : 'Collected + sales received', 'cash', staffWs ? '#/contributions' : '#/reports')}
+    ${!staffWs ? mcard('mc-amber', 'Owed to You', owedYou, 'Debts + unpaid sales', 'clock', '#/debts') : ''}
+    ${mcard('mc-amber2', 'To Collect', toCollect, 'Still to come in', 'users', '#/contributions')}
+    ${!staffWs ? mcard('mc-blue', 'Total Sales', salesTot, nSales === 1 ? '1 sale' : nSales + ' sales', 'bag', '#/business') : ''}
+    ${!staffWs ? mcard('mc-red', 'You Owe', iOwe, 'Your debts', 'receipt', '#/debts') : ''}
+  </div>`;
+
   const wsSwitcherHtml = (staffWorkspaces && staffWorkspaces.length) ? `
     <div class="card" style="padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
       <span class="small muted" style="font-weight:700;">WORKSPACE</span>
@@ -5602,14 +5653,12 @@ function renderAdminHome() {
       ${roleToggleHtml('admin')}
       ${wsSwitcherHtml}
       ${staffBannerHtml}
-      ${recs.length ? `
-      <div class="card prog" onclick="location.hash='#/contributions'" style="cursor:pointer;">
-        ${ringHtml(overallPc, 76, 8)}
-        <div class="pt">
-          <small>Progress</small>
-          <b>${totPeople ? `${totPaid} of ${totPeople} paid` : 'Add your people'}</b>
-          <small>${recs.length === 1 ? '1 record' : recs.length + ' records'}</small>
-        </div>
+      <div class="hsearch" onclick="openGlobalSearch()">${ico('search', 18)}<span>Search records, people, groups…</span></div>
+      ${moneyCardsHtml}
+      ${recs.length ? `<div class="card pbarcard" onclick="location.hash='#/contributions'">
+        <div class="row between"><b>Contribution progress</b><span class="pbp">${overallPc}%</span></div>
+        <div class="pbtrack"><div class="pbfill" style="width:${overallPc}%"></div></div>
+        <div class="small muted">${totPeople ? `${totPaid} of ${totPeople} paid` : 'Add your people'} · ${recs.length === 1 ? '1 record' : recs.length + ' records'}</div>
       </div>` : ''}
 
       ${shown.length ? `<div class="att-wrap">
